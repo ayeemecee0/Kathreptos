@@ -1,6 +1,5 @@
-// Public project endpoint. Never place secret or service-role keys in this file.
+// Public browser-safe configuration. Do not add secret or service-role keys.
 window.KATOPTRON_CONFIG = Object.freeze({
   supabaseUrl: 'https://bpvkapswslmgfazbzpsv.supabase.co',
-  // Add the browser-safe publishable key (sb_publishable_...) after it is provided.
-  supabasePublishableKey: ''
+  supabasePublishableKey: 'sb_publishable_JdCkRi7LLLnzBVeEY3WVPQ_3zou_rrW'
 });
