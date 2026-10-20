@@ -203,6 +203,14 @@ def parse_label(branding):
     return None
 
 
+def tenant_matches_jurisdiction(tenant, label):
+    """Do not attribute another city's tenant to the government linking it."""
+    code = urllib.parse.urlsplit(tenant).hostname.split(".", 1)[0]
+    name = re.sub(r"[^a-z0-9]", "", label.split(",", 1)[0].lower())
+    return code in {name, "cityof" + name, "townof" + name,
+                    "countyof" + name, name + "city", name + "county"}
+
+
 def links_from_official(url, page):
     tenants, follow = set(), []
     original_host = urllib.parse.urlsplit(url).hostname
@@ -281,21 +289,25 @@ def collect():
                 for tenant in sorted(tenants):
                     if tenant in conflicts:
                         continue
-                    item = candidate(tenant, "legistar", label, "candidate", url if label else None)
+                    # Cross-jurisdiction links are not evidence that the tenant
+                    # belongs to this government. Leave unknown aliases unverified.
+                    matched_label = label if (label and tenant_matches_jurisdiction(tenant, label)) else None
+                    item = candidate(tenant, "legistar", matched_label, "candidate",
+                                     url if matched_label else None)
                     existing = found.get(tenant)
                     if existing is None:
                         found[tenant] = item
                         if label:
                             evidence_ready += 1
-                    elif existing["verification_status"] == "candidate" and label:
+                    elif existing["verification_status"] == "candidate" and matched_label:
                         old_label = existing.get("jurisdiction_label")
-                        if old_label and old_label != label:
+                        if old_label and old_label != matched_label:
                             conflicts.add(tenant)
                             existing["jurisdiction_label"] = None
                             existing["evidence_url"] = None
                             print("Conflicting official jurisdiction labels:", tenant)
                         elif not old_label:
-                            existing["jurisdiction_label"] = label
+                            existing["jurisdiction_label"] = matched_label
                             existing["evidence_url"] = url
                             evidence_ready += 1
                 if not tenants:
