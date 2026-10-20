@@ -1,4 +1,4 @@
-
+import urllib.request
 def safe_official_url(url):
     """Avoid requesting arbitrary hosts or credentials supplied by registry rows."""
     parts = urllib.parse.urlsplit(url)
