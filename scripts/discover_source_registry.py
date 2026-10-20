@@ -22,8 +22,8 @@ QUERIES = [
     '"automated license plate reader" "procurement" site:gov',
     '"Flock Safety" "transparency" site:gov',
 ]
-LEGISTAR = re.compile(r"https?://([a-z0-9-]{3,40})\\.legistar\\.com(?:/|\\b)",re.I)
-GOV = re.compile(r"https?://[a-z0-9.-]+\\.gov(?:/[^\\s<>\"']*)?",re.I)
+LEGISTAR = re.compile(r"https?://([a-z0-9-]{3,40})\.legistar\.com(?:/|\b)",re.I)
+GOV = re.compile(r"https?://[a-z0-9.-]+\.gov(?:/[^\s<>\"']*)?",re.I)
 
 def rss(query):
     url="https://www.bing.com/search?format=rss&q="+urllib.parse.quote(query)
@@ -39,7 +39,7 @@ def candidate(url,kind,label=None,status="candidate",evidence=None):
     host=(p.hostname or "").lower()
     if p.scheme!="https" or not host or p.username or p.password or p.port not in (None,443):
         return None
-    if kind=="legistar" and not re.fullmatch(r"[a-z0-9-]{3,40}\\.legistar\\.com",host):
+    if kind=="legistar" and not re.fullmatch(r"[a-z0-9-]{3,40}\.legistar\.com",host):
         return None
     if kind!="legistar" and not host.endswith(".gov"):
         return None
