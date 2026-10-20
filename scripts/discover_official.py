@@ -4,13 +4,15 @@ Discovery can use search results and news leads; publication requires a direct,
 HTTPS municipal .gov page with unambiguous municipality/state and Flock ALPR text.
 """
 import json
+import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 import feedparser
-from auto_publish_official import fetch_text, publish, api
+from auto_publish_official import fetch_text, publish
 
 STATES = {
 "Alabama":"AL","Alaska":"AK","Arizona":"AZ","Arkansas":"AR","California":"CA",
@@ -62,28 +64,50 @@ def is_gov(url):
     host=(p.hostname or "").lower().rstrip(".")
     return host.endswith(".gov") and host!="gov"
 
+def search_provider(item):
+    provider,url=item
+    req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
+    with urllib.request.urlopen(req,timeout=7) as resp:
+        body=resp.read(400000).decode("utf-8","replace")
+    if provider in ("bing-rss","google-news"):
+        return provider,[e.get("link","") for e in feedparser.parse(body).entries]
+    parser=Links()
+    parser.feed(body)
+    return provider,parser.links
+
+def harvest_article(article):
+    req=urllib.request.Request(article,headers={"User-Agent":"Mozilla/5.0"})
+    with urllib.request.urlopen(req,timeout=5) as res:
+        if "text/html" not in res.headers.get("Content-Type",""): return []
+        if urllib.parse.urlsplit(res.url).hostname != urllib.parse.urlsplit(article).hostname: return []
+        body=res.read(250001)
+        if len(body)>250000: return []
+    parser=Links()
+    parser.feed(body.decode("utf-8","replace"))
+    return [link for href in parser.links if (link:=normalize_url(urllib.parse.urljoin(article,href))) and is_gov(link)]
+
 def collect():
     links=set()
     article_urls=set()
     counts={"raw":0,"search_errors":0,"direct_gov":0,"non_gov":0,"news_leads":0,"articles_checked":0,"government_links_from_articles":0}
-    for q in QUERIES:
-        endpoints=[
+    # Rotate through all 50 states over ten daily runs.
+    state_names=list(STATES)
+    rotation=datetime.datetime.now(datetime.timezone.utc).timetuple().tm_yday % 10
+    state_queries=['"Flock Safety" "license plate" "'+name+'"' for name in state_names[rotation::10]]
+    queries=QUERIES[:2]+state_queries
+    tasks=[]
+    for q in queries:
+        tasks.extend([
             ("bing-rss","https://www.bing.com/search?format=rss&q="+urllib.parse.quote(q)),
-            ("google","https://www.google.com/search?q="+urllib.parse.quote(q)+"&num=30"),
-            ("duckduckgo","https://html.duckduckgo.com/html/?q="+urllib.parse.quote(q)),
             ("google-news","https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=en-US&gl=US&ceid=US:en"),
-        ]
-        for provider,url in endpoints:
+        ])
+    print("State search rotation:",rotation,"states:",[name for name in state_names[rotation::10]])
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures={pool.submit(search_provider,item):item[0] for item in tasks}
+        for future in as_completed(futures):
+            provider=futures[future]
             try:
-                req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
-                with urllib.request.urlopen(req,timeout=12) as resp:
-                    body=resp.read(400000).decode("utf-8","replace")
-                if provider in ("bing-rss","google-news"):
-                    raw=[e.get("link","") for e in feedparser.parse(body).entries]
-                else:
-                    parser=Links()
-                    parser.feed(body)
-                    raw=parser.links
+                _,raw=future.result()
                 counts["raw"]+=len(raw)
                 for value in raw:
                     link=normalize_url(value)
@@ -92,7 +116,7 @@ def collect():
                         links.add(link)
                     else:
                         counts["non_gov"]+=1
-                        if provider=="bing-rss" and len(article_urls)<24: article_urls.add(link)
+                        if provider=="bing-rss" and len(article_urls)<36: article_urls.add(link)
                 print("Provider",provider,"results",len(raw))
             except Exception as exc:
                 counts["search_errors"]+=1
@@ -111,25 +135,17 @@ def collect():
     # outbound .gov citations. News claims themselves never qualify as evidence.
     # Reject redirects and oversized/non-HTML responses; only .gov destinations
     # are ever passed to the publication stage.
-    for article in sorted(article_urls)[:24]:
-        try:
-            req=urllib.request.Request(article,headers={"User-Agent":"Mozilla/5.0"})
-            with urllib.request.urlopen(req,timeout=8) as res:
-                if "text/html" not in res.headers.get("Content-Type",""): continue
-                if urllib.parse.urlsplit(res.url).hostname != urllib.parse.urlsplit(article).hostname: continue
-                body=res.read(250001)
-                if len(body)>250000: continue
-            parser=Links()
-            parser.feed(body.decode("utf-8","replace"))
-            counts["articles_checked"]+=1
-            for href in parser.links:
-                absolute=urllib.parse.urljoin(article,href)
-                link=normalize_url(absolute)
-                if link and is_gov(link):
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures={pool.submit(harvest_article,article):article for article in sorted(article_urls)[:30]}
+        for future in as_completed(futures):
+            try:
+                found=future.result()
+                counts["articles_checked"]+=1
+                for link in found:
                     if link not in links: counts["government_links_from_articles"]+=1
                     links.add(link)
-        except Exception as exc:
-            print("Article citation harvest skipped:",type(exc).__name__)
+            except Exception as exc:
+                print("Article citation harvest skipped:",type(exc).__name__)
     counts["direct_gov"]=len(links)
     print("Discovery diagnostics:",json.dumps(counts,sort_keys=True))
     return sorted(links)[:60]
