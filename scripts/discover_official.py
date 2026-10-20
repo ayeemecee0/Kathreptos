@@ -10,7 +10,7 @@ import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 import feedparser
-from auto_publish_official import fetch_text, publish
+from auto_publish_official import fetch_text, publish, api
 
 STATES = {
 "Alabama":"AL","Alaska":"AK","Arizona":"AZ","Arkansas":"AR","California":"CA",
@@ -152,12 +152,26 @@ def identify(url,text):
                 url=url,publisher="City of "+city,marker=city,
                 description="The official City of "+city+" website publishes information about Flock Safety automated license plate readers.")
 
+def queue_for_review(link, reason, key, base):
+    payload=[{"url":link,"headline":"Official government ALPR source — verification required",
+              "publisher":urllib.parse.urlsplit(link).hostname,
+              "snippet":reason[:500],"status":"unreviewed"}]
+    endpoint_query="?on_conflict=url"
+    import json as _json
+    data=_json.dumps(payload).encode("utf-8")
+    req=urllib.request.Request(base.rstrip("/")+"/rest/v1/discovery_queue"+endpoint_query,
+        data=data,method="POST",headers={"apikey":key,"Authorization":"Bearer "+key,
+        "Content-Type":"application/json","Prefer":"resolution=ignore-duplicates,return=minimal"})
+    with urllib.request.urlopen(req,timeout=20) as response:
+        return response.status
+
 def main():
     import os
     links=collect()
     print("Official .gov candidates:",len(links))
     verified=0
     held=0
+    queued=0
     for link in links:
         try:
             text=fetch_text(link)
@@ -165,14 +179,23 @@ def main():
             if not row:
                 held+=1
                 print("Held: identity or evidence insufficient:",link)
+                try:
+                    queue_for_review(link,"Page fetched, but agency identity or Flock ALPR evidence did not meet publication rules",os.environ["SUPABASE_SERVICE_ROLE_KEY"],os.environ["SUPABASE_URL"])
+                    queued+=1
+                except Exception as queue_exc: print("Queue error:",type(queue_exc).__name__)
                 continue
             publish(row,os.environ["SUPABASE_SERVICE_ROLE_KEY"],os.environ["SUPABASE_URL"])
             verified+=1
         except Exception as exc:
             held+=1
             print("Held: fetch or publication error:",link,type(exc).__name__,str(exc)[:120])
+            try:
+                queue_for_review(link,"Official-source fetch or publication failed: "+type(exc).__name__+" "+str(exc)[:180],os.environ["SUPABASE_SERVICE_ROLE_KEY"],os.environ["SUPABASE_URL"])
+                queued+=1
+            except Exception as queue_exc: print("Queue error:",type(queue_exc).__name__)
     print("Eligible official pages processed:",verified)
     print("Official pages held:",held)
+    print("Official sources submitted to review queue:",queued)
 
 if __name__=="__main__":
     main()
