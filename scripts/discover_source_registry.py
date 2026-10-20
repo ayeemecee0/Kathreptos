@@ -288,9 +288,9 @@ def identity_for_tenant(page, tenant, evidence_url):
     # Many official sites use "City Council Meetings | Mountain View, CA"
     # rather than "City of Mountain View" as the title/OG branding.
     for value in page.branding:
-        for piece in re.split(r"\\s*[|–—]\\s*|\\s+-\\s+", value):
+        for piece in re.split(r"\s*[|–—]\s*|\s+-\s+", value):
             piece = " ".join(piece.split()).strip()
-            match = re.fullmatch(r"([A-Za-z][A-Za-z .'-]{3,70}),\\s*([A-Za-z ]{2,30})", piece)
+            match = re.fullmatch(r"([A-Za-z][A-Za-z .'-]{3,70}),\s*([A-Za-z ]{2,30})", piece)
             if match:
                 region = match.group(2).strip().lower()
                 state = region.upper() if region.upper() in ABBREVIATIONS else STATE_CODES.get(region)
@@ -304,13 +304,13 @@ def identity_for_tenant(page, tenant, evidence_url):
     short_name = re.sub(r"[^a-z0-9]", "", code)
     if visible:
         for match in re.finditer(
-                r"\\b(?:City|Town|Village|County) of ([A-Za-z][A-Za-z .'-]{3,65})",
+                r"\b(?:City|Town|Village|County) of ([A-Za-z][A-Za-z .'-]{3,65})",
                 visible, re.I):
             name = match.group(1).strip()
             words = name.split()
             # Stop at a recognizable postal/street/address word.
             for index, word in enumerate(words):
-                if re.fullmatch(r"(?:[A-Z]{2}|\\d{4,}|Street|St|Avenue|Ave|Road|Rd)", word):
+                if re.fullmatch(r"(?:[A-Z]{2}|\d{4,}|Street|St|Avenue|Ave|Road|Rd)", word):
                     words = words[:index]
                     break
             # Use the shortest matching leading sequence of official name words.
