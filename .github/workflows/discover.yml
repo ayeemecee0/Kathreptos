@@ -34,6 +34,8 @@ jobs:
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY repository secret"; exit 1; }
       - name: Discover and queue unverified leads
         run: python scripts/discover.py --output candidates.json
+      - name: Auto-publish narrowly verified official agency records
+        run: python scripts/auto_publish_official.py
       - name: Upload candidate snapshot
         if: always()
         uses: actions/upload-artifact@v4
