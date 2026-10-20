@@ -1,3 +1,67 @@
+"""Conservatively verify candidate Legistar tenants using official government evidence.
+
+Verification requires a pre-existing evidence_url on a .gov page that explicitly
+links to the same Legistar tenant and names the registry jurisdiction. No ALPR
+agenda matter is published by this script.
+"""
+import html.parser
+import ipaddress
+import json
+import os
+import re
+import socket
+import urllib.parse
+import urllib.request
+
+BASE_HEADERS = {"User-Agent": "Katoptron/1.0 public records research", "Accept": "application/json"}
+TENANT = re.compile(r"^([a-z0-9-]{3,40})\.legistar\.com$", re.I)
+MAX_ROWS = 100
+
+
+class LinkParser(html.parser.HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links = []
+        self.text_parts = []
+        self.in_title = False
+        self.title_parts = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "a" and attrs.get("href"):
+            self.links.append(attrs["href"])
+        if tag == "title":
+            self.in_title = True
+
+    def handle_endtag(self, tag):
+        if tag == "title":
+            self.in_title = False
+
+    def handle_data(self, data):
+        self.text_parts.append(data)
+        if self.in_title:
+            self.title_parts.append(data)
+
+
+def supabase_request(path, method="GET", payload=None):
+    base = os.environ["SUPABASE_URL"].rstrip("/")
+    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    headers = {"apikey": key, "Authorization": "Bearer " + key,
+               "Accept": "application/json", "Content-Type": "application/json"}
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(base + "/rest/v1/" + path, data=data,
+                                 headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=15) as response:
+        raw = response.read(1_000_001)
+    if len(raw) > 1_000_000:
+        raise ValueError("Supabase response too large")
+    return json.loads(raw) if raw else None
+
+
+def official_host(host):
+    host = host.lower().rstrip(".")
+    return host.endswith(".gov") and len(host) > 4
+
 
 def safe_official_url(url):
     """Avoid requesting arbitrary hosts or credentials supplied by registry rows."""
