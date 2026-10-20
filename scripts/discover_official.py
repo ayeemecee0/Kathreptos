@@ -42,7 +42,7 @@ class ResultLinks(HTMLParser):
 def official_url(raw):
     try:
         parsed = urllib.parse.urlsplit(raw)
-        if parsed.path == "/url" and parsed.hostname in ("www.google.com", "google.com"):
+        if parsed.hostname in ("html.duckduckgo.com", "duckduckgo.com") and parsed.path.startswith("/l/"):\n            raw = urllib.parse.parse_qs(parsed.query).get("uddg", [""])[0]\n            parsed = urllib.parse.urlsplit(raw)\n        if parsed.path == "/url" and parsed.hostname in ("www.google.com", "google.com"):
             raw = urllib.parse.parse_qs(parsed.query).get("q", [""])[0]
             parsed = urllib.parse.urlsplit(raw)
         if parsed.scheme != "https" or parsed.username or parsed.password: return None
@@ -62,7 +62,7 @@ def candidates():
         for provider, url in [
             ("bing-rss", "https://www.bing.com/search?format=rss&q="+urllib.parse.quote(q)),
             ("google-html", "https://www.google.com/search?q="+urllib.parse.quote(q)+"&num=30"),
-            ("ddg-html", "https://www.google.com/search?q="+urllib.parse.quote(q)+"&num=20"),
+            ("ddg-html", "https://html.duckduckgo.com/html/?q="+urllib.parse.quote(q)),
         ]:
             try:
                 req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0 (compatible; Katoptron/1.0)"})
