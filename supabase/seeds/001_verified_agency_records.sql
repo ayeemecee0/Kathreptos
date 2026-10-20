@@ -33,11 +33,11 @@ JOIN public.agencies a ON a.jurisdiction_id=j.id AND a.name=v.agency
 JOIN public.sources s ON s.publisher=CASE v.state_code WHEN 'IL' THEN 'Village of Wilmette' WHEN 'MN' THEN 'City of Shakopee' ELSE 'Taunton Police Department' END
 WHERE NOT EXISTS(SELECT 1 FROM public.actions existing WHERE existing.agency_id=a.id AND existing.source_id=s.id AND existing.factual_description=v.description);
 
+-- Shakopee reports seven ALPR cameras; Wilmette's 22-unit figure is an approval target, not confirmed installed count.
 -- Counts are agency-reported totals, not camera coordinates or vehicle data.
 INSERT INTO public.deployments(agency_id,camera_count,status,geography_label,source_id,review_status)
 SELECT a.id,v.camera_count,'reported',v.city,s.id,'published'
 FROM (VALUES
-('IL','Wilmette','Wilmette Police Department',22,'https://www.wilmette.gov/295/Automated-License-Plate-Readers-ALPR'),
 ('MN','Shakopee','Shakopee Police Department',7,'https://www.shakopeemn.gov/public_safety/police_department/reports___transparency.php')
 ) v(state_code,city,agency,camera_count,url)
 JOIN public.jurisdictions j ON j.state_code=v.state_code AND j.name=v.city AND j.kind='city'
