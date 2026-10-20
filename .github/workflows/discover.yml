@@ -38,6 +38,8 @@ jobs:
         run: python scripts/auto_publish_official.py
       - name: Discover additional official municipal sources nationwide
         run: python scripts/discover_official.py
+      - name: Discover official government agenda records
+        run: python scripts/discover_government_records.py
       - name: Upload candidate snapshot
         if: always()
         uses: actions/upload-artifact@v4
