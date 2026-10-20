@@ -31,9 +31,9 @@ QUERIES = [
     '"Flock Safety" "transparency" site:gov',
 ]
 OFFICIAL_NAME = re.compile(
-    r"\\b(?:City and County|City|Town|Village|County|Borough|Township|Parish) of "
+    r"\b(?:City and County|City|Town|Village|County|Borough|Township|Parish) of "
     r"([A-Za-z][A-Za-z .'-]{2,75})$", re.I)
-SITE_SUFFIX = re.compile(r"\\s+(?:official (?:website|site)|government website|home page|homepage)$", re.I)
+SITE_SUFFIX = re.compile(r"\s+(?:official (?:website|site)|government website|home page|homepage)$", re.I)
 FOLLOW_TERMS = ("agenda", "meeting", "council", "legislation", "legistar", "board", "calendar")
 MAX_GOV_PAGES = 48
 MAX_SEED_PAGES = 30
@@ -140,7 +140,7 @@ def tenant_url(url):
     try:
         p = urllib.parse.urlsplit(html.unescape(url).strip())
         host = (p.hostname or "").lower()
-        if (p.scheme.lower() != "https" or not re.fullmatch(r"[a-z0-9-]{3,40}\\.legistar\\.com", host, re.I)
+        if (p.scheme.lower() != "https" or not re.fullmatch(r"[a-z0-9-]{3,40}\.legistar\.com", host, re.I)
                 or p.username or p.password or p.port not in (None, 443)):
             return None
         return "https://" + host + "/"
@@ -181,7 +181,7 @@ def fetch_government_page(url):
 def parse_label(branding):
     """Accept identity from site branding/title, never from search snippets."""
     for value in branding:
-        for part in re.split(r"\\s*[|–—]\\s*|\\s+-\\s+", value):
+        for part in re.split(r"\s*[|–—]\s*|\s+-\s+", value):
             text = SITE_SUFFIX.sub("", " ".join(part.split())).strip()
             state = ""
             if "," in text:
