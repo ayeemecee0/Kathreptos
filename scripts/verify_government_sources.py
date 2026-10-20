@@ -1,121 +1,119 @@
-            self.in_title = True
-    def handle_endtag(self, tag):
-        if tag == 'title':
-            self.in_title = False
-    def handle_data(self, data):
-        self.words.append(data)
 
-def fetch(url, headers=None):
-    req = urllib.request.Request(url, headers=headers or {'User-Agent': UA, 'Accept': 'text/html'})
-    with urllib.request.urlopen(req, timeout=12) as resp:
-        final = urllib.parse.urlsplit(resp.url)
-        raw = resp.read(MAX_PAGE + 1)
-        ctype = resp.headers.get('Content-Type', '')
-    if len(raw) > MAX_PAGE:
-        raise ValueError('oversize page')
-    return final, ctype, raw
-
-def valid_gov_url(value):
+def safe_official_url(url):
+    """Avoid requesting arbitrary hosts or credentials supplied by registry rows."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.username or parts.password or parts.port not in (None, 443):
+        return False
+    if not parts.hostname or not official_host(parts.hostname):
+        return False
+    # Reject resolved private/loopback destinations; recheck after DNS resolution.
     try:
-        p = urllib.parse.urlsplit(value)
-        return (p.scheme == 'https' and p.hostname is not None and
-                bool(GOV.search(p.hostname)) and not p.username and not p.password and
-                p.port in (None, 443))
-    except ValueError:
+        addresses = socket.getaddrinfo(parts.hostname, 443, type=socket.SOCK_STREAM)
+        return bool(addresses) and all(ipaddress.ip_address(item[4][0]).is_global for item in addresses)
+    except (OSError, ValueError):
         return False
 
-def tenant_host(value):
-    try:
-        p = urllib.parse.urlsplit(value)
-        if p.scheme != 'https' or p.username or p.password or p.port not in (None, 443):
-            return None
-        return (p.hostname or '').lower() if TENANT.fullmatch(p.hostname or '') else None
-    except ValueError:
-        return None
 
-def identity_terms(label):
-    # Require a distinctive jurisdiction name plus state abbreviation or full state
-    # to occur on the official page. Avoid generic labels and placeholders.
-    if not isinstance(label, str) or ',' not in label:
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("Evidence page redirects; manual verification required")
+
+
+def fetch_official_html(url):
+    if not safe_official_url(url):
+        raise ValueError("Evidence URL is not an approved public HTTPS .gov address")
+    opener = urllib.request.build_opener(NoRedirect)
+    req = urllib.request.Request(url, headers={"User-Agent": BASE_HEADERS["User-Agent"],
+                                               "Accept": "text/html"})
+    with opener.open(req, timeout=12) as response:
+        ctype = response.headers.get("Content-Type", "").lower()
+        if "text/html" not in ctype:
+            raise ValueError("Evidence is not HTML")
+        raw = response.read(500_001)
+    if len(raw) > 500_000:
+        raise ValueError("Evidence page too large")
+    return raw.decode("utf-8", errors="replace")
+
+
+def valid_tenant_url(url):
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.username or parts.password or parts.port not in (None, 443):
         return None
-    place, state = [s.strip() for s in label.rsplit(',', 1)]
-    if not re.fullmatch(r'[A-Za-z][A-Za-z .\'-]{3,70}', place):
-        return None
-    if not re.fullmatch(r'[A-Za-z ]{2,25}', state):
-        return None
-    if place.lower().startswith('legistar tenant'):
-        return None
-    return place, state
+    match = TENANT.fullmatch((parts.hostname or "").lower())
+    return match.group(1).lower() if match else None
+
+
+def legistar_api_valid(tenant):
+    url = "https://webapi.legistar.com/v1/" + tenant + "/matters?%24top=1"
+    req = urllib.request.Request(url, headers=BASE_HEADERS)
+    with urllib.request.urlopen(req, timeout=12) as response:
+        raw = response.read(100_001)
+    if len(raw) > 100_000:
+        return False
+    data = json.loads(raw)
+    return isinstance(data, list)
+
 
 def verify(row):
-    source = str(row.get('source_url') or '')
-    evidence = str(row.get('evidence_url') or '')
-    label = row.get('jurisdiction_label')
-    host = tenant_host(source)
-    identity = identity_terms(label)
-    if not host or not valid_gov_url(evidence) or not identity:
-        return False, 'missing qualifying .gov evidence or jurisdiction identity'
-    try:
-        final, ctype, raw = fetch(evidence)
-        if not valid_gov_url(urllib.parse.urlunsplit(final)):
-            return False, 'official evidence redirected outside .gov'
-        if 'text/html' not in ctype.lower():
-            return False, 'official evidence is not HTML'
-        page = Page()
-        page.feed(raw.decode('utf-8', 'replace'))
-        links = [urllib.parse.urljoin(urllib.parse.urlunsplit(final), x) for x in page.links]
-        if not any(tenant_host(link) == host for link in links):
-            return False, 'official .gov page does not link exact Legistar tenant'
-        text = ' '.join(html.unescape(x) for x in page.words).lower()
-        text = re.sub(r'\s+', ' ', text)
-        place, state = identity
-        if place.lower() not in text or not re.search(r'\b' + re.escape(state.lower()) + r'\b', text):
-            return False, 'jurisdiction name/state not established on .gov page'
-        # Confirm tenant actually serves public Legistar API data.
-        code = host.split('.')[0]
-        api = 'https://webapi.legistar.com/v1/' + code + '/matters?%24top=1'
-        final_api, _, data = fetch(api, {'User-Agent': UA, 'Accept': 'application/json'})
-        if final_api.hostname != 'webapi.legistar.com' or not isinstance(json.loads(data), list):
-            return False, 'Legistar API did not return a public matters list'
-        return True, 'official .gov link and public Legistar API confirmed'
-    except (ValueError, UnicodeError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        return False, type(exc).__name__
+    source_url = str(row.get("source_url") or "")
+    evidence_url = str(row.get("evidence_url") or "")
+    label = str(row.get("jurisdiction_label") or "").strip()
+    tenant = valid_tenant_url(source_url)
+    if not tenant or not evidence_url or not label or label.lower().startswith("legistar tenant"):
+        return False, "missing or invalid tenant, evidence URL, or jurisdiction label"
+    if not safe_official_url(evidence_url):
+        return False, "evidence URL is not a valid public .gov page"
+    document = LinkParser()
+    document.feed(fetch_official_html(evidence_url))
+    evidence_host = urllib.parse.urlsplit(evidence_url).hostname or ""
+    matched = False
+    for href in document.links:
+        target = urllib.parse.urljoin(evidence_url, href)
+        if valid_tenant_url(target) == tenant:
+            matched = True
+            break
+    if not matched:
+        return False, "official page does not link to this Legistar tenant"
+    # An official page linking to a tenant alone does not establish that the
+    # page represents the registry's claimed jurisdiction.
+    visible = " ".join(document.text_parts).lower()
+    title = " ".join(document.title_parts).lower()
+    name = label.split(",", 1)[0].strip().lower()
+    if len(name) < 4 or name not in visible and name not in title:
+        return False, "jurisdiction name not found on official page"
+    if not legistar_api_valid(tenant):
+        return False, "Legistar API returned unexpected data"
+    return True, "official .gov page links to tenant and identifies jurisdiction"
 
-def request_db(path, method='GET', payload=None):
-    base = os.environ['SUPABASE_URL'].rstrip('/')
-    key = os.environ['SUPABASE_SERVICE_ROLE_KEY']
-    data = json.dumps(payload).encode() if payload is not None else None
-    headers = {'apikey': key, 'Authorization': 'Bearer ' + key,
-               'Accept': 'application/json'}
-    if data is not None:
-        headers['Content-Type'] = 'application/json'
-        headers['Prefer'] = 'return=minimal'
-    req = urllib.request.Request(base + '/rest/v1/' + path, data=data, method=method, headers=headers)
-    with urllib.request.urlopen(req, timeout=15) as res:
-        return json.loads(res.read()) if method == 'GET' else res.status
 
 def main():
-    query = urllib.parse.urlencode({'select': 'source_url,evidence_url,jurisdiction_label,source_kind,verification_status',
-                                    'source_kind': 'eq.legistar', 'verification_status': 'eq.candidate', 'limit': '100'})
-    rows = request_db('government_source_registry?' + query)
+    params = urllib.parse.urlencode({"select": "source_url,evidence_url,jurisdiction_label,source_kind,verification_status",
+                                     "source_kind": "eq.legistar", "verification_status": "eq.candidate",
+                                     "limit": str(MAX_ROWS)})
+    rows = supabase_request("government_source_registry?" + params)
     if not isinstance(rows, list):
-        raise ValueError('unexpected Supabase registry response')
-    print('Candidate Legistar sources checked:', len(rows))
-    approved = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        outcomes = list(pool.map(verify, rows))
-    for row, (ok, reason) in zip(rows, outcomes):
-        print('Candidate:', str(row.get('source_url'))[:120], 'VERIFIED' if ok else 'REVIEW', reason)
-        if not ok:
-            continue
-        # Conditional PATCH prevents promotion if status changed after our read.
-        filters = urllib.parse.urlencode({'source_url': 'eq.' + row['source_url'],
-                                          'verification_status': 'eq.candidate',
-                                          'source_kind': 'eq.legistar'})
-        request_db('government_source_registry?' + filters, 'PATCH', {'verification_status': 'verified'})
-        approved += 1
-    print('Source verification promotions attempted:', approved)
-    print('Government agenda records auto-published: 0')
+        raise ValueError("Unexpected registry response")
+    print("Legistar registry candidates checked:", len(rows))
+    promoted = 0
+    for row in rows:
+        try:
+            ok, reason = verify(row)
+            if not ok:
+                print("Candidate retained:", str(row.get("source_url") or "")[:100], "-", reason)
+                continue
+            source_url = str(row["source_url"])
+            query = urllib.parse.urlencode({"source_url": "eq." + source_url,
+                                            "source_kind": "eq.legistar",
+                                            "verification_status": "eq.candidate"})
+            supabase_request("government_source_registry?" + query, method="PATCH",
+                             payload={"verification_status": "verified"})
+            promoted += 1
+            print("Verified tenant:", source_url)
+        except Exception as exc:
+            print("Candidate verification unavailable:", type(exc).__name__, str(exc)[:140])
+    print("Newly verified Legistar tenants:", promoted)
+    print("Agenda records auto-published: 0")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
