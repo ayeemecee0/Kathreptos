@@ -297,7 +297,7 @@ def collect():
                     existing = found.get(tenant)
                     if existing is None:
                         found[tenant] = item
-                        if label:
+                        if matched_label:
                             evidence_ready += 1
                     elif existing["verification_status"] == "candidate" and matched_label:
                         old_label = existing.get("jurisdiction_label")
