@@ -64,7 +64,8 @@ def is_gov(url):
 
 def collect():
     links=set()
-    counts={"raw":0,"search_errors":0,"direct_gov":0,"non_gov":0,"news_leads":0}
+    article_urls=set()
+    counts={"raw":0,"search_errors":0,"direct_gov":0,"non_gov":0,"news_leads":0,"articles_checked":0,"government_links_from_articles":0}
     for q in QUERIES:
         endpoints=[
             ("bing-rss","https://www.bing.com/search?format=rss&q="+urllib.parse.quote(q)),
@@ -91,6 +92,7 @@ def collect():
                         links.add(link)
                     else:
                         counts["non_gov"]+=1
+                        if provider=="bing-rss" and len(article_urls)<24: article_urls.add(link)
                 print("Provider",provider,"results",len(raw))
             except Exception as exc:
                 counts["search_errors"]+=1
@@ -103,6 +105,31 @@ def collect():
             counts["news_leads"]+=1
             link=normalize_url(row.get("url",""))
             if link and is_gov(link): links.add(link)
+            elif link and not urllib.parse.urlsplit(link).hostname.endswith("google.com") and len(article_urls)<24:
+                article_urls.add(link)
+    # Follow a small bounded sample of public articles and harvest only direct
+    # outbound .gov citations. News claims themselves never qualify as evidence.
+    # Reject redirects and oversized/non-HTML responses; only .gov destinations
+    # are ever passed to the publication stage.
+    for article in sorted(article_urls)[:24]:
+        try:
+            req=urllib.request.Request(article,headers={"User-Agent":"Mozilla/5.0"})
+            with urllib.request.urlopen(req,timeout=8) as res:
+                if "text/html" not in res.headers.get("Content-Type",""): continue
+                if urllib.parse.urlsplit(res.url).hostname != urllib.parse.urlsplit(article).hostname: continue
+                body=res.read(250001)
+                if len(body)>250000: continue
+            parser=Links()
+            parser.feed(body.decode("utf-8","replace"))
+            counts["articles_checked"]+=1
+            for href in parser.links:
+                absolute=urllib.parse.urljoin(article,href)
+                link=normalize_url(absolute)
+                if link and is_gov(link):
+                    if link not in links: counts["government_links_from_articles"]+=1
+                    links.add(link)
+        except Exception as exc:
+            print("Article citation harvest skipped:",type(exc).__name__)
     counts["direct_gov"]=len(links)
     print("Discovery diagnostics:",json.dumps(counts,sort_keys=True))
     return sorted(links)[:60]
