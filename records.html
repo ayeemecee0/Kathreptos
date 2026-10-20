@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Katoptron | Verified public records</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0a0d12;color:#e8edf4}*{box-sizing:border-box}body{margin:0}header{padding:24px max(20px,5vw);border-bottom:1px solid #344052}main{max-width:1100px;margin:auto;padding:26px 20px}a{color:#a9cfff}h1{letter-spacing:3px}p{line-height:1.6;color:#b9c6d7}.toolbar{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}input,select,button{background:#182330;color:#fff;border:1px solid #415166;border-radius:8px;padding:11px}input{flex:2;min-width:220px}select{flex:1;min-width:140px}button{cursor:pointer}.card{border:1px solid #344052;background:#111822;border-radius:12px;padding:18px;margin:12px 0}.meta{color:#a9b6c8;font-size:13px}.empty{border:1px dashed #516078;padding:22px;border-radius:10px}.pill{display:inline-block;border:1px solid #50637a;padding:4px 9px;border-radius:20px;font-size:12px;margin-bottom:10px}#status{min-height:25px}
+</style></head><body><header><a href="./index.html">← Simulator</a><h1>KATOPTRON</h1><p>Nationwide Flock Safety public records · Published and source-verified entries only</p></header>
+<main><p>This database distinguishes documented public decisions from synthetic vehicle simulations. It is not a comprehensive census of Flock deployments.</p>
+<div class="toolbar"><input id="query" type="search" placeholder="Search agency, jurisdiction, or description" aria-label="Search records"><select id="kind" aria-label="Record type"><option value="all">All record types</option><option value="actions">Official actions</option><option value="contracts">Contracts</option><option value="deployments">Deployments</option></select><button id="refresh">Refresh</button></div>
+<p id="status" role="status">Loading published records…</p><section id="results" aria-live="polite"></section>
+</main><script src="./config.js"></script><script>
+'use strict';
+const cfg=window.KATOPTRON_CONFIG;
+const $=id=>document.getElementById(id);
+const cache=[];
+function textNode(tag,value,cls){const el=document.createElement(tag);el.textContent=value==null?'':String(value);if(cls)el.className=cls;return el;}
+function safeLink(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:null;}catch{return null;}}
+async function read(table){
+  const url=cfg.supabaseUrl+'/rest/v1/'+table+'?select=*&limit=500';
+  const res=await fetch(url,{headers:{apikey:cfg.supabasePublishableKey,Authorization:'Bearer '+cfg.supabasePublishableKey}});
+  if(!res.ok)throw new Error(table+': '+res.status+' '+(await res.text()).slice(0,200));
+  return await res.json();
+}
+async function load(){
+  $('status').textContent='Loading published records…';
+  try{
+    if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey)throw new Error('Missing public Supabase configuration');
+    const [actions,contracts,deployments,sources,agencies,people,jurisdictions]=await Promise.all([
+      read('published_actions'),read('published_contracts'),read('published_deployments'),read('sources'),read('agencies'),read('people'),read('jurisdictions')
+    ]);
+    const sourceMap=new Map(sources.map(x=>[x.id,x]));
+    const agencyMap=new Map(agencies.map(x=>[x.id,x]));
+    const personMap=new Map(people.map(x=>[x.id,x]));
+    const jurisdictionMap=new Map(jurisdictions.map(x=>[x.id,x]));
+    cache.length=0;
+    for(const [kind,items] of [['actions',actions],['contracts',contracts],['deployments',deployments]]){
+      for(const item of items){
+        const agency=agencyMap.get(item.agency_id);
+        const jurisdiction=jurisdictionMap.get(item.jurisdiction_id||agency?.jurisdiction_id);
+        const person=personMap.get(item.person_id);
+        const source=sourceMap.get(item.source_id);
+        cache.push({kind,date:item.action_date||item.signed_on||item.as_of_date||'',title:agency?.name||person?.name||jurisdiction?.name||'Public record',summary:item.factual_description||item.summary||((item.camera_count!=null?item.camera_count+' reported cameras · ':'')+(item.status||'Deployment record')),details:[jurisdiction?.state_code,jurisdiction?.name,person?.name,item.action_type,item.recorded_position].filter(Boolean).join(' · '),source:source?.url||null,sourceTitle:source?.title||'View original source'});
+      }
+    }
+    render();
+  }catch(err){$('status').textContent='Unable to load records: '+err.message;$('results').replaceChildren();}
+}
+function render(){
+ const q=$('query').value.trim().toLowerCase(),kind=$('kind').value;
+ const rows=cache.filter(r=>(kind==='all'||r.kind===kind)&&[r.title,r.summary,r.details].join(' ').toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date));
+ $('status').textContent=rows.length+' published, source-verified record'+(rows.length===1?'':'s')+' matching filters';
+ $('results').replaceChildren();
+ if(!rows.length){$('results').append(textNode('p','No published records match. The database may not have verified entries yet.','empty'));return;}
+ for(const r of rows){const card=document.createElement('article');card.className='card';card.append(textNode('span',r.kind,'pill'),textNode('h2',r.title),textNode('div',[r.date,r.details].filter(Boolean).join(' · '),'meta'),textNode('p',r.summary));const href=safeLink(r.source);if(href){const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=r.sourceTitle+' ↗';card.append(a);} $('results').append(card);}
+}
+$('query').addEventListener('input',render);$('kind').addEventListener('change',render);$('refresh').addEventListener('click',load);load();
+</script></body></html>
