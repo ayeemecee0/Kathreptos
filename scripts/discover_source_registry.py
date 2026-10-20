@@ -36,7 +36,14 @@ OFFICIAL_NAME = re.compile(
 SITE_SUFFIX = re.compile(r"\s+(?:official (?:website|site)|government website|home page|homepage)$", re.I)
 FOLLOW_TERMS = ("agenda", "meeting", "council", "legislation", "legistar", "board", "calendar")
 MAX_GOV_PAGES = 48
-MAX_SEED_PAGES = 30
+MAX_SEED_PAGES = 70
+MAX_TENANT_SEARCHES = 35
+# A confirmed city webpage for the pre-existing Mountain View candidate.
+# This is only a discovery starting point; the verifier still checks its contents.
+GOV_EVIDENCE_SEEDS = (
+    "https://www.mountainview.gov/our-city/city-council/city-council-meetings",
+    "https://collaborate.mountainview.gov/imaginemvparks/news_feed/parks-and-recreation-strategic-plan-now-available-for-review-2",
+)
 MAX_FOLLOW_PER_PAGE = 2
 MAX_BYTES = 500_000
 USER_AGENT = "Katoptron/1.0 public records research"
@@ -96,6 +103,8 @@ class GovernmentPage(HTMLParser):
         self.branding = []
         self._title = False
         self._title_parts = []
+        self._footer = False
+        self.footer_parts = []
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -103,6 +112,8 @@ class GovernmentPage(HTMLParser):
             self.links.append((attributes["href"], attributes.get("title") or ""))
         if tag == "title":
             self._title = True
+        if tag == "footer":
+            self._footer = True
         if tag == "meta":
             name = (attributes.get("property") or attributes.get("name") or "").lower()
             if name in ("og:site_name", "application-name"):
@@ -111,10 +122,14 @@ class GovernmentPage(HTMLParser):
     def handle_endtag(self, tag):
         if tag == "title":
             self._title = False
+        if tag == "footer":
+            self._footer = False
 
     def handle_data(self, data):
         if self._title:
             self._title_parts.append(data)
+        if self._footer:
+            self.footer_parts.append(data)
 
     def close(self):
         super().close()
@@ -228,6 +243,84 @@ def links_from_official(url, page):
     return tenants, list(dict.fromkeys(follow))[:MAX_FOLLOW_PER_PAGE]
 
 
+def registry_candidate_tenants():
+    """Retrieve incomplete candidates so searches can target actual tenant names."""
+    base = os.environ["SUPABASE_URL"].rstrip("/")
+    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    params = urllib.parse.urlencode({
+        "select": "source_url", "source_kind": "eq.legistar",
+        "verification_status": "eq.candidate", "limit": "100",
+    })
+    req = urllib.request.Request(
+        base + "/rest/v1/government_source_registry?" + params,
+        headers={"apikey": key, "Authorization": "Bearer " + key,
+                 "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=12) as response:
+        raw = response.read(100_001)
+    if len(raw) > 100_000:
+        raise ValueError("Registry candidate response is too large")
+    result = json.loads(raw)
+    if not isinstance(result, list):
+        raise ValueError("Unexpected registry candidate response")
+    return sorted({url for row in result
+                   if isinstance(row, dict)
+                   for url in [tenant_url(str(row.get("source_url") or ""))]
+                   if url})
+
+
+def identity_for_tenant(page, tenant, evidence_url):
+    """Get an agency name from official page branding, not a search snippet."""
+    code = urllib.parse.urlsplit(tenant).hostname.split(".", 1)[0]
+    government_host = urllib.parse.urlsplit(evidence_url).hostname or ""
+    # Require a congruent government host. Ambiguous short aliases (slco,
+    # sfgov) remain for manual jurisdiction verification.
+    government_parts = government_host.split(".")
+    if len(government_parts) < 2:
+        return None
+    government_name = government_parts[-2]
+    if code not in (government_name, "cityof" + government_name,
+                    "countyof" + government_name):
+        return None
+    label = parse_label(page.branding)
+    if label and tenant_matches_jurisdiction(tenant, label):
+        return label
+    # Many official sites use "City Council Meetings | Mountain View, CA"
+    # rather than "City of Mountain View" as the title/OG branding.
+    for value in page.branding:
+        for piece in re.split(r"\\s*[|–—]\\s*|\\s+-\\s+", value):
+            piece = " ".join(piece.split()).strip()
+            match = re.fullmatch(r"([A-Za-z][A-Za-z .'-]{3,70}),\\s*([A-Za-z ]{2,30})", piece)
+            if match:
+                region = match.group(2).strip().lower()
+                state = region.upper() if region.upper() in ABBREVIATIONS else STATE_CODES.get(region)
+                if state:
+                    candidate_label = match.group(1).strip() + ", " + state
+                    if tenant_matches_jurisdiction(tenant, candidate_label):
+                        return candidate_label
+    # A government page with explicit municipal footer language can be used
+    # only when the host and Legistar tenant also share the same identity.
+    visible = " ".join(page.footer_parts)
+    short_name = re.sub(r"[^a-z0-9]", "", code)
+    if visible:
+        for match in re.finditer(
+                r"\\b(?:City|Town|Village|County) of ([A-Za-z][A-Za-z .'-]{3,65})",
+                visible, re.I):
+            name = match.group(1).strip()
+            words = name.split()
+            # Stop at a recognizable postal/street/address word.
+            for index, word in enumerate(words):
+                if re.fullmatch(r"(?:[A-Z]{2}|\\d{4,}|Street|St|Avenue|Ave|Road|Rd)", word):
+                    words = words[:index]
+                    break
+            # Use the shortest matching leading sequence of official name words.
+            for length in range(1, len(words) + 1):
+                prefix = " ".join(words[:length]).strip()
+                if re.sub(r"[^a-z0-9]", "", prefix.lower()) == short_name:
+                    return prefix
+    return None
+
+
 def collect():
     found = {}
     for code, label in SEEDS.items():
@@ -235,9 +328,17 @@ def collect():
                          "verified", "https://" + code + ".legistar.com/")
         found[item["source_url"]] = item
 
-    government_pages = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-        tasks = {pool.submit(rss, query): query for query in QUERIES}
+    government_pages = list(GOV_EVIDENCE_SEEDS)
+    try:
+        registry_tenants = registry_candidate_tenants()
+    except Exception as exc:
+        raise RuntimeError("Cannot load existing Legistar candidates") from exc
+    print("Existing unverified Legistar candidates for targeted search:", len(registry_tenants))
+    targeted = ['"' + urllib.parse.urlsplit(url).hostname + '" site:.gov'
+                for url in registry_tenants[:MAX_TENANT_SEARCHES]]
+    queries = list(dict.fromkeys(QUERIES + targeted))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        tasks = {pool.submit(rss, query): query for query in queries}
         for task in concurrent.futures.as_completed(tasks):
             try:
                 results = task.result()
@@ -285,13 +386,12 @@ def collect():
                     found.setdefault(gov_item["source_url"], gov_item)
                 tenants, follow = links_from_official(url, page)
                 direct_links += len(tenants)
-                label = parse_label(page.branding)
                 for tenant in sorted(tenants):
                     if tenant in conflicts:
                         continue
                     # Cross-jurisdiction links are not evidence that the tenant
                     # belongs to this government. Leave unknown aliases unverified.
-                    matched_label = label if (label and tenant_matches_jurisdiction(tenant, label)) else None
+                    matched_label = identity_for_tenant(page, tenant, url)
                     item = candidate(tenant, "legistar", matched_label, "candidate",
                                      url if matched_label else None)
                     existing = found.get(tenant)
@@ -316,6 +416,7 @@ def collect():
                             pending.append(next_url)
 
     print("Official government pages checked:", checked)
+    print("Tenant-targeted search queries:", len(targeted))
     print("Direct official-page Legistar links:", direct_links)
     print("Legistar candidates with government evidence:", evidence_ready)
     return found
