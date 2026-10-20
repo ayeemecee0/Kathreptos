@@ -100,7 +100,7 @@ class GovernmentPage(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
         if tag == "a" and attributes.get("href"):
-            self.links.append((attributes["href"], attributes.get("title", "")))
+            self.links.append((attributes["href"], attributes.get("title") or ""))
         if tag == "title":
             self._title = True
         if tag == "meta":
