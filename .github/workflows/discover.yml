@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 15
     env:
       SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
       - name: Validate private configuration
         run: |
           test -n "$SUPABASE_URL" || { echo "::error::Missing SUPABASE_URL repository secret"; exit 1; }
-          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY repository secret"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY repository secret"; exit 1; }
       - name: Discover and queue unverified leads
         run: python scripts/discover.py --output candidates.json
       - name: Auto-publish narrowly verified official agency records
