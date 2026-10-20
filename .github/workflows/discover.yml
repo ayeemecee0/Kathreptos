@@ -1,0 +1,44 @@
+name: Discover public Flock records
+on:
+  schedule:
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flock-discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Validate private configuration
+        run: |
+          test -n "$SUPABASE_URL" || { echo "::error::Missing SUPABASE_URL repository secret"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY repository secret"; exit 1; }
+      - name: Discover and queue unverified leads
+        run: python scripts/discover.py --output candidates.json
+      - name: Upload candidate snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-candidates
+          path: candidates.json
+          if-no-files-found: ignore
+          retention-days: 7
