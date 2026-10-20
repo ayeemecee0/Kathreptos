@@ -40,6 +40,8 @@ jobs:
         run: python scripts/discover_official.py
       - name: Discover government source registry candidates
         run: python scripts/discover_source_registry.py
+      - name: Verify official government sources
+        run: python scripts/verify_government_sources.py
       - name: Discover official government agenda records
         run: python scripts/discover_government_records.py
       - name: Upload candidate snapshot
