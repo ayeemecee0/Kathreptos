@@ -7,6 +7,9 @@ import re
 import urllib.parse
 import urllib.request
 import feedparser
+import json
+from html.parser import HTMLParser
+from pathlib import Path
 from auto_publish_official import fetch_text, publish
 
 STATES = {
@@ -27,20 +30,67 @@ QUERIES = [
  'site:.gov "Flock Safety" "ALPR" "City of"',
  'site:.gov "Flock Safety" "police" "City of"',
 ]
+class ResultLinks(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links = []
+    def handle_starttag(self, tag, attrs):
+        if tag != "a": return
+        d = dict(attrs)
+        if d.get("href"): self.links.append(d["href"])
+
+def official_url(raw):
+    try:
+        parsed = urllib.parse.urlsplit(raw)
+        if parsed.path == "/url" and parsed.hostname in ("www.google.com", "google.com"):
+            raw = urllib.parse.parse_qs(parsed.query).get("q", [""])[0]
+            parsed = urllib.parse.urlsplit(raw)
+        if parsed.scheme != "https" or parsed.username or parsed.password: return None
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if not (host == "gov" or host.endswith(".gov")): return None
+        if host == "gov": return None
+        if any(x in parsed.path.lower() for x in ("/login", "/signin")): return None
+        return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
+    except ValueError: return None
+
 def candidates():
-    links=set()
+    links = set()
+    diagnostics = []
+    # Two independent search formats. Search pages may rate-limit automated clients;
+    # never treat an empty response as evidence that no official records exist.
     for q in QUERIES:
-        url="https://www.bing.com/search?format=rss&q="+urllib.parse.quote(q)
-        try:
-            feed=feedparser.parse(url)
-            for item in feed.entries:
-                link=item.get("link","")
-                parsed=urllib.parse.urlsplit(link)
-                host=(parsed.hostname or "").lower()
-                if parsed.scheme=="https" and host.endswith(".gov") and not parsed.username:
-                    links.add(link.split("#")[0])
-        except Exception as exc:
-            print("Search unavailable:",type(exc).__name__)
+        for provider, url in [
+            ("bing-rss", "https://www.bing.com/search?format=rss&q="+urllib.parse.quote(q)),
+            ("google-html", "https://www.google.com/search?q="+urllib.parse.quote(q)+"&num=30"),
+            ("ddg-html", "https://www.google.com/search?q="+urllib.parse.quote(q)+"&num=20"),
+        ]:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0 (compatible; Katoptron/1.0)"})
+                with urllib.request.urlopen(req, timeout=12) as res:
+                    body = res.read(450000).decode("utf-8", "replace")
+                raw_links = []
+                if provider == "bing-rss":
+                    raw_links = [item.get("link","") for item in feedparser.parse(body).entries]
+                else:
+                    parser = ResultLinks()
+                    parser.feed(body)
+                    raw_links = parser.links
+                before = len(links)
+                for raw in raw_links:
+                    candidate = official_url(raw)
+                    if candidate: links.add(candidate)
+                diagnostics.append((provider, len(raw_links), len(links)-before))
+            except Exception as exc:
+                diagnostics.append((provider, "error", type(exc).__name__))
+    # The news discovery stage supplies additional leads. These are ONLY eligible
+    # if their URLs themselves are direct official government URLs.
+    path = Path("candidates.json")
+    if path.is_file():
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        for row in rows:
+            candidate = official_url(row.get("url",""))
+            if candidate: links.add(candidate)
+    print("Search diagnostics:", diagnostics)
     return sorted(links)[:60]
 
 def identify(url,text):
