@@ -99,5 +99,7 @@ jobs:
             PYTHONPATH=scripts python -c 'import json,sys; from government_domain_registry import parse_verified_rows; approved=parse_verified_rows(json.load(sys.stdin)); assert len(approved)==5, approved; print("Validated all 5 seeded and reviewed domain authorities")'
       - name: Check Python syntax
         run: python -m compileall -q scripts
+      - name: Install discovery dependencies
+        run: python -m pip install -r requirements.txt
       - name: Test government-domain safety
         run: python -m unittest discover -s scripts -p 'test_*.py' -v
