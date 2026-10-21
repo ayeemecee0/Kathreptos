@@ -124,10 +124,12 @@ def upload_batch(batch):
     result=api_request(
         "flock_camera_discovery_candidates?on_conflict=candidate_key",
         method="POST",payload=batch,
-        prefer="resolution=ignore-duplicates,return=representation")
-    if not isinstance(result,list) or len(result)>len(batch):
+        prefer="resolution=ignore-duplicates,return=minimal")
+    if result is not None:
         raise ValueError("Unexpected candidate queue insertion receipt")
-    return len(result)
+    # Minimal receipts cannot distinguish new rows from previously deduplicated
+    # submissions. Count only successfully submitted candidates.
+    return len(batch)
 
 def scan_features(features,shard,dry_run=False):
     if type(shard) is not int or not 0<=shard<SHARDS:
@@ -153,8 +155,8 @@ def scan_features(features,shard,dry_run=False):
         raise ValueError("Nationwide community dataset truncated or below integrity floor")
     if not dry_run:
         for offset in range(0,len(selected),BATCH_SIZE):
-            counts["inserted"]+=upload_batch(selected[offset:offset+BATCH_SIZE])
-    for key in ("seen","flock_tagged","shard_matched","staged","inserted"):
+            counts["submitted"]+=upload_batch(selected[offset:offset+BATCH_SIZE])
+    for key in ("seen","flock_tagged","shard_matched","staged","submitted"):
         print("OSM community candidates",key+":",counts[key])
     print("Verified government camera locations published from OSM candidate data: 0")
     return counts

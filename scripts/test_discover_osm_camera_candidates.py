@@ -33,7 +33,7 @@ class PublicDatasetTests(unittest.TestCase):
   self.assertEqual(result["seen"],50001)
   self.assertGreater(result["staged"],1000)
   self.assertLessEqual(result["staged"],osm.MAX_CANDIDATES_PER_RUN)
-  self.assertEqual(result["inserted"],result["staged"])
+  self.assertEqual(result["submitted"],result["staged"])
   self.assertTrue(save.called)
   for call in save.call_args_list:
    for row in call.args[0]:
@@ -42,14 +42,15 @@ class PublicDatasetTests(unittest.TestCase):
  def test_dryrun_does_not_write(self):
   with patch.object(osm,"upload_batch") as write:
    output=osm.scan_features([point(oid=n) for n in range(1,50002)],shard=2,dry_run=True)
-  self.assertEqual(output["inserted"],0)
+  self.assertEqual(output["submitted"],0)
   self.assertGreater(output["staged"],0)
   write.assert_not_called()
  def test_upsert_never_promotes_to_verified(self):
-  with patch.object(osm,"api_request",return_value=[]) as request:
-   self.assertEqual(osm.upload_batch([osm.candidate_from_feature(point())]),0)
+  with patch.object(osm,"api_request",return_value=None) as request:
+   self.assertEqual(osm.upload_batch([osm.candidate_from_feature(point())]),1)
   self.assertEqual(request.call_args.kwargs["method"],"POST")
   self.assertIn("ignore-duplicates",request.call_args.kwargs["prefer"])
+  self.assertIn("return=minimal",request.call_args.kwargs["prefer"])
   self.assertNotIn("flock_camera_locations",request.call_args.args[0])
  def test_rejects_bad_shard(self):
   with self.assertRaises(ValueError):
