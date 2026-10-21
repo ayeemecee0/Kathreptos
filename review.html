@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Katoptron | Private editorial review</title>
+<style>
+:root{color-scheme:dark;font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;background:#091018;color:#e7edf6}
+*{box-sizing:border-box}
+body{margin:0}
+a{color:#93c9e8}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer;background:#22354a;border:1px solid #415773;border-radius:9px;color:#e8f1fa;padding:10px 14px}
+button:hover:not(:disabled){border-color:#7daacc}
+button:disabled{opacity:.42;cursor:not-allowed}
+button.primary{background:#79c9d8;border-color:#79c9d8;color:#0c1a23;font-weight:700}
+button.danger{border-color:#ad6470;color:#ffc4cc}
+button.subtle{background:transparent}
+input,select,textarea{display:block;width:100%;padding:11px;background:#0c1926;color:#e7edf6;border:1px solid #3d5168;border-radius:8px;min-width:0}
+textarea{resize:vertical;min-height:100px}
+label{display:block;font-size:13px;color:#acc0d4;font-weight:600;margin-bottom:12px}
+label input,label select,label textarea{margin-top:6px;font-weight:400}
+:focus-visible{outline:2px solid #b7e5ef;outline-offset:2px}
+header{border-bottom:1px solid #26394d;padding:19px clamp(16px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{font-weight:800;letter-spacing:.18em;font-size:22px}
+.brand small{font-weight:400;color:#8ea6bc;letter-spacing:0;font-size:12px;display:block}
+header nav{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+main{max-width:1800px;margin:auto;padding:24px clamp(16px,3vw,44px)}
+h1,h2,h3,p{margin-top:0}
+h1{font-size:26px;letter-spacing:-.03em}
+h2{font-size:19px;letter-spacing:-.02em}
+h3{font-size:15px}
+p{color:#b9c9db}
+.small{font-size:13px;color:#9db2c7}
+.mono{font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+.hidden{display:none!important}
+.panel{border:1px solid #2b4259;border-radius:13px;background:#0f1b29;padding:22px}
+.gate{max-width:550px;margin:7vh auto}
+.gate input{margin-top:7px}
+.gate label{margin-bottom:18px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.notice{border-left:3px solid #85cada;background:#172c3c;padding:12px 15px;border-radius:4px;margin:12px 0;color:#c8e5ec}
+.notice.error{border-color:#f0919a;background:#38232c;color:#ffd0d0}
+#workspace .topline{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;flex-wrap:wrap}
+.stats{display:flex;flex-wrap:wrap;gap:9px}
+.stat{font-size:13px;background:#13273a;padding:8px 12px;border:1px solid #2f4257;border-radius:8px}
+.stat strong{font-size:18px;display:block;color:#eff5f8}
+.tabs{display:flex;gap:8px;margin:23px 0 14px}
+.tabs button.active{background:#79c9d8;color:#0c1a23;border-color:#79c9d8;font-weight:750}
+.worklayout{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:18px;align-items:start}
+.listpanel{padding:14px;position:sticky;top:12px;max-height:calc(100vh - 30px);display:flex;flex-direction:column}
+.listhead{padding:6px}
+.listhead label{margin-bottom:9px}
+.listhead input{margin-bottom:9px}
+.listhead .controls{display:grid;grid-template-columns:1fr auto;gap:8px}
+#items{overflow-y:auto;min-height:160px;max-height:calc(100vh - 270px);padding:4px;display:grid;align-content:start;gap:7px}
+.lead{width:100%;display:block;text-align:left;background:#101f30;border:1px solid #293d53;padding:12px;white-space:normal}
+.lead.active{border-color:#88d5e7;background:#1a3647}
+.lead .name{font-size:14px;font-weight:700;line-height:1.35;display:block}
+.lead .line{font-size:12px;color:#9db4c9;display:block;margin-top:8px}
+.pill{font-size:11px;display:inline-block;border-radius:40px;padding:3px 9px;background:#263d52;color:#bed7e7;white-space:nowrap}
+.pill.ok{background:#25463d;color:#bde7c9}
+.pill.wait{background:#4a3a28;color:#f7d8a7}
+.pill.deny{background:#542e37;color:#ffd0d0}
+#detail{min-height:400px}
+.detailtop{display:flex;gap:14px;align-items:start;justify-content:space-between}
+.linkrow{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;margin:14px 0}
+.linkrow a{overflow-wrap:anywhere}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.section{border-top:1px solid #2d4258;padding-top:18px;margin-top:20px}
+.description{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:14px;color:#c6d6e6}
+.docs{display:grid;gap:10px}
+.doc{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:9px 11px;background:#14283a;border:1px solid #2a4057;border-radius:8px}
+.doc a{overflow-wrap:anywhere}
+.auditrow{font-size:12px;border-bottom:1px solid #2e4153;padding:8px 0;color:#b5c9db}
+code{font-size:12px;overflow-wrap:anywhere}
+#evidenceFields{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.kv span{display:block;font-size:11px;color:#99aec4;text-transform:uppercase;letter-spacing:.05em}
+.kv b{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.buttongroup{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.help{font-size:12px;color:#9eb4c9;margin-top:5px}
+#pager{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:12px 6px 0}
+.empty{text-align:center;padding:28px 12px;color:#9cb2c4}
+.warn{color:#ffc2a3}
+@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+@media(max-width:760px){.worklayout{grid-template-columns:1fr}.listpanel{position:static;max-height:none}#items{max-height:300px}.panel{padding:16px}header{padding:15px}.detailtop{display:block}}
+</style>
+</head>
+<body>
+<header>
+<div class="brand">KATOPTRON <small>PRIVATE EDITORIAL WORKSPACE · NOT A PUBLIC RECORDS FEED</small></div>
+<nav><a href="./records.html">Public records</a><a href="./index.html">Simulator</a><button id="signout" class="subtle hidden">Sign out</button></nav>
+</header>
+<main>
+<div id="loading" class="gate panel"><h1>Editorial access</h1><p>Checking your login and reviewer permissions…</p></div>
+<section id="gate" class="gate panel hidden">
+<h1>Sign in to review government records</h1>
+<p>Only specifically approved accounts can read the private queue. An account alone does not grant reviewer access.</p>
+<form id="signin">
+<label>Email <input type="email" id="email" autocomplete="username" required></label>
+<label>Password <input type="password" id="password" autocomplete="current-password" minlength="8" required></label>
+<div class="actions"><button class="primary" type="submit">Sign in</button><button type="button" id="signup">Create account</button></div>
+</form>
+<p class="small" style="margin-top:17px">Creating an account may require confirming your email. Your account must also be approved as a Katoptron reviewer.</p>
+<div id="authNotice" role="status"></div>
+</section>
+<section id="waiting" class="gate panel hidden">
+<h1>Reviewer permission required</h1>
+<p>Your Supabase login is active, but it has not been added to Katoptron’s private reviewer list.</p>
+<p>Copy your account ID below and provide it to the project owner for explicit authorization. No discovered records can be viewed until access is approved.</p>
+<div class="notice mono" id="userId"></div>
+<div class="actions"><button id="copyId">Copy account ID</button><button id="checkAccess">Check access again</button></div>
+</section>
+
+<section id="workspace" class="hidden">
+<div class="topline">
+<div><h1>Review government evidence</h1><p class="small">Classify and verify sources first. Publishing is a separate, explicit decision, and every change is audited.</p></div>
+<div class="stats"><div class="stat">Role<strong id="roleLabel">—</strong></div><div class="stat">Matching items<strong id="totalCount">0</strong></div><div class="stat">Review queue<strong>Private</strong></div></div>
+</div>
+<div class="tabs" role="tablist" aria-label="Review queue type">
+<button id="tabAgenda" class="active" type="button" role="tab" aria-selected="true">Government agenda matters</button>
+<button id="tabGeneral" type="button" role="tab" aria-selected="false">Other discovered leads</button>
+</div>
+<div class="worklayout">
+<aside class="panel listpanel" aria-label="Private review queue">
+<div class="listhead">
+<label>Review status<select id="statusFilter"></select></label>
+<input id="search" type="search" placeholder="Filter this page by title or jurisdiction" aria-label="Filter queued records">
+<div class="controls"><span class="small" id="queueCount">Loading queue…</span><button id="refresh" type="button">Refresh</button></div>
+</div>
+<div id="items" aria-label="Review items"></div>
+<div id="pager"><button id="previous" type="button">Previous</button><span class="small" id="pageNo">Page 1</span><button id="next" type="button">Next</button></div>
+</aside>
+<article id="detail" class="panel">
+<div id="detailEmpty" class="empty">Select a queued record to review its source, metadata, and evidence.</div>
+<div id="detailBody" class="hidden">
+<div class="detailtop"><div><span id="reviewBadge" class="pill">Needs review</span><h2 id="detailTitle" style="margin-top:12px"></h2><div id="detailSubtitle" class="small"></div></div></div>
+<div class="linkrow" id="officialLinks"></div>
+<div class="section">
+<h3>Original discovered material</h3><div id="snippet" class="description"></div>
+</div>
+<section id="agendaEvidence" class="section">
+<div class="detailtop"><h3>Original government documents and legislative history</h3><button id="reloadEvidence" type="button">Reload official API</button></div>
+<div id="evidenceNotice" class="small">Loading original government record…</div>
+<div id="evidenceFields"></div>
+<div id="attachments" class="docs" style="margin-top:13px"></div>
+<div id="histories" class="docs" style="margin-top:12px"></div>
+<div id="evidenceText" class="description" style="margin-top:15px"></div>
+</section>
+<section class="section">
+<h3>Editorial classification</h3>
+<form id="agendaForm">
+<div class="grid2">
+<label>Topic<select id="topic">
+<option value="unclassified">Unclassified</option><option value="contract_or_procurement">Contract or procurement</option>
+<option value="presentation">Presentation</option><option value="policy_or_oversight">Policy or oversight</option>
+</select></label>
+<label>Vendor relationship<select id="vendor">
+<option value="not_assessed">Not assessed</option><option value="explicit_flock">Explicit Flock Safety evidence</option>
+<option value="different_vendor">Different vendor</option><option value="general_alpr">General ALPR, no identified vendor</option>
+<option value="indeterminate">Undetermined</option>
+</select></label>
+<label>Government decision outcome<select id="outcome">
+<option value="not_assessed">Not assessed</option><option value="proposed">Proposed / staff recommendation</option>
+<option value="approved">Adopted / approved</option><option value="failed">Failed / rejected proposal</option>
+<option value="heard">Heard or discussed</option><option value="informational">Informational report</option>
+<option value="other">Other documented outcome</option>
+</select></label>
+<label>Government decision date<input id="actionDate" type="date"></label>
+</div>
+<label>Exact official Legistar detail page<input id="officialPage" type="url" placeholder="https://city.legistar.com/LegislationDetail.aspx?GUID=…&ID=…"></label>
+<div class="help">Must refer to the same government matter. Compare the file number, title, and GUID with the official API record above. A raw API MatterId is not a public page ID.</div>
+<label style="margin-top:15px">Narrow claim supported by primary evidence<textarea id="claim" rows="3" maxlength="1600" placeholder="State exactly what the government record establishes; distinguish a proposal, authorization, contract signing, and deployment."></textarea></label>
+<label>Reviewer notes (private)<textarea id="agendaNotes" rows="3" maxlength="5000" placeholder="Source discrepancies, relevant dates, documents still needed…"></textarea></label>
+<div id="agendaActions" class="buttongroup">
+<button id="saveAgenda" type="button">Save draft</button><button id="approveAgenda" class="primary" type="button">Approve evidence (private)</button>
+<button id="rejectAgenda" class="danger" type="button">Reject finding</button><button id="reopenAgenda" class="hidden" type="button">Reopen</button>
+<button id="publishAgenda" class="hidden" type="button">Publish reviewed decision</button>
+</div>
+<p class="help">Evidence approval is private. Publication is available only to approved publishers, only for explicit Flock matters with a dated, source-backed claim. This interface does not create signed-contract records.</p>
+</form>
+<form id="generalForm" class="hidden">
+<div class="grid2">
+<label>Topic<select id="generalTopic">
+<option value="unclassified">Unclassified</option><option value="flock_contract">Potential Flock contract</option>
+<option value="flock_policy">Potential Flock policy/decision</option><option value="flock_deployment">Potential Flock deployment</option>
+<option value="presentation">Presentation</option><option value="general_alpr">General ALPR</option><option value="irrelevant">Irrelevant</option>
+</select></label>
+<label>Vendor evidence<select id="generalVendor">
+<option value="not_assessed">Not assessed</option><option value="explicit_flock">Explicit Flock reference</option>
+<option value="different_vendor">Different vendor</option><option value="general_alpr">General ALPR only</option>
+<option value="indeterminate">Undetermined</option>
+</select></label>
+</div>
+<label>Independent primary government source URL<input id="generalSource" type="url" placeholder="https://government.example.gov/original-record"></label>
+<label>Reviewer notes / reason<textarea id="generalNotes" rows="4" maxlength="5000" placeholder="Describe the primary evidence and why this lead is relevant or should be excluded."></textarea></label>
+<div id="generalActions" class="buttongroup"><button type="button" id="saveGeneral">Save research notes</button>
+<button type="button" class="primary" id="acceptGeneral">Accept lead (private)</button>
+<button type="button" id="rejectGeneral" class="danger">Reject lead</button>
+<button type="button" id="reopenGeneral" class="hidden">Reopen</button></div>
+<p class="help">Accepting a research lead does not verify or publish any fact. News headlines are not substitute evidence for a government contract or decision.</p>
+</form>
+</section>
+<section class="section"><h3>Private change history</h3><div id="auditHistory" class="small">No edits yet.</div></section>
+</div>
+</article>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+</section>
+</main>
+<script src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const cfg = window.KATOPTRON_CONFIG;
+const client = window.supabase && cfg ? window.supabase.createClient(
+  cfg.supabaseUrl,cfg.supabasePublishableKey,
+  {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
+) : null;
+let identity=null,role=null,kind='agenda',page=0,pageSize=60,records=[],total=0,selected=null,evidence=null,busy=false;
+const agendaStates=[['all','All statuses'],['needs_primary_review','Needs source review'],['source_verified','Source verified'],['ready_to_publish','Ready to publish'],['published','Published'],['rejected','Rejected']];
+const generalStates=[['all','All statuses'],['unreviewed','Unreviewed'],['in_review','In review'],['accepted','Accepted research leads'],['rejected','Rejected']];
+const clean=(v,n=5000)=>String(v==null?'':v).slice(0,n);
+const el=(tag,cls,value)=>{const item=document.createElement(tag);if(cls)item.className=cls;if(value!==undefined)item.textContent=clean(value);return item};
+function alertBox(msg,err=false,target='toast'){
+  const b=$(target);b.replaceChildren();if(!msg)return;
+  const item=el('div','notice'+(err?' error':''),msg);b.append(item);
+}
+function show(id,on){$(id).classList.toggle('hidden',!on)}
+function linkify(url,label,box){try{
+  const u=new URL(url);
+  if(u.protocol!=='https:'||u.username||u.password)return;
+  const a=el('a','',label);a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';
+  box.append(a);
+}catch{}}
+function fill(select,entries){select.replaceChildren();entries.forEach(row=>{const o=new Option(row[1],row[0]);select.add(o)})}
+function setBusy(on){busy=on;document.querySelectorAll('#workspace button').forEach(b=>{if(b.id!=='tabAgenda'&&b.id!=='tabGeneral')b.disabled=on});}
+function itemStatus(item){return kind==='agenda'?item.review_state:item.status;}
+function statusClass(v){return ['source_verified','ready_to_publish','published','accepted'].includes(v)?'ok':['rejected'].includes(v)?'deny':'wait'}
+async function begin(){
+  if(!client){show('loading',false);show('gate',true);alertBox('Supabase client library could not load. Refresh with internet access.',true,'authNotice');return;}
+  const res=await client.auth.getSession();
+  await refreshAccess(res.data.session);
+  client.auth.onAuthStateChange((event,session)=>{
+    if(['SIGNED_IN','SIGNED_OUT','TOKEN_REFRESHED','INITIAL_SESSION'].includes(event)){
+      setTimeout(()=>refreshAccess(session),0);
+    }
+  });
+}
+async function refreshAccess(session){
+  show('loading',true);show('gate',false);show('waiting',false);show('workspace',false);
+  identity=session?.user||null;
+  show('signout',!!identity);
+  if(!identity){show('loading',false);show('gate',true);return;}
+  const response=await client.rpc('editorial_session');
+  if(response.error){show('loading',false);show('waiting',true);$('userId').textContent=identity.id;return;}
+  role=response.data?.role||null;
+  show('loading',false);
+  if(!response.data?.authorized){show('waiting',true);$('userId').textContent=identity.id;return;}
+  show('workspace',true);$('roleLabel').textContent=role==='publisher'?'Publisher':'Reviewer';
+  await loadQueue();
+}
+async function authForm(event,signup=false){
+  if(event?.preventDefault)event.preventDefault();
+  const email=$('email').value.trim(),password=$('password').value;
+  if(!email||password.length<8){alertBox('Enter an email and password of at least eight characters.',true,'authNotice');return;}
+  alertBox('Contacting Supabase Auth…',false,'authNotice');
+  const res=signup ?
+    await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}}) :
+    await client.auth.signInWithPassword({email,password});
+  if(res.error){alertBox(res.error.message,true,'authNotice');return;}
+  if(signup&&!res.data.session){alertBox('Account created. Check your email for confirmation, then return and sign in. Reviewer access requires separate approval.',false,'authNotice');return;}
+  await refreshAccess(res.data.session);
+}
+function switchTab(next){
+  kind=next;page=0;records=[];total=0;selected=null;evidence=null;
+  $('tabAgenda').classList.toggle('active',next==='agenda');$('tabGeneral').classList.toggle('active',next==='general');
+  $('tabAgenda').setAttribute('aria-selected',String(next==='agenda'));
+  $('tabGeneral').setAttribute('aria-selected',String(next==='general'));
+  fill($('statusFilter'),next==='agenda'?agendaStates:generalStates);
+  $('search').value='';
+  show('agendaEvidence',next==='agenda');show('agendaForm',next==='agenda');show('generalForm',next==='general');
+  loadQueue();
+}
+async function loadQueue(keepId=null){
+  alertBox('');
+  $('items').replaceChildren(el('div','empty','Loading private queue…'));
+  const filter=$('statusFilter').value||'all';
+  const response=await client.rpc(kind==='agenda'?'editorial_list':'editorial_general_list',
+    {p_state:filter,p_limit:pageSize,p_offset:page*pageSize});
+  if(response.error){$('items').replaceChildren(el('div','empty','Unable to load review queue.'));alertBox(response.error.message,true);return;}
+  total=response.data?.total||0;records=response.data?.items||[];
+  $('totalCount').textContent=total.toLocaleString();$('queueCount').textContent=records.length+' shown of '+total;
+  $('pageNo').textContent='Page '+(page+1);
+  $('previous').disabled=page===0;$('next').disabled=(page+1)*pageSize>=total;
+  renderList();
+  if(records.length){
+    const active=records.find(x=>x.id===keepId)||records[0];openItem(active.id);
+  }else{selected=null;show('detailEmpty',true);show('detailBody',false);}
+}
+function renderList(){
+  const box=$('items');box.replaceChildren();
+  const query=$('search').value.trim().toLowerCase();
+  const filtered=records.filter(r=>[r.headline,r.publisher,r.tenant,r.snippet].join(' ').toLowerCase().includes(query));
+  if(!filtered.length){box.append(el('div','empty','No matching records on this page.'));return;}
+  for(const row of filtered){
+    const btn=el('button','lead'+(selected?.id===row.id?' active':''));btn.type='button';
+    btn.append(el('span','name',clean(row.headline,180)||'Untitled government matter'));
+    const state=itemStatus(row);
+    const meta=el('span','line',(row.publisher||row.tenant||'Unidentified source')+'  ·  '+state.replaceAll('_',' '));
+    btn.append(meta);btn.addEventListener('click',()=>openItem(row.id));
+    box.append(btn);
+  }
+}
+function kv(box,key,value){if(!value)return;const node=el('div','kv');node.append(el('span','',key),el('b','',value));box.append(node)}
+function documentLink(box,label,url){
+  const b=el('div','doc'),title=el('span','',label);b.append(title);linkify(url,'Open original ↗',b);box.append(b);
+}
+function redrawLinks(){
+  const b=$('officialLinks');b.replaceChildren();
+  if(kind==='agenda'){
+    linkify(selected.official_api_url,'Official Legistar API matter ↗',b);
+    if(selected.official_page_url)linkify(selected.official_page_url,'Matched legislative page ↗',b);
+    if(selected.original_discovery_url!==selected.official_api_url){
+      b.append(el('span','small','Old generated HTML link retained privately; it may refer to the wrong record.'));
+    }
+  }else{
+    linkify(selected.url,'Original discovered lead ↗',b);
+    if(selected.primary_source_url)linkify(selected.primary_source_url,'Independent primary source ↗',b);
+  }
+}
+async function openItem(id){
+  selected=records.find(r=>r.id===id);if(!selected)return;
+  evidence=null;renderList();show('detailEmpty',false);show('detailBody',true);
+  const state=itemStatus(selected);
+  $('reviewBadge').className='pill '+statusClass(state);$('reviewBadge').textContent=state.replaceAll('_',' ');
+  $('detailTitle').textContent=clean(selected.headline,1300);
+  $('detailSubtitle').textContent=(selected.publisher||selected.tenant||'')+
+    (selected.matter_id?' · API MatterId '+selected.matter_id:'')+
+    ' · Found '+new Date(selected.discovered_at).toLocaleDateString();
+  $('snippet').textContent=clean(selected.snippet||'No discovery notes were recorded.',5000);
+  redrawLinks();
+  show('agendaEvidence',kind==='agenda');show('agendaForm',kind==='agenda');show('generalForm',kind==='general');
+  if(kind==='agenda'){
+    $('topic').value=selected.suggested_topic||'unclassified';
+    $('vendor').value=selected.verified_vendor_relation||'not_assessed';
+    $('outcome').value=selected.decision_outcome||'not_assessed';
+    $('actionDate').value=selected.action_date||'';
+    $('officialPage').value=selected.official_page_url||'';
+    $('claim').value=selected.reviewed_claim||'';
+    $('agendaNotes').value=selected.reviewer_notes||'';
+    show('reopenAgenda',state==='rejected');
+    show('publishAgenda',role==='publisher'&&['source_verified','ready_to_publish'].includes(state));
+    for(const id of ['saveAgenda','approveAgenda','rejectAgenda'])$(id).disabled=state==='published'||state==='rejected';
+    $('publishAgenda').disabled=state==='published';
+    $('evidenceFields').replaceChildren();$('attachments').replaceChildren();$('histories').replaceChildren();$('evidenceText').textContent='';
+    $('evidenceNotice').textContent='Fetching original government matter, attachments and action history…';
+    loadEvidence(id);
+  }else{
+    $('generalTopic').value=selected.topic||'unclassified';
+    $('generalVendor').value=selected.vendor_relation||'not_assessed';
+    $('generalSource').value=selected.primary_source_url||'';
+    $('generalNotes').value=selected.reviewer_notes||'';
+    show('reopenGeneral',state==='rejected');
+    for(const id of ['saveGeneral','acceptGeneral','rejectGeneral'])$(id).disabled=state==='accepted'||state==='rejected';
+  }
+  loadHistory(id);
+}
+async function loadEvidence(id){
+  if(kind!=='agenda'||selected?.id!==id)return;
+  const session=(await client.auth.getSession()).data.session;
+  if(!session){$('evidenceNotice').textContent='Sign in again to inspect official attachments.';return;}
+  try{
+    const response=await fetch(cfg.supabaseUrl+'/functions/v1/review-evidence',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:cfg.supabasePublishableKey,
+               Authorization:'Bearer '+session.access_token},
+      body:JSON.stringify({review_id:id})});
+    const json=await response.json();
+    if(!response.ok)throw Error(json.error||'Official evidence fetch failed');
+    if(selected?.id!==id)return;
+    evidence=json;
+    const m=json.matter||{},box=$('evidenceFields');box.replaceChildren();
+    kv(box,'Official file number',m.file);kv(box,'Official GUID',m.guid);
+    kv(box,'Matter title',m.title);kv(box,'Government record status',m.status);
+    kv(box,'Introduced',m.introDate?.slice(0,10));kv(box,'Passed',m.passedDate?.slice(0,10));
+    kv(box,'Final action',m.finalActionDate?.slice(0,10));
+    $('evidenceNotice').textContent='Official API data loaded. Independently compare the GUID and decision history with the source page.';
+    const attachments=$('attachments');attachments.replaceChildren();
+    attachments.append(el('h3','',json.attachments?.length?'Original attachments ('+json.attachments.length+')':'No attachment URLs exposed by this API'));
+    for(const item of json.attachments||[])documentLink(attachments,item.name||'Attachment',item.url);
+    const history=$('histories');history.replaceChildren();
+    history.append(el('h3','',json.histories?.length?'Recorded meeting actions ('+json.histories.length+')':'No meeting history returned'));
+    for(const item of json.histories||[]){
+      const d=el('div','auditrow',[item.date?.slice(0,10),item.body,item.action,item.result].filter(Boolean).join(' · '));history.append(d);
+    }
+    $('evidenceText').textContent=clean((m.text||'')+(m.notes?'\n\nRecord notes: '+m.notes:''),15000);
+    if(json.warnings?.length)attachments.append(el('p','warn',json.warnings.join(' ')));
+  }catch(err){
+    if(selected?.id!==id)return;
+    $('evidenceNotice').textContent='Live evidence could not be loaded: '+err.message+
+      '. Use the official API link above. Do not approve without matching the correct document.';
+  }
+}
+async function loadHistory(id){
+  const response=await client.rpc('editorial_history',{p_id:id,p_kind:kind});
+  if(selected?.id!==id)return;
+  const box=$('auditHistory');box.replaceChildren();
+  if(response.error){box.append(el('p','','Audit events unavailable: '+response.error.message));return;}
+  if(!response.data?.length){box.append(el('p','','No editorial changes recorded yet.'));return;}
+  for(const event of response.data){
+    box.append(el('div','auditrow',new Date(event.created_at).toLocaleString()+
+      ' · '+event.event_type+' · '+event.old_state+' → '+event.new_state+
+      ' · '+clean(event.actor_id,50)));
+  }
+}
+function agendaValues(action){
+  return {
+    p_id:selected.id,p_action:action,p_expected_updated_at:selected.updated_at,
+    p_topic:$('topic').value,p_vendor:$('vendor').value,p_outcome:$('outcome').value,
+    p_primary_page:$('officialPage').value.trim()||null,
+    p_claim:$('claim').value.trim(),p_action_date:$('actionDate').value||null,
+    p_notes:$('agendaNotes').value.trim(),
+  };
+}
+function sourceGuidMatches(){
+  if(!evidence?.matter?.guid)return false;
+  const value=$('officialPage').value.trim();
+  try{
+    const u=new URL(value);
+    const same=u.searchParams.get('GUID');
+    return same&&same.toLowerCase()===evidence.matter.guid.toLowerCase();
+  }catch{return false;}
+}
+async function decideAgenda(action){
+  if(busy||!selected||kind!=='agenda')return;
+  if(action==='approve'&&!sourceGuidMatches()){
+    alertBox('Before approval, load the original government API record and use a detail page whose GUID matches that matter. Different IDs can refer to different documents.',true);
+    return;
+  }
+  if(action==='reject'&&!$('agendaNotes').value.trim()){
+    alertBox('Write the reason for rejection in reviewer notes.',true);return;
+  }
+  if(action==='publish'&&!confirm('Publish this reviewed, dated government decision? Publication makes the claim publicly visible. It must not imply a signed contract or installed cameras.'))return;
+  if(action==='reject'&&!confirm('Reject this government finding? The source and audit trail will remain private.'))return;
+  setBusy(true);alertBox('');
+  try{
+    const values=agendaValues(action);
+    const response=await client.rpc('editorial_decide',values);
+    if(response.error)throw Error(response.error.message);
+    alertBox('Editorial '+action+' completed. Change recorded in the audit log.');
+    await loadQueue(selected.id);
+  }catch(err){alertBox(err.message,true);}
+  finally{setBusy(false);}
+}
+async function decideGeneral(action){
+  if(busy||!selected||kind!=='general')return;
+  if(action==='reject'&&!$('generalNotes').value.trim()){alertBox('Explain the rejection in reviewer notes.',true);return;}
+  if(action==='accept'&&!confirm('Accept this lead into PRIVATE research? This does not verify or publish any factual claim.'))return;
+  if(action==='reject'&&!confirm('Reject this research lead?'))return;
+  setBusy(true);alertBox('');
+  try{
+    const response=await client.rpc('editorial_general_decide',{
+      p_id:selected.id,p_action:action,p_expected_updated_at:selected.updated_at,
+      p_topic:$('generalTopic').value,p_vendor:$('generalVendor').value,
+      p_primary_source:$('generalSource').value.trim()||null,
+      p_notes:$('generalNotes').value.trim(),
+    });
+    if(response.error)throw Error(response.error.message);
+    alertBox('Research lead '+action+' completed. Changes were logged privately.');
+    await loadQueue(selected.id);
+  }catch(err){alertBox(err.message,true);}
+  finally{setBusy(false);}
+}
+$('signin').addEventListener('submit',event=>authForm(event,false));
+$('signup').addEventListener('click',event=>authForm(event,true));
+$('signout').addEventListener('click',async()=>{await client.auth.signOut();await refreshAccess(null)});
+$('copyId').addEventListener('click',()=>navigator.clipboard.writeText(identity?.id||'').then(()=>alertBox('Account ID copied.')));
+$('checkAccess').addEventListener('click',()=>client.auth.getSession().then(r=>refreshAccess(r.data.session)));
+$('tabAgenda').addEventListener('click',()=>switchTab('agenda'));
+$('tabGeneral').addEventListener('click',()=>switchTab('general'));
+$('refresh').addEventListener('click',()=>loadQueue(selected?.id));
+$('statusFilter').addEventListener('change',()=>{page=0;loadQueue()});
+$('search').addEventListener('input',renderList);
+$('previous').addEventListener('click',()=>{if(page>0){page--;loadQueue()}});
+$('next').addEventListener('click',()=>{if((page+1)*pageSize<total){page++;loadQueue()}});
+$('reloadEvidence').addEventListener('click',()=>{if(selected)loadEvidence(selected.id)});
+for(const action of ['save','approve','reject','reopen','publish']){
+  const id={save:'saveAgenda',approve:'approveAgenda',reject:'rejectAgenda',reopen:'reopenAgenda',publish:'publishAgenda'}[action];
+  $(id).addEventListener('click',()=>decideAgenda(action));
+}
+for(const action of ['save','accept','reject','reopen']){
+  const id={save:'saveGeneral',accept:'acceptGeneral',reject:'rejectGeneral',reopen:'reopenGeneral'}[action];
+  $(id).addEventListener('click',()=>decideGeneral(action));
+}
+$('agendaForm').addEventListener('submit',event=>event.preventDefault());
+$('generalForm').addEventListener('submit',event=>event.preventDefault());
+fill($('statusFilter'),agendaStates);
+begin();
+</script>
+</body></html>
