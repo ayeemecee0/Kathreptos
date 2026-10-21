@@ -288,7 +288,7 @@ def main():
     print("Official agenda leads submitted:", submitted)
     print("New official agenda leads added:", created)
     print("Existing official agenda leads skipped:", submitted - created)
-    print("Agenda records auto-published: 0 (review required)")
+    print("Agenda matters staged for independent verification; automated exact-title verification runs separately")
 
 
 if __name__ == "__main__":
