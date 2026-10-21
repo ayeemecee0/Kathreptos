@@ -12,7 +12,7 @@ from government_domain_registry import (
     approved_tenant_for_page, gov_host, load_approved_domains, valid_https_url,
 )
 
-TERMS = re.compile(r"\b(?:flock\s+safety|automated?\s+license\s+plate\s+readers?|ALPR|LPR\s+cameras?)\b", re.I)
+TERMS = re.compile(r"\b(?:flock\s+safety|(?:automatic|automated)\s+license\s+plate\s+(?:readers?|recognition)|license\s+plate\s+readers?|ALPRs?|LPR\s+cameras?)\b", re.I)
 TENANT = re.compile(r"([a-z0-9-]{3,40})\.legistar\.com", re.I)
 USER_AGENT = "Katoptron/1.0 public records research"
 LEGACY_PREAPPROVED = {"seattle", "lacounty", "costamesa", "oakland"}
