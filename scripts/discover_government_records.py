@@ -18,13 +18,22 @@ USER_AGENT = "Katoptron/1.0 public records research"
 LEGACY_PREAPPROVED = {"seattle", "lacounty", "costamesa", "oakland"}
 # Bounded historical coverage: at most 2,000 publicly listed agenda matters
 # per verified tenant per run. Legistar's public API supports $top/$skip paging.
+# Oversized API replies trigger a smaller per-tenant page size, NOT a higher
+# content/download limit. Maximum attempts include failed oversized requests.
 PAGE_SIZE = 250
 MAX_PAGES_PER_TENANT = 8
+MAX_API_REQUESTS_PER_TENANT = 48
+MIN_PAGE_SIZE = 1
 MAX_MATCHES_PER_TENANT = 60
+API_RESPONSE_BYTES = 1_500_000
 SEARCH_FIELDS = (
     "MatterName", "MatterTitle", "MatterTypeName", "MatterNotes",
     "MatterText1", "MatterText2", "MatterText3",
 )
+
+
+class APIResponseTooLarge(ValueError):
+    """Public API response exceeded the intentionally bounded download limit."""
 
 
 def get_json(url, headers=None):
@@ -32,9 +41,9 @@ def get_json(url, headers=None):
         "User-Agent": USER_AGENT, "Accept": "application/json"
     })
     with urllib.request.urlopen(request, timeout=12) as response:
-        data = response.read(1500001)
-    if len(data) > 1500000:
-        raise ValueError("API response too large")
+        data = response.read(API_RESPONSE_BYTES + 1)
+    if len(data) > API_RESPONSE_BYTES:
+        raise APIResponseTooLarge("API response too large")
     return json.loads(data)
 
 
@@ -139,20 +148,38 @@ def enrich(client, mid):
 
 
 def scan(client, label):
-    """Scan several recent-and-historical pages, with strict request bounds."""
+    """Search bounded recent/history pages, adapting to oversized responses."""
     base = "https://webapi.legistar.com/v1/" + client + "/matters"
     leads = []
     seen_ids = set()
     pages_fetched = 0
-    for page in range(MAX_PAGES_PER_TENANT):
+    requests = 0
+    limit = PAGE_SIZE * MAX_PAGES_PER_TENANT
+    offset = 0
+    size = PAGE_SIZE
+
+    while offset < limit and requests < MAX_API_REQUESTS_PER_TENANT:
+        top = min(size, limit - offset)
         params = urllib.parse.urlencode({
-            "$top": str(PAGE_SIZE),
-            "$skip": str(page * PAGE_SIZE),
+            "$top": str(top),
+            "$skip": str(offset),
             "$orderby": "MatterId desc",
         })
-        rows = get_json(base + "?" + params)
+        requests += 1
+        try:
+            rows = get_json(base + "?" + params)
+        except APIResponseTooLarge:
+            if top <= MIN_PAGE_SIZE:
+                raise ValueError(
+                    "Legistar response remains oversized at minimum page size")
+            size = max(MIN_PAGE_SIZE, top // 2)
+            print("Official agenda response oversized, retrying smaller page:",
+                  client, "offset", offset, "size", size)
+            continue
         if not isinstance(rows, list):
             raise ValueError("Unexpected Legistar API response")
+        if len(rows) > top:
+            raise ValueError("Legistar ignored requested page size")
         if not rows:
             break
         pages_fetched += 1
@@ -185,16 +212,22 @@ def scan(client, label):
         # Some API clients may ignore $skip. Stop rather than repeatedly
         # processing the same page, and report incomplete pagination.
         if new_ids == 0:
-            print("Official agenda pagination repeated; stopped:", client, page)
+            print("Official agenda pagination repeated; stopped:", client,
+                  "offset", offset)
             break
+        offset += len(rows)
         if len(leads) >= MAX_MATCHES_PER_TENANT:
-            print("Official agenda match cap reached:", client, MAX_MATCHES_PER_TENANT)
+            print("Official agenda match cap reached:", client,
+                  MAX_MATCHES_PER_TENANT)
             break
-        if len(rows) < PAGE_SIZE:
+        if len(rows) < top:
             break
+    if requests >= MAX_API_REQUESTS_PER_TENANT and offset < limit:
+        print("Official agenda request cap reached:", client,
+              "scanned", offset, "of", limit, "matters")
     print("Official agenda scan coverage:", client,
           "pages", pages_fetched, "unique matters", len(seen_ids),
-          "matched", len(leads))
+          "matched", len(leads), "API requests", requests)
     return leads
 
 
