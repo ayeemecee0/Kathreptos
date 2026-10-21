@@ -36,8 +36,8 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_*.py' -v
       - name: Discover and queue unverified leads
         run: python scripts/discover.py --output candidates.json
-      - name: Auto-publish narrowly verified official agency records
-        run: python scripts/auto_publish_official.py
+      # Discovery is intentionally review-only; never schedule a publishing
+      # script with this service-role credential.
       - name: Discover additional official municipal sources nationwide
         run: python scripts/discover_official.py
       - name: Discover government source registry candidates
