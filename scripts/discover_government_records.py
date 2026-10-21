@@ -8,6 +8,9 @@ import os
 import re
 import urllib.parse
 import urllib.request
+from government_domain_registry import (
+    approved_tenant_for_page, gov_host, load_approved_domains, valid_https_url,
+)
 
 TERMS = re.compile(r"\b(?:flock\s+safety|automated?\s+license\s+plate\s+readers?|ALPR|LPR\s+cameras?)\b", re.I)
 TENANT = re.compile(r"([a-z0-9-]{3,40})\.legistar\.com", re.I)
@@ -26,11 +29,12 @@ def get_json(url, headers=None):
 
 
 def registry_clients():
-    """Fail closed: load only explicitly verified Legistar registry entries."""
+    """Fail closed: load only verified tenants with current domain approval."""
+    approved = load_approved_domains()
     base = os.environ["SUPABASE_URL"].rstrip("/")
     key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     params = urllib.parse.urlencode({
-        "select": "source_url,host,jurisdiction_label",
+        "select": "source_url,host,jurisdiction_label,evidence_url",
         "source_kind": "eq.legistar",
         "verification_status": "eq.verified",
         "limit": "1000",
@@ -63,6 +67,17 @@ def registry_clients():
         if not label or label.lower().startswith("legistar tenant "):
             print("Registry entry skipped: unverified jurisdiction label", host)
             continue
+        evidence = str(row.get("evidence_url") or "")
+        parsed_evidence = valid_https_url(evidence)
+        # Legacy manually preapproved seeds record their tenant portal as evidence;
+        # .gov evidence relies on the existing official-government verification.
+        # For custom domains, source authority MUST still be approved today.
+        if parsed_evidence and not gov_host(parsed_evidence.hostname) and not TENANT.fullmatch(parsed_evidence.hostname):
+            current_label = approved_tenant_for_page(
+                evidence, match.group(1).lower(), approved)
+            if current_label != label:
+                print("Registry entry skipped: custom domain authority revoked or mismatched", host)
+                continue
         clients[match.group(1).lower()] = label[:150]
     return clients
 
