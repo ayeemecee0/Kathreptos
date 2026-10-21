@@ -15,6 +15,8 @@ on:
       - 'supabase/migrations/010_editorial_dashboard_auth_and_rpc.sql'
       - 'supabase/migrations/011_general_lead_review_and_audit.sql'
       - 'supabase/migrations/012_reopen_private_research_leads.sql'
+      - 'supabase/migrations/013_automatic_verified_flock_agenda_mentions.sql'
+      - 'records.html'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
@@ -265,6 +267,55 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.discovery_queue
              where url='https://example.org/city-news' and status='in_review'" | grep -qx 1
+          # Test the fully automated path: the new public record type is
+          # strictly a government agenda MENTION, never an approved contract.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/013_automatic_verified_flock_agenda_mentions.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.verified_flock_agenda_mentions(
+            tenant,matter_id,jurisdiction_label,matter_title,file_number,
+            government_evidence_url,intro_date)
+          values(
+            'costamesa',2660,'Costa Mesa, CA',
+            'Flock Safety automated license plate reader lease - agenda item',
+            '24-068','https://costamesa.gov/','2024-03-19');
+          SQL
+          # A clearly labelled official agenda mention is readable by visitors.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon;
+             select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 1
+          # Revocation hides it without erasing provenance; service role
+          # cannot rewrite the verified historical claim.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             insert into public.verified_flock_agenda_mentions(
+              tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url)
+             values('notarealcity',44,'Not A Real City, CA',
+              'Flock Safety ALPR camera discussion','https://fake.gov/');" \
+            >/tmp/katoptron-invalid-auto-mention.log 2>&1; then
+            echo "::error::Unverified government tenant published an agenda mention"
+            exit 1
+          fi
+          grep -q "Government tenant/evidence no longer independently verified" \
+            /tmp/katoptron-invalid-auto-mention.log
+          # The automatic mention does not create a contract or council vote.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.contracts" | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "update public.verified_flock_agenda_mentions set status='revoked'
+             where tenant='costamesa' and matter_id=2660;"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 0
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "update public.verified_flock_agenda_mentions set status='verified'
+             where tenant='costamesa' and matter_id=2660;" \
+             >/tmp/katoptron-no-silent-reapproval.log 2>&1; then
+            echo "::error::Revoked published agenda was silently reapproved"
+            exit 1
+          fi
+          grep -q "cannot be silently reapproved" /tmp/katoptron-no-silent-reapproval.log
           # A reviewer must never be able to publish an already-approved item.
           # Check the private allowlist has no direct table grants for users.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
