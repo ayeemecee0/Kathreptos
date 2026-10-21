@@ -12,6 +12,7 @@
 const cfg=window.KATOPTRON_CONFIG;
 const $=id=>document.getElementById(id);
 const cache=[];
+let agendaFeedWarning='';
 function textNode(tag,value,cls){const el=document.createElement(tag);el.textContent=value==null?'':String(value);if(cls)el.className=cls;return el;}
 function safeLink(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:null;}catch{return null;}}
 async function read(table){
@@ -21,11 +22,14 @@ async function read(table){
   return await res.json();
 }
 async function load(){
+  agendaFeedWarning='';
   $('status').textContent='Loading published records…';
   try{
     if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey)throw new Error('Missing public Supabase configuration');
     const [actions,contracts,deployments,mentions,sources,agencies,people,jurisdictions]=await Promise.all([
-      read('published_actions'),read('published_contracts'),read('published_deployments'),read('verified_flock_agenda_mentions'),read('sources'),read('agencies'),read('people'),read('jurisdictions')
+      read('published_actions'),read('published_contracts'),read('published_deployments'),
+      read('verified_flock_agenda_mentions').catch(err=>{agendaFeedWarning=err.message;return [];}),
+      read('sources'),read('agencies'),read('people'),read('jurisdictions')
     ]);
     const sourceMap=new Map(sources.map(x=>[x.id,x]));
     const agencyMap=new Map(agencies.map(x=>[x.id,x]));
@@ -59,7 +63,8 @@ function render(){
  const q=$('query').value.trim().toLowerCase(),kind=$('kind').value;
  const rows=cache.filter(r=>(kind==='all'||r.kind===kind)&&[r.title,r.summary,r.details].join(' ').toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date));
  $('status').textContent=rows.length+' verified public record'+(rows.length===1?'':'s')+' matching filters ('+
-  rows.filter(row=>row.kind==='mentions').length+' agenda mentions; these are not contract approvals)';
+  rows.filter(row=>row.kind==='mentions').length+' agenda mentions; these are not contract approvals)'+
+  (agendaFeedWarning?' · Official agenda feed temporarily unavailable':'');
  $('results').replaceChildren();
  if(!rows.length){$('results').append(textNode('p','No published records match. The database may not have verified entries yet.','empty'));return;}
  for(const r of rows){const card=document.createElement('article');card.className='card';card.append(textNode('span',r.kind==='mentions'?'Official agenda mention — not approval':r.kind,'pill'),textNode('h2',r.title),textNode('div',[r.date,r.details].filter(Boolean).join(' · '),'meta'),textNode('p',r.summary));const href=safeLink(r.source);if(href){const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=r.sourceTitle+' ↗';card.append(a);} $('results').append(card);}
