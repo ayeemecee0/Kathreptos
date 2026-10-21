@@ -7,6 +7,7 @@ on:
       - 'supabase/migrations/004_correct_commerce_city_evidence.sql'
       - 'supabase/migrations/005_reviewed_gov_legistar_aliases.sql'
       - 'supabase/migrations/006_legistar_source_integrity_and_review.sql'
+      - 'supabase/migrations/007_editorial_triage_agenda_leads.sql'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
@@ -88,6 +89,17 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from pg_class c where
             c.oid='public.agenda_evidence_reviews'::regclass and c.relrowsecurity=true" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/007_editorial_triage_agenda_leads.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.agenda_evidence_reviews r
+            join public.discovery_queue q on q.id=r.discovery_queue_id
+            where r.tenant='costamesa' and r.matter_id=2660
+              and r.review_state='source_verified'
+              and r.decision_outcome='proposed'
+              and q.status='in_review'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.actions where review_status='published'" | grep -qx 0
           # Validate the actual seeded SQL records with the same parser as
           # production (not only hard-coded mock fixtures).
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
