@@ -1,0 +1,46 @@
+name: Auto-verify Flock legislative decisions
+
+on:
+  workflow_run:
+    workflows: ["Auto-verify official Flock agenda mentions"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/auto_verify_legislative_decisions.py'
+      - 'scripts/test_auto_verify_legislative_decisions.py'
+      - '.github/workflows/auto_verify_decisions.yml'
+      - 'supabase/migrations/015_auto_legislative_decisions.sql'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-verified-legislative-decisions
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check credentials
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
+      - name: Run legislative decision safety tests
+        run: python -m unittest discover -s scripts -p 'test_auto_verify_legislative_decisions.py' -v
+      - name: Inspect official legislative histories without publishing
+        run: python scripts/auto_verify_legislative_decisions.py --dry-run --show-actions
