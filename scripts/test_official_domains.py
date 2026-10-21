@@ -8,6 +8,7 @@ from unittest.mock import patch
 import government_domain_registry as domains
 import discover_source_registry as discovery
 import verify_government_sources as verifier
+import discover_government_records as scanner
 
 
 def approved_rows():
@@ -133,6 +134,37 @@ class GovernmentDomainTests(unittest.TestCase):
         with patch.object(verifier, "safe_official_url", return_value=True):
             ok, _ = verifier.verify(row, self.approved)
         self.assertFalse(ok)
+
+    def test_scanner_stops_after_custom_domain_revoked(self):
+        row = {
+            "source_url": "https://madison.legistar.com/",
+            "host": "madison.legistar.com",
+            "jurisdiction_label": "Madison, WI",
+            "evidence_url": "https://www.cityofmadison.com/council",
+        }
+        with (patch.object(scanner, "get_json", return_value=[row]),
+              patch.object(scanner, "load_approved_domains", return_value=self.approved)):
+            self.assertEqual(scanner.registry_clients(), {"madison": "Madison, WI"})
+        with (patch.object(scanner, "get_json", return_value=[row]),
+              patch.object(scanner, "load_approved_domains", return_value={})):
+            self.assertEqual(scanner.registry_clients(), {})
+
+    def test_scanner_accepts_only_known_legacy_portal_without_gov_evidence(self):
+        approved_seed = {
+            "source_url": "https://seattle.legistar.com/",
+            "host": "seattle.legistar.com",
+            "jurisdiction_label": "Seattle, WA",
+            "evidence_url": "https://seattle.legistar.com/",
+        }
+        unapproved = {
+            "source_url": "https://fakecity.legistar.com/",
+            "host": "fakecity.legistar.com",
+            "jurisdiction_label": "Fake City, ZZ",
+            "evidence_url": "https://fakecity.legistar.com/",
+        }
+        with (patch.object(scanner, "get_json", return_value=[approved_seed, unapproved]),
+              patch.object(scanner, "load_approved_domains", return_value={})):
+            self.assertEqual(scanner.registry_clients(), {"seattle": "Seattle, WA"})
 
     def test_verifier_denies_wrong_label_for_right_tenant(self):
         row = {
