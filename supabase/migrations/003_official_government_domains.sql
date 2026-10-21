@@ -8,6 +8,7 @@ create table if not exists public.official_government_domains (
            and domain ~ '\.(com|org|net|us)$'),
   jurisdiction_label text not null check (length(trim(jurisdiction_label)) >= 5),
   legistar_tenant text check (legistar_tenant is null or legistar_tenant ~ '^[a-z0-9-]{3,40}$'),
+  legistar_evidence_url text check (legistar_evidence_url is null or legistar_evidence_url ~ '^https://'),
   allow_www boolean not null default false,
   verification_status text not null default 'candidate'
     check (verification_status in ('candidate','verified','rejected')),
@@ -34,18 +35,20 @@ revoke all on public.official_government_domains from anon, authenticated;
 -- A verified domain is NOT permission to trust all Legistar links on its pages:
 -- the approved tenant identifier must also match before a source can be verified.
 insert into public.official_government_domains
-  (domain, jurisdiction_label, legistar_tenant, allow_www, verification_status,
+  (domain, jurisdiction_label, legistar_tenant, legistar_evidence_url, allow_www, verification_status,
    evidence_url, reviewed_by, reviewed_at, review_notes)
 values
-  ('cityofmadison.com', 'Madison, WI', 'madison', true, 'verified',
+  ('cityofmadison.com', 'Madison, WI', 'madison',
+   'https://www.cityofmadison.com/council/district10/blog/2021-11-22/city-of-madison-website-navigation-tips-legistar', true, 'verified',
    'https://lobbying.wi.gov/Who/Principals/2021REG/ReportExport?flag=true&outRpt=PDF',
    'Katoptron evidence review, 2026-10-20', now(),
    'Wisconsin state lobbying directory identifies www.cityofmadison.com as the City of Madison website; official City Council pages link madison.legistar.com.'),
-  ('c3gov.com', 'Commerce City, CO', 'commerce', true, 'verified',
+  ('c3gov.com', 'Commerce City, CO', 'commerce',
+   'https://www.c3gov.com/Government/City-Council/Council-Voting-Records', true, 'verified',
    'https://dnrweblink.state.co.us/cwcbsearch/0/edoc/227433/CommerceCity_XericDemo_Application.pdf',
    'Katoptron evidence review, 2026-10-20', now(),
    'Colorado Water Conservation Board identifies Commerce City staff email at c3gov.com; the city website explicitly links commerce.legistar.com. Not the City of Commerce, California.'),
-  ('slco.org', 'Salt Lake County, UT', 'slco', true, 'verified',
+  ('slco.org', 'Salt Lake County, UT', 'slco', null, true, 'verified',
    'https://www.utah.gov/pmn/sitemap/notice/927150.html',
    'Katoptron evidence review, 2026-10-20', now(),
    'Utah state public notice identifies the Salt Lake County government domain and slco.legistar.com as its historical agenda portal.')
