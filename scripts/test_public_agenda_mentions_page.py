@@ -48,7 +48,7 @@ class PublicAgendaPageTests(unittest.TestCase):
         self.assertIn('verified_flock_agenda_mentions', self.js)
         self.assertIn('No approval inferred', self.js)
         self.assertIn('agenda listing only', self.js)
-        self.assertIn('not contract approvals', self.js)
+        self.assertIn('neither implies a signed contract', self.js)
         self.assertIn('Official agenda mentions', self.html)
 
     def test_official_decisions_do_not_imply_signed_contracts(self):
