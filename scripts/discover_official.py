@@ -1,7 +1,8 @@
-"""Nationwide official-source discovery with conservative auto-publication.
+"""Nationwide source discovery, with all newly discovered records held for review.
 
-Discovery can use search results and news leads; publication requires a direct,
-HTTPS municipal .gov page with unambiguous municipality/state and Flock ALPR text.
+Search results and news leads are not publication evidence. Official .gov
+pages must pass identity checks AND independent editorial verification before
+any factual public record is published.
 """
 import json
 import datetime
@@ -12,7 +13,7 @@ import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 import feedparser
-from auto_publish_official import fetch_text, publish
+from auto_publish_official import fetch_text
 
 STATES = {
 "Alabama":"AL","Alaska":"AK","Arizona":"AZ","Arkansas":"AR","California":"CA",
@@ -185,7 +186,7 @@ def main():
     import os
     links=collect()
     print("Official .gov candidates:",len(links))
-    verified=0
+    eligible=0
     held=0
     queued=0
     for link in links:
@@ -200,8 +201,18 @@ def main():
                     queued+=1
                 except Exception as queue_exc: print("Queue error:",type(queue_exc).__name__)
                 continue
-            publish(row,os.environ["SUPABASE_SERVICE_ROLE_KEY"],os.environ["SUPABASE_URL"])
-            verified+=1
+            # Identity and keyword checks produce a review candidate, not
+            # a published claim. A human reviewer must verify the exact
+            # Flock-related fact and its dated government record.
+            queue_for_review(
+                link,
+                "Official government page passed initial Flock ALPR identity checks; "
+                "editorial review and verification of specific claims required",
+                os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+                os.environ["SUPABASE_URL"],
+            )
+            queued+=1
+            eligible+=1
         except Exception as exc:
             held+=1
             print("Held: fetch or publication error:",link,type(exc).__name__,str(exc)[:120])
@@ -209,7 +220,8 @@ def main():
                 queue_for_review(link,"Official-source fetch or publication failed: "+type(exc).__name__+" "+str(exc)[:180],os.environ["SUPABASE_SERVICE_ROLE_KEY"],os.environ["SUPABASE_URL"])
                 queued+=1
             except Exception as queue_exc: print("Queue error:",type(queue_exc).__name__)
-    print("Eligible official pages processed:",verified)
+    print("Eligible official pages held for editorial review:",eligible)
+    print("Official records auto-published: 0 (manual review required)")
     print("Official pages held:",held)
     print("Official sources submitted to review queue:",queued)
 
