@@ -190,12 +190,19 @@ def scan(client, label):
             mid = row.get("MatterId")
             if type(mid) is not int or mid < 1 or mid in seen_ids:
                 continue
+            # Legistar can expose a matter in its API while marking it
+            # restricted from public web view. Never enqueue such matters.
+            if row.get("MatterRestrictViewViaWeb") is True:
+                continue
             seen_ids.add(mid)
             new_ids += 1
             body = " ".join(str(row.get(k) or "") for k in SEARCH_FIELDS)
             if not TERMS.search(body):
                 continue
-            link = "https://" + client + ".legistar.com/LegislationDetail.aspx?ID=" + str(mid)
+            # The Legistar Web API MatterId is NOT the browser LegislationDetail
+            # ID. The official API matter endpoint is the only deterministic
+            # primary-source URL until a public detail link is separately checked.
+            link = base + "/" + str(mid)
             details = enrich(client, mid)
             lead_title = str(row.get("MatterName") or row.get("MatterTitle")
                              or "Government ALPR agenda matter")
