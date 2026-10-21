@@ -41,7 +41,13 @@ declare
   v_status text;
 begin
   if tg_op = 'UPDATE' then
-    if (to_jsonb(new) - 'status') is distinct from (to_jsonb(old) - 'status') then
+    if (new.tenant,new.matter_id,new.jurisdiction_label,new.matter_title,
+        new.file_number,new.government_evidence_url,new.intro_date,
+        new.verified_at,new.verification_method)
+       is distinct from
+       (old.tenant,old.matter_id,old.jurisdiction_label,old.matter_title,
+        old.file_number,old.government_evidence_url,old.intro_date,
+        old.verified_at,old.verification_method) then
       raise exception 'Verified agenda provenance is immutable; revoke instead of rewriting';
     end if;
     if old.status = 'revoked' and new.status = 'verified' then
