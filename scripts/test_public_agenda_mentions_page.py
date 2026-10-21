@@ -51,6 +51,13 @@ class PublicAgendaPageTests(unittest.TestCase):
         self.assertIn('not contract approvals', self.js)
         self.assertIn('Official agenda mentions', self.html)
 
+    def test_official_decisions_do_not_imply_signed_contracts(self):
+        self.assertIn("verified_flock_legislative_decisions", self.js)
+        self.assertIn("Recorded legislative decision", self.js)
+        self.assertIn("does not by itself prove a signed agreement", self.js)
+        self.assertIn("individual vote", self.js)
+        self.assertIn("Official legislative action recorded:", self.js)
+
     def test_public_content_is_rendered_as_text(self):
         self.assertIn("textContent", self.js)
         self.assertNotIn(".innerHTML", self.js)
