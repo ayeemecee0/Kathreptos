@@ -61,7 +61,7 @@
     }).addTo(map);
     state.areaLayer = L.layerGroup().addTo(map);
     state.pointLayer = L.layerGroup().addTo(map);
-    state.routeLayer = L.layerGroup().addTo(map);
+    state.routeLayer = L.featureGroup().addTo(map);
     state.simLayer = L.layerGroup().addTo(map);
     map.on('moveend', () => {
       clearTimeout(state.viewportTimer);

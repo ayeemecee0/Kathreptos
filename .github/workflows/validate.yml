@@ -20,6 +20,11 @@ on:
       - 'supabase/migrations/015_auto_legislative_decisions.sql'
       - 'supabase/migrations/016_official_contract_documents.sql'
       - 'supabase/migrations/017_verified_document_hosts.sql'
+      - 'supabase/migrations/018_camera_map_locations.sql'
+      - 'index.html'
+      - 'map.js'
+      - 'map.css'
+      - 'legacy-simulator.html'
       - 'records.html'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
@@ -284,6 +289,15 @@ jobs:
             -f supabase/migrations/016_official_contract_documents.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/017_verified_document_hosts.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/018_camera_map_locations.sql
+          # No hypothetical cameras may be seeded into the live verified map.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.flock_camera_locations" | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_locations','INSERT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_camera_locations','INSERT')" | grep -qx t
           # Source-domain validation must be enforced inside PostgreSQL,
           # not only in the scanner. These are vendor-scoped example URLs,
           # not a claim that the government documents are signed contracts.
@@ -438,3 +452,5 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Test government-domain safety
         run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Validate map interface JavaScript syntax
+        run: node --check map.js
