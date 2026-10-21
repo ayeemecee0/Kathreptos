@@ -11,6 +11,7 @@ on:
       - 'supabase/migrations/008_publish_verified_oakland_resolution.sql'
       - 'supabase/migrations/009_publication_editorial_guard.sql'
       - 'supabase/migrations/010_editorial_dashboard_auth_and_rpc.sql'
+      - 'supabase/migrations/011_general_lead_review_and_audit.sql'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
@@ -161,6 +162,8 @@ jobs:
           SQL
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/010_editorial_dashboard_auth_and_rpc.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/011_general_lead_review_and_audit.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.editorial_reviewers(user_id,role,granted_by)
             values ('11111111-1111-4111-8111-111111111111','publisher','CI test'),
@@ -216,6 +219,28 @@ jobs:
                where event_type in ('approve','publish')" | grep -qx 2
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.contracts" | grep -qx 0
+          # Approved publisher can privately triage non-Legistar news candidates.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub',
+            '11111111-1111-4111-8111-111111111111',true);
+          select public.editorial_general_decide(
+            (value->>'id')::uuid,'accept',
+            (value->>'updated_at')::timestamptz,
+            'general_alpr','general_alpr','https://example.gov/public-report',
+            'Official document reviewed; general ALPR only, not a Flock contract')
+          from pg_catalog.jsonb_array_elements(
+            public.editorial_general_list('all',50,0)->'items')
+          where value->>'headline'='Other public article';
+          commit;
+          SQL
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.discovery_queue
+             where url='https://example.org/city-news' and status='accepted'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.editorial_general_events
+               where event_type='accept'" | grep -qx 1
           # A reviewer must never be able to publish an already-approved item.
           # Check the private allowlist has no direct table grants for users.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
