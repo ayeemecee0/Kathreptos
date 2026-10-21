@@ -1,6 +1,6 @@
 """Discover ALPR-related public Legistar agenda matters from verified registry tenants.
 
-Matches are queued privately for manual review, never published automatically.
+Matches are queued privately for independent verification; exact Flock Safety agenda mentions are published by a separate, conservative automatic verifier. No council approval or contract is inferred.
 """
 import concurrent.futures
 import json
