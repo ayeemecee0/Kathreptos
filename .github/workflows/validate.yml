@@ -6,6 +6,9 @@ on:
       - 'supabase/migrations/003_official_government_domains.sql'
       - 'supabase/migrations/004_correct_commerce_city_evidence.sql'
       - 'supabase/migrations/005_reviewed_gov_legistar_aliases.sql'
+      - 'supabase/migrations/006_legistar_source_integrity_and_review.sql'
+      - 'supabase/migrations/001_init.sql'
+      - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
   workflow_dispatch:
 
@@ -45,13 +48,46 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -c "create role anon; create role authenticated; create role service_role;"
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/001_init.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/002_government_source_registry.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/003_official_government_domains.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/004_correct_commerce_city_evidence.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/005_reviewed_gov_legistar_aliases.sql
+          # Seed one broken legacy link and one unrelated queue item.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "insert into public.discovery_queue (url,headline,publisher,status) values
+            ('https://costamesa.legistar.com/LegislationDetail.aspx?ID=2660',
+             'Flock Safety ALPR lease agreement','Costa Mesa, CA','unreviewed'),
+            ('https://example.org/city-news','Other public article','Publisher','unreviewed');"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/006_legistar_source_integrity_and_review.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.official_government_domains where verification_status='verified'" | grep -qx 5
+          # Confirm broken public-ID link is replaced and its original retained.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.agenda_evidence_reviews r
+              join public.discovery_queue q on q.id=r.discovery_queue_id
+             where r.tenant='costamesa' and r.matter_id=2660
+               and q.url='https://webapi.legistar.com/v1/costamesa/matters/2660'
+               and r.original_discovery_url='https://costamesa.legistar.com/LegislationDetail.aspx?ID=2660'
+               and r.review_state='needs_primary_review'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.discovery_queue where url='https://example.org/city-news'" | grep -qx 1
+          # Check new source insert automatically creates a private review row.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "insert into public.discovery_queue(url,headline,publisher) values
+            ('https://webapi.legistar.com/v1/mountainview/matters/10357',
+             'Automated License Plate Reader Contract','Mountain View, CA');"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.agenda_evidence_reviews
+              where tenant='mountainview' and matter_id=10357 and review_state='needs_primary_review'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from pg_class c where
+            c.oid='public.agenda_evidence_reviews'::regclass and c.relrowsecurity=true" | grep -qx 1
           # Validate the actual seeded SQL records with the same parser as
           # production (not only hard-coded mock fixtures).
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
