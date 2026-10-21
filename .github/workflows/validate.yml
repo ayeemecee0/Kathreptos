@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'scripts/**'
+      - 'review.html'
+      - 'supabase/functions/review-evidence/**'
       - 'supabase/migrations/003_official_government_domains.sql'
       - 'supabase/migrations/004_correct_commerce_city_evidence.sql'
       - 'supabase/migrations/005_reviewed_gov_legistar_aliases.sql'
