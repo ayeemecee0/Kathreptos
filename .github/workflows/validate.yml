@@ -8,6 +8,7 @@ on:
       - 'supabase/migrations/005_reviewed_gov_legistar_aliases.sql'
       - 'supabase/migrations/006_legistar_source_integrity_and_review.sql'
       - 'supabase/migrations/007_editorial_triage_agenda_leads.sql'
+      - 'supabase/migrations/008_publish_verified_oakland_resolution.sql'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
@@ -63,7 +64,9 @@ jobs:
             "insert into public.discovery_queue (url,headline,publisher,status) values
             ('https://costamesa.legistar.com/LegislationDetail.aspx?ID=2660',
              'Flock Safety ALPR lease agreement','Costa Mesa, CA','unreviewed'),
-            ('https://example.org/city-news','Other public article','Publisher','unreviewed');"
+            ('https://example.org/city-news','Other public article','Publisher','unreviewed'),
+            ('https://oakland.legistar.com/LegislationDetail.aspx?ID=36866',
+             'OPD Community Safety Cameras Policy And FLOCK Agreement','Oakland, CA','unreviewed');"
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/006_legistar_source_integrity_and_review.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
@@ -100,6 +103,18 @@ jobs:
               and q.status='in_review'" | grep -qx 1
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.actions where review_status='published'" | grep -qx 0
+          # Publish only the independently checked, approved Oakland action.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/008_publish_verified_oakland_resolution.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.published_actions where action_date='2025-12-16'
+              and action_type='contract_approval' and person_id is null" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.contracts" | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.agenda_evidence_reviews
+             where tenant='oakland' and matter_id=36866
+             and review_state='published'" | grep -qx 1
           # Validate the actual seeded SQL records with the same parser as
           # production (not only hard-coded mock fixtures).
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
