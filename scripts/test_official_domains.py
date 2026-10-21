@@ -26,6 +26,23 @@ def approved_rows():
     }]
 
 
+
+def reviewed_gov_rows():
+    return [{
+        "domain": "cabq.gov",
+        "jurisdiction_label": "Albuquerque, NM",
+        "legistar_tenant": "cabq",
+        "legistar_evidence_url":
+            "https://www.cabq.gov/council/news/special-procedures-for-may-17-2021-city-council-meeting",
+        "allow_www": True,
+        "verification_status": "verified",
+        "evidence_url":
+            "https://www.cabq.gov/council/news/special-procedures-for-may-17-2021-city-council-meeting",
+        "reviewed_by": "project operator",
+        "reviewed_at": "2026-10-20T20:00:00Z",
+    }]
+
+
 class GovernmentDomainTests(unittest.TestCase):
     def setUp(self):
         self.approved = domains.parse_verified_rows(approved_rows())
@@ -171,6 +188,54 @@ class GovernmentDomainTests(unittest.TestCase):
         with (patch.object(scanner, "get_json", return_value=[approved_seed, unapproved]),
               patch.object(scanner, "load_approved_domains", return_value={})):
             self.assertEqual(scanner.registry_clients(), {"seattle": "Seattle, WA"})
+
+    def test_reviewed_gov_alias_is_exact(self):
+        approved = domains.parse_verified_rows(reviewed_gov_rows())
+        self.assertEqual(
+            domains.approved_tenant_for_page(
+                "https://www.cabq.gov/council/", "cabq", approved),
+            "Albuquerque, NM")
+        self.assertIsNone(domains.approved_tenant_for_page(
+            "https://www.cabq.gov/council/", "commerce", approved))
+        self.assertIsNone(domains.approved_tenant_for_page(
+            "https://fake.cabq.gov/council/", "cabq", approved))
+
+    def test_official_gov_alias_verified_by_live_link(self):
+        approved = domains.parse_verified_rows(reviewed_gov_rows())
+        page = discovery.GovernmentPage()
+        page.feed("<html><title>City of Albuquerque</title><body>"
+                  "Official city council agendas "
+                  "<a href='https://cabq.legistar.com/Calendar.aspx'>"
+                  "Council Calendar</a></body></html>")
+        page.close()
+        evidence = reviewed_gov_rows()[0]["legistar_evidence_url"]
+        self.assertEqual(
+            discovery.identity_for_tenant(
+                page, "https://cabq.legistar.com/", evidence, approved),
+            "Albuquerque, NM")
+        self.assertIsNone(discovery.identity_for_tenant(
+            page, "https://wrongcity.legistar.com/", evidence, approved))
+
+    def test_scanner_revoked_gov_alias_is_blocked(self):
+        approved = domains.parse_verified_rows(reviewed_gov_rows())
+        row = {
+            "source_url": "https://cabq.legistar.com/",
+            "host": "cabq.legistar.com",
+            "jurisdiction_label": "Albuquerque, NM",
+            "evidence_url": reviewed_gov_rows()[0]["legistar_evidence_url"],
+        }
+        with (patch.object(scanner, "get_json", return_value=[row]),
+              patch.object(scanner, "load_approved_domains", return_value=approved)):
+            self.assertEqual(scanner.registry_clients(), {"cabq": "Albuquerque, NM"})
+        with (patch.object(scanner, "get_json", return_value=[row]),
+              patch.object(scanner, "load_approved_domains", return_value={})):
+            self.assertEqual(scanner.registry_clients(), {})
+
+    def test_vendor_customer_care_is_not_government_candidate(self):
+        self.assertIsNone(discovery.candidate(
+            "https://customercare.legistar.com/", "legistar"))
+        self.assertIsNone(discovery.tenant_url(
+            "https://customercare.legistar.com/"))
 
     def test_verifier_denies_wrong_label_for_right_tenant(self):
         row = {
