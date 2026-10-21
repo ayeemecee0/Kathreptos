@@ -81,7 +81,19 @@ def registry_clients():
             print("Registry entry skipped: missing trusted evidence URL", host)
             continue
         if gov_host(parsed_evidence.hostname):
-            pass  # Already verified government-source record backed by .gov
+            # Ordinary .gov evidence is valid when the domain, Legistar
+            # tenant and jurisdiction all agree. Abbreviated/alternative
+            # names such as cabq or cook-county need a CURRENT explicitly
+            # reviewed binding, and are skipped if that binding is revoked.
+            government_stem = parsed_evidence.hostname.rsplit(".", 2)[-2].lower()
+            normalized_label = re.sub(
+                r"[^a-z0-9]", "", label.split(",", 1)[0].lower())
+            normalized_tenant = re.sub(r"[^a-z0-9]", "", client_code)
+            if not (normalized_tenant == normalized_label == government_stem):
+                current_label = approved_tenant_for_page(evidence, client_code, approved)
+                if current_label != label:
+                    print("Registry entry skipped: unapproved government tenant alias", host)
+                    continue
         elif legacy_proof:
             pass  # Known four manually reviewed Legistar tenants only
         else:
