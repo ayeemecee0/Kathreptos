@@ -237,7 +237,27 @@ function linkify(url,label,box){try{
   box.append(a);
 }catch{}}
 function fill(select,entries){select.replaceChildren();entries.forEach(row=>{const o=new Option(row[1],row[0]);select.add(o)})}
-function setBusy(on){busy=on;document.querySelectorAll('#workspace button').forEach(b=>{if(b.id!=='tabAgenda'&&b.id!=='tabGeneral')b.disabled=on});}
+function setBusy(on){
+  busy=on;
+  const buttons=['refresh','previous','next','reloadEvidence','saveAgenda','approveAgenda',
+    'rejectAgenda','reopenAgenda','publishAgenda','saveGeneral','acceptGeneral',
+    'rejectGeneral','reopenGeneral'];
+  if(on){for(const id of buttons)$(id).disabled=true;return;}
+  for(const id of buttons)$(id).disabled=false;
+  $('previous').disabled=page===0;
+  $('next').disabled=(page+1)*pageSize>=total;
+  const state=selected?itemStatus(selected):'';
+  if(kind==='agenda'){
+    for(const id of ['saveAgenda','approveAgenda','rejectAgenda']){
+      $(id).disabled=state==='published'||state==='rejected';
+    }
+    $('publishAgenda').disabled=state==='published';
+  }else{
+    for(const id of ['saveGeneral','acceptGeneral','rejectGeneral']){
+      $(id).disabled=state==='accepted'||state==='rejected';
+    }
+  }
+}
 function itemStatus(item){return kind==='agenda'?item.review_state:item.status;}
 function statusClass(v){return ['source_verified','ready_to_publish','published','accepted'].includes(v)?'ok':['rejected'].includes(v)?'deny':'wait'}
 async function begin(){
@@ -266,6 +286,7 @@ async function refreshAccess(session){
 async function authForm(event,signup=false){
   if(event?.preventDefault)event.preventDefault();
   const email=$('email').value.trim(),password=$('password').value;
+  if(!client){alertBox('Supabase login library is unavailable. Check your connection and refresh.',true,'authNotice');return;}
   if(!email||password.length<8){alertBox('Enter an email and password of at least eight characters.',true,'authNotice');return;}
   alertBox('Contacting Supabase Auth…',false,'authNotice');
   const res=signup ?
