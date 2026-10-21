@@ -1,0 +1,19 @@
+name: Inspect official Legistar decision schemas
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/inspect_legistar_actions.py', '.github/workflows/inspect_legistar_actions.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Inspect public legislative histories
+        run: python scripts/inspect_legistar_actions.py
