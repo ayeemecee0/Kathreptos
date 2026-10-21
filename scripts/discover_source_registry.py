@@ -15,6 +15,11 @@ import socket
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from government_domain_registry import (
+    approved_evidence_pages, approved_tenant_for_page,
+    load_approved_domains, official_url as trusted_official_url,
+    public_dns,
+)
 
 SEEDS = {"costamesa":"Costa Mesa, CA","oakland":"Oakland, CA",
          "seattle":"Seattle, WA","lacounty":"Los Angeles County, CA"}
@@ -76,14 +81,14 @@ def rss(query):
     return [(item.findtext("link") or "",item.findtext("description") or "")
             for item in root.findall(".//item")]
 
-def candidate(url,kind,label=None,status="candidate",evidence=None):
+def candidate(url,kind,label=None,status="candidate",evidence=None,approved=None):
     p=urllib.parse.urlsplit(url)
     host=(p.hostname or "").lower()
     if p.scheme!="https" or not host or p.username or p.password or p.port not in (None,443):
         return None
     if kind=="legistar" and not re.fullmatch(r"[a-z0-9-]{3,40}\.legistar\.com",host):
         return None
-    if kind!="legistar" and not host.endswith(".gov"):
+    if kind!="legistar" and not trusted_official_url(url, approved or {}):
         return None
     normalized="https://"+host+(p.path or "/")
     return {"source_url":normalized[:1000],"host":host,"source_kind":kind,
@@ -92,10 +97,24 @@ def candidate(url,kind,label=None,status="candidate",evidence=None):
 
 
 class SafeGovernmentRedirect(urllib.request.HTTPRedirectHandler):
+    def __init__(self, approved, initial_host):
+        super().__init__()
+        self.approved = approved
+        self.initial_host = initial_host
+        self.initial_custom_domain = not self.initial_host.endswith(".gov")
+
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        safe_url = official_url(newurl)
-        if not safe_url or not public_dns(urllib.parse.urlsplit(safe_url).hostname):
-            raise ValueError("Redirect leaves approved HTTPS .gov hosts")
+        safe_url = official_url(newurl, self.approved)
+        if not safe_url:
+            raise ValueError("Redirect leaves approved government domains")
+        host = urllib.parse.urlsplit(safe_url).hostname
+        if self.initial_custom_domain:
+            initial_row = self.approved.get(self.initial_host.removeprefix("www."))
+            current_row = self.approved.get(host.removeprefix("www."))
+            if initial_row is None or current_row is not initial_row:
+                raise ValueError("Custom-domain redirect changed government authority")
+        if not public_dns(host):
+            raise ValueError("Government redirect resolves outside public internet")
         return super().redirect_request(req, fp, code, msg, headers, safe_url)
 
 
@@ -139,19 +158,8 @@ class GovernmentPage(HTMLParser):
         self.branding.append(" ".join(self._title_parts))
 
 
-def official_url(url):
-    """Only accept public HTTPS .gov hostnames with no embedded credentials."""
-    try:
-        p = urllib.parse.urlsplit(html.unescape(url).strip())
-        host = (p.hostname or "").lower()
-        if (p.scheme.lower() != "https" or not host.endswith(".gov")
-                or host == ".gov" or p.username or p.password
-                or p.port not in (None, 443)):
-            return None
-        cleaned = urllib.parse.urlunsplit(("https", host, p.path or "/", p.query, ""))
-        return cleaned if len(cleaned) <= 1000 else None
-    except ValueError:
-        return None
+def official_url(url, approved):
+    return trusted_official_url(html.unescape(str(url)), approved)
 
 
 def tenant_url(url):
@@ -166,26 +174,18 @@ def tenant_url(url):
         return None
 
 
-def public_dns(host):
-    try:
-        addresses = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
-        return bool(addresses) and all(
-            ipaddress.ip_address(result[4][0]).is_global for result in addresses)
-    except (OSError, ValueError):
-        return False
-
-
-def fetch_government_page(url):
-    normalized = official_url(url)
+def fetch_government_page(url, approved):
+    normalized = official_url(url, approved)
     if not normalized:
         raise ValueError("Not an official HTTPS .gov URL")
     if not public_dns(urllib.parse.urlsplit(normalized).hostname):
         raise ValueError("Government host did not resolve to a public IP")
-    opener = urllib.request.build_opener(SafeGovernmentRedirect)
+    initial_host = urllib.parse.urlsplit(normalized).hostname
+    opener = urllib.request.build_opener(SafeGovernmentRedirect(approved, initial_host))
     req = urllib.request.Request(normalized, headers={
         "User-Agent": USER_AGENT, "Accept": "text/html"})
     with opener.open(req, timeout=10) as response:
-        final_url = official_url(response.geturl())
+        final_url = official_url(response.geturl(), approved)
         if not final_url:
             raise ValueError("Government evidence redirected outside .gov")
         if "text/html" not in response.headers.get("Content-Type", "").lower():
@@ -232,7 +232,7 @@ def tenant_matches_jurisdiction(tenant, label):
                     "countyof" + name, name + "city", name + "county"}
 
 
-def links_from_official(url, page):
+def links_from_official(url, page, approved):
     tenants, follow = set(), []
     original_host = urllib.parse.urlsplit(url).hostname
     for href, title in page.links:
@@ -241,7 +241,7 @@ def links_from_official(url, page):
         if tenant:
             tenants.add(tenant)
             continue
-        internal = official_url(dest)
+        internal = official_url(dest, approved)
         if (internal and urllib.parse.urlsplit(internal).hostname == original_host
                 and any(term in (internal + " " + title).lower() for term in FOLLOW_TERMS)
                 and internal != url):
@@ -275,10 +275,15 @@ def registry_candidate_tenants():
                    if url})
 
 
-def identity_for_tenant(page, tenant, evidence_url):
+def identity_for_tenant(page, tenant, evidence_url, approved):
     """Get an agency name from official page branding, not a search snippet."""
     code = urllib.parse.urlsplit(tenant).hostname.split(".", 1)[0]
+    approved_identity = approved_tenant_for_page(evidence_url, code, approved)
+    if approved_identity:
+        return approved_identity
     government_host = urllib.parse.urlsplit(evidence_url).hostname or ""
+    if not government_host.endswith(".gov"):
+        return None
     # Require a congruent government host. Ambiguous short aliases (slco,
     # sfgov) remain for manual jurisdiction verification.
     government_parts = government_host.split(".")
@@ -328,13 +333,15 @@ def identity_for_tenant(page, tenant, evidence_url):
 
 
 def collect():
+    approved = load_approved_domains()
+    print("Explicitly verified custom government domains loaded:", len(approved))
     found = {}
     for code, label in SEEDS.items():
         item = candidate("https://" + code + ".legistar.com/", "legistar", label,
                          "verified", "https://" + code + ".legistar.com/")
         found[item["source_url"]] = item
 
-    government_pages = list(GOV_EVIDENCE_SEEDS)
+    government_pages = list(GOV_EVIDENCE_SEEDS) + approved_evidence_pages(approved)
     try:
         registry_tenants = registry_candidate_tenants()
     except Exception as exc:
@@ -348,6 +355,9 @@ def collect():
         # Requiring site:.gov inside Bing RSS tends to hide actual city websites.
         targeted.append('"' + hostname + '" "city council"')
         targeted.append('site:' + code + '.gov "' + hostname + '"')
+    for entry in approved.values():
+        targeted.append('site:' + entry["domain"] +
+                        ' "' + entry["legistar_tenant"] + '.legistar.com"')
     queries = list(dict.fromkeys(QUERIES + targeted))
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         tasks = {pool.submit(rss, query): query for query in queries}
@@ -361,11 +371,11 @@ def collect():
                         item = candidate("https://" + match.group(1) + ".legistar.com/", "legistar")
                         if item:
                             found.setdefault(item["source_url"], item)
-                    url = official_url(link)
+                    url = official_url(link, approved)
                     if url:
                         government_pages.append(url)
                     for match in GOV.finditer(combined):
-                        url = official_url(match.group(0).rstrip(".,);"))
+                        url = official_url(match.group(0).rstrip(".,);"), approved)
                         if url:
                             government_pages.append(url)
             except Exception as exc:
@@ -385,7 +395,7 @@ def collect():
             continue
         checked += len(batch)
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-            tasks = {pool.submit(fetch_government_page, url): url for url in batch}
+            tasks = {pool.submit(fetch_government_page, url, approved): url for url in batch}
             for task in concurrent.futures.as_completed(tasks):
                 url = tasks[task]
                 try:
@@ -393,17 +403,17 @@ def collect():
                 except Exception as exc:
                     print("Government page held:", url[:130], type(exc).__name__, str(exc)[:90])
                     continue
-                gov_item = candidate(final_url, "government_portal")
+                gov_item = candidate(final_url, "government_portal", approved=approved)
                 if gov_item:
                     found.setdefault(gov_item["source_url"], gov_item)
-                tenants, follow = links_from_official(final_url, page)
+                tenants, follow = links_from_official(final_url, page, approved)
                 direct_links += len(tenants)
                 for tenant in sorted(tenants):
                     if tenant in conflicts:
                         continue
                     # Cross-jurisdiction links are not evidence that the tenant
                     # belongs to this government. Leave unknown aliases unverified.
-                    matched_label = identity_for_tenant(page, tenant, final_url)
+                    matched_label = identity_for_tenant(page, tenant, final_url, approved)
                     item = candidate(tenant, "legistar", matched_label, "candidate",
                                      final_url if matched_label else None)
                     existing = found.get(tenant)
