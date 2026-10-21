@@ -16,6 +16,15 @@ TERMS = re.compile(r"\b(?:flock\s+safety|automated?\s+license\s+plate\s+readers?
 TENANT = re.compile(r"([a-z0-9-]{3,40})\.legistar\.com", re.I)
 USER_AGENT = "Katoptron/1.0 public records research"
 LEGACY_PREAPPROVED = {"seattle", "lacounty", "costamesa", "oakland"}
+# Bounded historical coverage: at most 2,000 publicly listed agenda matters
+# per verified tenant per run. Legistar's public API supports $top/$skip paging.
+PAGE_SIZE = 250
+MAX_PAGES_PER_TENANT = 8
+MAX_MATCHES_PER_TENANT = 60
+SEARCH_FIELDS = (
+    "MatterName", "MatterTitle", "MatterTypeName", "MatterNotes",
+    "MatterText1", "MatterText2", "MatterText3",
+)
 
 
 def get_json(url, headers=None):
@@ -130,29 +139,62 @@ def enrich(client, mid):
 
 
 def scan(client, label):
-    url = "https://webapi.legistar.com/v1/" + client + "/matters?%24top=250&%24orderby=MatterId%20desc"
-    rows = get_json(url)
-    if not isinstance(rows, list):
-        raise ValueError("Unexpected Legistar API response")
+    """Scan several recent-and-historical pages, with strict request bounds."""
+    base = "https://webapi.legistar.com/v1/" + client + "/matters"
     leads = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        body = " ".join(str(row.get(k) or "") for k in ("MatterName", "MatterTitle", "MatterTypeName"))
-        if not TERMS.search(body):
-            continue
-        mid = row.get("MatterId")
-        if type(mid) is not int or mid < 1:
-            continue
-        link = "https://" + client + ".legistar.com/LegislationDetail.aspx?ID=" + str(mid)
-        details = enrich(client, mid)
-        leads.append({
-            "url": link,
-            "headline": str(row.get("MatterName") or "Government ALPR agenda matter")[:300],
-            "publisher": label,
-            "snippet": ("Official public agenda matter; manual source verification required. " + body + " | " + details)[:500],
-            "status": "unreviewed",
+    seen_ids = set()
+    pages_fetched = 0
+    for page in range(MAX_PAGES_PER_TENANT):
+        params = urllib.parse.urlencode({
+            "$top": str(PAGE_SIZE),
+            "$skip": str(page * PAGE_SIZE),
+            "$orderby": "MatterId desc",
         })
+        rows = get_json(base + "?" + params)
+        if not isinstance(rows, list):
+            raise ValueError("Unexpected Legistar API response")
+        if not rows:
+            break
+        pages_fetched += 1
+        new_ids = 0
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            mid = row.get("MatterId")
+            if type(mid) is not int or mid < 1 or mid in seen_ids:
+                continue
+            seen_ids.add(mid)
+            new_ids += 1
+            body = " ".join(str(row.get(k) or "") for k in SEARCH_FIELDS)
+            if not TERMS.search(body):
+                continue
+            link = "https://" + client + ".legistar.com/LegislationDetail.aspx?ID=" + str(mid)
+            details = enrich(client, mid)
+            lead_title = str(row.get("MatterName") or row.get("MatterTitle")
+                             or "Government ALPR agenda matter")
+            leads.append({
+                "url": link,
+                "headline": lead_title[:300],
+                "publisher": label,
+                "snippet": ("Official public agenda matter; manual source verification required. "
+                            + body + " | " + details)[:500],
+                "status": "unreviewed",
+            })
+            if len(leads) >= MAX_MATCHES_PER_TENANT:
+                break
+        # Some API clients may ignore $skip. Stop rather than repeatedly
+        # processing the same page, and report incomplete pagination.
+        if new_ids == 0:
+            print("Official agenda pagination repeated; stopped:", client, page)
+            break
+        if len(leads) >= MAX_MATCHES_PER_TENANT:
+            print("Official agenda match cap reached:", client, MAX_MATCHES_PER_TENANT)
+            break
+        if len(rows) < PAGE_SIZE:
+            break
+    print("Official agenda scan coverage:", client,
+          "pages", pages_fetched, "unique matters", len(seen_ids),
+          "matched", len(leads))
     return leads
 
 
