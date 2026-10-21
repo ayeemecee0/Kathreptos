@@ -174,6 +174,19 @@ def write_verified(item):
     return bool(rows)
 
 
+def mark_rechecked(key):
+    qs=urllib.parse.urlencode({
+        "record_key":"eq."+key,
+        "verification_status":"eq.verified",
+    })
+    now=dt.datetime.now(dt.timezone.utc).isoformat()
+    receipt=api_request("flock_camera_locations?"+qs,
+        method="PATCH",payload={"last_source_recheck_at":now},
+        prefer="return=minimal")
+    if receipt is not None:
+        raise ValueError("Unexpected official source recheck receipt")
+
+
 def fetch_existing(prefix):
     query=urllib.parse.urlencode({
         "select":"record_key,verification_status",
@@ -223,6 +236,8 @@ def sync(dry_run=False):
                 if write_verified(item):
                     counts["published"]+=1
                 else:
+                    mark_rechecked(item["record_key"])
+                    counts["rechecked"]+=1
                     counts["existing"]+=1
             # Recheck: when the official, complete inventory changes,
             # withdraw locations whose exact record+coordinate fingerprint
@@ -234,7 +249,7 @@ def sync(dry_run=False):
         except Exception as exc:
             counts["errors"]+=1
             print("Official GIS source held:",name,type(exc).__name__,str(exc)[:200])
-    for k in ("features_checked","eligible","published","existing","revoked","errors"):
+    for k in ("features_checked","eligible","published","existing","rechecked","revoked","errors"):
         print("Camera GIS",k+":",counts[k])
     return counts
 

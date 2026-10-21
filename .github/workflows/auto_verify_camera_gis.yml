@@ -10,6 +10,7 @@ on:
       - 'scripts/auto_verify_camera_gis.py'
       - 'scripts/test_auto_verify_camera_gis.py'
       - 'supabase/migrations/019_camera_source_pipeline.sql'
+      - 'supabase/migrations/020_camera_source_recheck_freshness.sql'
       - '.github/workflows/auto_verify_camera_gis.yml'
 
 permissions:

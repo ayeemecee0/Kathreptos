@@ -38,7 +38,7 @@
       : 'Approximate deployment area · NOT an individual camera position');
     add('span', record.jurisdiction_label);
     add('small', record.evidence_summary);
-    add('small', 'Last documented: ' + shortDate(record.last_confirmed_on));
+    add('small', 'Source last checked: ' + shortDate(record.last_source_recheck_at || record.last_confirmed_on));
     const url = safeUrl(record.source_url);
     if (url) {
       const link = add('a', 'Inspect original evidence ↗');
@@ -90,7 +90,7 @@
     }
     setText('coverageSpinner', 'Checking live sources…');
     const query = new URLSearchParams({
-      select: 'id,record_key,label,jurisdiction_label,latitude,longitude,location_accuracy,uncertainty_radius_m,source_type,source_url,evidence_summary,last_confirmed_on',
+      select: 'id,record_key,label,jurisdiction_label,latitude,longitude,location_accuracy,uncertainty_radius_m,source_type,source_url,evidence_summary,last_confirmed_on,last_source_recheck_at',
       verification_status: 'eq.verified',
       latitude: 'gte.' + south.toFixed(6),
       longitude: 'gte.' + west.toFixed(6),

@@ -53,10 +53,12 @@ class GISVerification(unittest.TestCase):
   with (patch.object(gis,"fetch_verified_sources",return_value=[SOURCE]),
         patch.object(gis,"gis_query",return_value={"features":[feature()]}),
         patch.object(gis,"write_verified") as save,
+        patch.object(gis,"mark_rechecked") as recheck,
         patch.object(gis,"revoke_stale") as revoke):
    out=gis.sync(dry_run=True)
   self.assertEqual(out["eligible"],1)
   save.assert_not_called()
+  recheck.assert_not_called()
   revoke.assert_not_called()
  def test_only_complete_updated_inventory_can_revoke(self):
   with (patch.object(gis,"fetch_verified_sources",return_value=[SOURCE]),
@@ -68,6 +70,15 @@ class GISVerification(unittest.TestCase):
    out=gis.sync()
   self.assertEqual(out["revoked"],1)
   revoke.assert_called_once()
+ def test_rechecked_records_refresh_timestamp_without_rewriting_facts(self):
+  with (patch.object(gis,"fetch_verified_sources",return_value=[SOURCE]),
+        patch.object(gis,"gis_query",return_value={"features":[feature()]}),
+        patch.object(gis,"write_verified",return_value=False),
+        patch.object(gis,"mark_rechecked") as recheck,
+        patch.object(gis,"fetch_existing",return_value=[])):
+   out=gis.sync()
+  self.assertEqual(out["rechecked"],1)
+  recheck.assert_called_once()
  def test_empty_inventory_does_not_revoke(self):
   with (patch.object(gis,"fetch_verified_sources",return_value=[SOURCE]),
         patch.object(gis,"gis_query",return_value={"features":[]}),
