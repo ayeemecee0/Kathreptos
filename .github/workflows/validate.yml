@@ -14,6 +14,7 @@ on:
       - 'supabase/migrations/009_publication_editorial_guard.sql'
       - 'supabase/migrations/010_editorial_dashboard_auth_and_rpc.sql'
       - 'supabase/migrations/011_general_lead_review_and_audit.sql'
+      - 'supabase/migrations/012_reopen_private_research_leads.sql'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
@@ -243,6 +244,27 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.editorial_general_events
                where event_type='accept'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/012_reopen_private_research_leads.sql
+          # Accepted research leads can be reopened without SQL edits.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub',
+            '11111111-1111-4111-8111-111111111111',true);
+          select public.editorial_general_decide(
+            (value->>'id')::uuid,'reopen',
+            (value->>'updated_at')::timestamptz,
+            'general_alpr','general_alpr','https://example.gov/public-report',
+            'Correction initiated for the research lead'
+          ) from pg_catalog.jsonb_array_elements(
+            public.editorial_general_list('all',60,0)->'items')
+            where value->>'headline'='Other public article';
+          commit;
+          SQL
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.discovery_queue
+             where url='https://example.org/city-news' and status='in_review'" | grep -qx 1
           # A reviewer must never be able to publish an already-approved item.
           # Check the private allowlist has no direct table grants for users.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
