@@ -240,11 +240,17 @@ def queue(lead):
         headers={
             "apikey": key, "Authorization": "Bearer " + key,
             "Content-Type": "application/json",
-            "Prefer": "resolution=ignore-duplicates,return=minimal",
+            "Prefer": "resolution=ignore-duplicates,return=representation",
         },
     )
     with urllib.request.urlopen(request, timeout=12) as response:
-        return response.status
+        raw = response.read(50_001)
+    if len(raw) > 50_000:
+        raise ValueError("Queue insert response too large")
+    inserted = json.loads(raw) if raw else []
+    if not isinstance(inserted, list) or len(inserted) > 1:
+        raise ValueError("Unexpected queue insert response")
+    return bool(inserted)
 
 
 def main():
@@ -263,14 +269,18 @@ def main():
                 print("Official agenda source unavailable:", client, type(exc).__name__, str(exc)[:120])
     unique = {lead["url"]: lead for lead in all_leads}
     print("Unique official agenda leads:", len(unique))
-    queued = 0
+    submitted = 0
+    created = 0
     for lead in unique.values():
         try:
-            queue(lead)
-            queued += 1
+            is_new = queue(lead)
+            submitted += 1
+            created += int(is_new)
         except Exception as exc:
             print("Agenda queue error:", type(exc).__name__, str(exc)[:120])
-    print("Official agenda leads queued:", queued)
+    print("Official agenda leads submitted:", submitted)
+    print("New official agenda leads added:", created)
+    print("Existing official agenda leads skipped:", submitted - created)
     print("Agenda records auto-published: 0 (review required)")
 
 
