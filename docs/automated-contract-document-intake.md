@@ -28,3 +28,30 @@ The table's \`execution_status\` is hard-coded to \`not_verified\`, including fo
 Implement a separate, narrowly scoped verifier that confirms the specific signed agreement (including both contracting parties, actual signatures or independently verifiable executed status, and the executed date) using official records or cryptographic document verification. Only then permit a distinct \`verified_flock_executed_contracts\` record, with evidence-level classification and correction handling. Expand verified government document hosts based on independently confirmed government authority rather than relaxing URL checks.
 
 The optional review dashboard is for exceptions; routine collection and conservative evidence publication require no human approvals.
+
+
+## October 21 observed production URL formats / supported host trust
+
+The initial scan saw **20 current government attachment references** across
+five verified Legistar matters but accepted none because only
+\`{tenant}.legistar.com\` was permitted. Live government API metadata showed:
+
+- \`oakland.legistar1.com/oakland/attachments/{uuid}.pdf\` (11)
+- \`costamesa.legistar1.com/costamesa/attachments/{uuid}.pdf\` (3)
+- \`legistar.granicus.com/Commerce/attachments/{uuid}.pdf\` (4)
+- \`legistar1.granicus.com/mountainview/attachments/{uuid}.pdf\` (2)
+
+Migration 017 and the updated verifier accept these **exact scoped forms**
+only when returned by a freshly checked official API matter. The hostname
+alone is insufficient: cross-jurisdictional tenant paths, non-UUID names,
+query-string variants and redirects to unapproved hosts fail closed.
+
+Additional city-hosted PDF links are permitted only if the host is present
+in the existing **owner-reviewed** \`official_government_domains\` registry
+with exactly matching tenant and jurisdiction, including explicit \`allow_www\`.
+New \`.gov\` or \`.com\` sites are never approved from search snippets.
+The database independently enforces the platform/municipal-host rules.
+
+The main GitHub validation workflow installs \`pypdf\` through
+\`requirements.txt\`; the initial test suite failure was caused by
+the PDF parser being omitted from that dependency manifest.

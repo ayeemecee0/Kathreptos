@@ -7,6 +7,10 @@ import auto_verify_contract_documents as contracts
 
 TENANT = "oakland"
 URL = "https://oakland.legistar.com/View.ashx?M=F&ID=123456"
+PDF_ID = "955cbde1-4b0b-4cf5-89bb-3bc18de1c785"
+OAKLAND_PDF = "https://oakland.legistar1.com/oakland/attachments/" + PDF_ID + ".pdf"
+COMMERCE_PDF = "https://legistar.granicus.com/Commerce/attachments/" + PDF_ID + ".pdf"
+MOUNTAIN_PDF = "https://legistar1.granicus.com/mountainview/attachments/" + PDF_ID + ".pdf"
 PDF_TEXT = ("THIS AGREEMENT IS ENTERED INTO BY AND BETWEEN Flock Safety and "
             "the City of Oakland. Term and Termination. IN WITNESS WHEREOF "
             "the parties enter into this services agreement. ")
@@ -40,6 +44,55 @@ class ContractTests(unittest.TestCase):
         ):
             with self.subTest(url=url):
                 self.assertIsNone(contracts.official_attachment_url(url,TENANT))
+
+
+    def test_actual_government_api_document_url_forms(self):
+        self.assertEqual(contracts.official_attachment_url(OAKLAND_PDF,"oakland"), OAKLAND_PDF)
+        self.assertEqual(contracts.official_attachment_url(COMMERCE_PDF,"commerce"), COMMERCE_PDF)
+        self.assertEqual(contracts.official_attachment_url(MOUNTAIN_PDF,"mountainview"), MOUNTAIN_PDF)
+
+    def test_other_tenants_cannot_be_claimed_as_their_documents(self):
+        for url in (
+            "https://oakland.legistar1.com/costamesa/attachments/" + PDF_ID + ".pdf",
+            "https://legistar.granicus.com/oakland/attachments/" + PDF_ID + ".pdf",
+            "https://evil.granicus.com/oakland/attachments/" + PDF_ID + ".pdf",
+            "https://oakland.legistar1.com/oakland/attachments/not-a-uuid.pdf",
+            "https://oakland.legistar1.com/oakland/attachments/" + PDF_ID + ".pdf?token=x",
+            "https://legistar.granicus.com/oakland/attachments/" + PDF_ID + ".pdf#abc",
+            "https://legistar.granicus.com@evil.example/oakland/attachments/" + PDF_ID + ".pdf",
+        ):
+            with self.subTest(url=url):
+                self.assertIsNone(contracts.official_attachment_url(url,"oakland"))
+
+    def test_municipal_hosts_require_preapproved_exact_binding(self):
+        url = "https://www.c3gov.com/meetings/city/FlockAgreement.pdf"
+        self.assertIsNone(contracts.official_attachment_url(url,"commerce"))
+        self.assertEqual(contracts.official_attachment_url(url,"commerce",{"www.c3gov.com"}),url)
+        for bad in (
+            "http://www.c3gov.com/meetings/city/FlockAgreement.pdf",
+            "https://www.c3gov.com.evil.example/FlockAgreement.pdf",
+            "https://www.c3gov.com/secret/../FlockAgreement.pdf",
+            "https://www.c3gov.com/meetings/FlockAgreement.pdf?secret=xyz",
+        ):
+            with self.subTest(bad=bad):
+                self.assertIsNone(contracts.official_attachment_url(bad,"commerce",{"www.c3gov.com"}))
+
+    def test_domain_registry_requires_matching_owner_review(self):
+        with patch.object(contracts,"api_request",return_value=[
+            {"domain":"c3gov.com","jurisdiction_label":"Commerce City, CO",
+             "legistar_tenant":"commerce","allow_www":True},
+            {"domain":"other.gov","jurisdiction_label":"Not Commerce",
+             "legistar_tenant":"commerce","allow_www":False},
+        ]):
+            result=contracts.verified_document_domains({
+                "commerce":{"jurisdiction_label":"Commerce City, CO"}})
+        self.assertEqual(result,{"commerce":{"c3gov.com","www.c3gov.com"}})
+
+    def test_redirect_refuses_cross_tenant_and_untrusted_cdn(self):
+        redirect=contracts.SameGovernmentHostRedirect("oakland")
+        with self.assertRaises(ValueError):
+            redirect.redirect_request(None,None,302,"",{},
+                "https://legistar.granicus.com/commerce/attachments/" + PDF_ID + ".pdf")
 
     def test_attachment_requires_exact_ids_and_public_visibility(self):
         valid = {"MatterAttachmentId": 23, "MatterAttachmentMatterId": 4,
@@ -114,6 +167,7 @@ class ContractTests(unittest.TestCase):
               patch.object(contracts,"verified_registry_rows",return_value=reg),
               patch.object(contracts,"fetch_public_mentions",return_value={(TENANT,4):parent}),
               patch.object(contracts,"staged_candidates",return_value=[row]),
+              patch.object(contracts,"verified_document_domains",return_value={}),
               patch.object(contracts,"official_mention",return_value=(parent,None)),
               patch.object(contracts,"get_json",return_value=[doc]),
               patch.object(contracts,"fetch_document",return_value=b"%PDF-" + b"x"*280),
