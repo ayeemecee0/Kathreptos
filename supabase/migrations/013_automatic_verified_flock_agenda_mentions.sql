@@ -33,7 +33,7 @@ create index if not exists verified_flock_agenda_mentions_date_idx
 -- Runtime guard verifies that the primary government source is still
 -- approved and that this matter was already staged in the private queue.
 create or replace function public.guard_auto_verified_flock_agenda_mention()
-returns trigger language plpgsql set search_path = ''
+returns trigger language plpgsql security definer set search_path = ''
 as $guard_auto_agenda$
 declare
   v_label text;
@@ -53,9 +53,8 @@ begin
     if old.status = 'revoked' and new.status = 'verified' then
       raise exception 'Revoked government agenda mentions cannot be silently reapproved';
     end if;
-    if current_user = 'service_role' then
-      raise exception 'Unattended workflow cannot modify published agenda mentions';
-    end if;
+    -- Service-role UPDATE/DELETE privileges are independently revoked.
+    -- This security-definer trigger checks private provenance as its owner.
     return new;
   end if;
 
