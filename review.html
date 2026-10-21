@@ -101,7 +101,7 @@ code{font-size:12px;overflow-wrap:anywhere}
 <form id="signin">
 <label>Email <input type="email" id="email" autocomplete="username" required></label>
 <label>Password <input type="password" id="password" autocomplete="current-password" minlength="8" required></label>
-<div class="actions"><button class="primary" type="submit">Sign in</button><button type="button" id="signup">Create account</button></div>
+<div class="actions"><button class="primary" type="submit">Sign in</button><button type="button" id="signup">Create account</button><button type="button" id="resendConfirmation">Resend confirmation email</button></div>
 </form>
 <p class="small" style="margin-top:17px">Creating an account may require confirming your email. Your account must also be approved as a Katoptron reviewer.</p>
 <div id="authNotice" role="status"></div>
@@ -498,6 +498,22 @@ async function decideGeneral(action){
 }
 $('signin').addEventListener('submit',event=>authForm(event,false));
 $('signup').addEventListener('click',event=>authForm(event,true));
+$('resendConfirmation').addEventListener('click',async()=>{
+  if(!client){alertBox('Supabase login library is unavailable. Please refresh.',true,'authNotice');return;}
+  const email=$('email').value.trim();
+  if(!email){alertBox('Enter your email address first, then request a new confirmation email.',true,'authNotice');return;}
+  $('resendConfirmation').disabled=true;
+  alertBox('Requesting a new confirmation email…',false,'authNotice');
+  try{
+    const result=await client.auth.resend({
+      type:'signup',email,
+      options:{emailRedirectTo:location.origin+location.pathname}
+    });
+    if(result.error)throw result.error;
+    alertBox('If this account is awaiting confirmation, a new email will arrive shortly. Use the newest confirmation link. If the link still opens localhost, correct the Supabase Auth Site URL and redirect allowlist first.',false,'authNotice');
+  }catch(error){alertBox(error.message||'Could not resend the email.',true,'authNotice');}
+  finally{$('resendConfirmation').disabled=false;}
+});
 $('signout').addEventListener('click',async()=>{await client.auth.signOut();await refreshAccess(null)});
 $('copyId').addEventListener('click',()=>navigator.clipboard.writeText(identity?.id||'').then(()=>alertBox('Account ID copied.')));
 $('checkAccess').addEventListener('click',()=>client.auth.getSession().then(r=>refreshAccess(r.data.session)));
