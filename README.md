@@ -1,25 +1,51 @@
 # Katoptron (Κάτοπτρον)
 
-A nationwide public-records accountability project focused exclusively on Flock Safety and automated license plate recognition (ALPR).
+Katoptron is a public-records accountability project focused on **Flock Safety** and **automated license plate recognition (ALPR)**. It documents what government agencies actually proposed, approved, contracted, or deployed, with primary-source links. It also includes a separate **synthetic surveillance simulator**. No real plate numbers or vehicle tracking are collected.
 
-## What works now
-- [Standalone browser simulator](./index.html) with synthetic vehicles and camera observations.
-- [Supabase database migration](./supabase/migrations/001_init.sql) for agencies, officials, contracts, actions, deployments, sources and an unpublished discovery queue.
-- [Public-news lead discovery](./scripts/discover.py). Leads are **unverified** until reviewed against primary sources.
+## Current project status
 
-## Preview the simulator
-Open `index.html` in a browser, or deploy this static file through GitHub Pages. External map and routing services require an internet connection. No Supabase project is required for the simulator.
+- **Public website:** [Katoptron on GitHub Pages](https://ayeemecee0.github.io/Katoptron/) (the simulator is on the home page).
+- **Source-verified public database:** [Verified government records](https://ayeemecee0.github.io/Katoptron/records.html), backed by Supabase read-only public views and row-level security.
+- **Private source discovery:** [Daily discovery workflow](./.github/workflows/discover.yml) gathers candidate news leads and scans only verified government Legistar tenants.
+- **Private editorial review:** [`agenda_evidence_reviews`](./supabase/migrations/006_legistar_source_integrity_and_review.sql) stores verifiable API matter references, preserved historical URLs, source-specific notes, vendor attribution, and reviewer decisions.
+- **Explicit government-domain authority:** [Government-domain approval policy](./docs/official-government-domains.md) limits custom domains and ambiguous Legistar tenant aliases to individually reviewed government evidence.
+- **Automated code and database checks:** [Validation workflow](./.github/workflows/validate.yml).
 
-## Configure the database
-1. Create a separate Supabase project for Katoptron.
-2. In Supabase SQL Editor, run `supabase/migrations/001_init.sql`.
-3. Keep the project URL and service-role key in server-side secrets only. **Never commit the service-role key or put it in the HTML file.**
-4. Locally, install dependencies: `python -m pip install -r requirements.txt`.
-5. Run `python scripts/discover.py --output candidates.json` to save unverified public news leads.
-6. To send leads to the private review queue, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on a trusted server and run the script again.
+**Current development bottleneck:** the project has a substantial backlog of private discovered leads and only a small collection of published, fully checked records. The next feature should be a **private reviewer interface and repeatable evidence-to-publication workflow**, not further indiscriminate scraping.
 
-## Verification policy
-Record exact dated decisions and link to original sources. A news mention does not prove an official's support. Do not publish private plate numbers, personal movement histories, private addresses, or targeted tracking. The simulator and real public records must remain separate.
+Read the [full end-to-end project audit and prioritized roadmap (October 2026)](./docs/project-audit-2026-10-21.md).
 
-## Not yet deployed
-The Supabase project has not been created, the SQL has not been executed, the discovery script has not been run, and the simulator is not connected to Supabase. GitHub Pages is not yet enabled.
+## Source integrity and publication policy
+
+- **Discovery is not verification.** Search snippets, news articles, Legistar API title matches, and proposed legislation are held for review.
+- **Flock Safety is not synonymous with ALPR.** Vendor identification must be explicit in the linked primary government source.
+- **An authorization is not an executed contract.** Distinguish proposed, failed, adopted, signed, deployed, superseded, and terminated statuses. Do not infer an individual's vote from an agency-level decision.
+- **Original primary sources:** official government records are linked wherever available. The Legistar API's `MatterId` is not assumed to equal a public LegislationDetail page `ID`.
+- **Publication requires editorial review.** The daily discovery workflow does **not** auto-publish newly found sources. Supabase guards block the GitHub service-role credential from marking public sources verified or inserting/modifying published facts.
+- **Privacy:** no private number plates, individual movement histories, personal addresses, or inferred real camera routes. All simulator vehicles, cameras, and detections are fictional.
+
+## Repository
+
+| Path | Purpose |
+| --- | --- |
+| [`index.html`](./index.html) | Synthetic simulator and clearly identified illustrative research links |
+| [`records.html`](./records.html) | Live, verified public records; not the unreviewed news/agenda queue |
+| [`scripts/discover.py`](./scripts/discover.py) | Unverified news leads |
+| [`scripts/discover_official.py`](./scripts/discover_official.py) | Government-page discovery; **review-only** |
+| [`scripts/discover_source_registry.py`](./scripts/discover_source_registry.py) | Conservative government-source and Legistar portal discovery |
+| [`scripts/verify_government_sources.py`](./scripts/verify_government_sources.py) | Checks official government links, jurisdiction identity, and Legistar API access |
+| [`scripts/discover_government_records.py`](./scripts/discover_government_records.py) | Bounded historical Legistar scanner, queues API matter IDs rather than constructing incorrect HTML page IDs |
+| [`supabase/migrations/`](./supabase/migrations/) | Database schema, reviewed government-domain authority, editorial staging, and publication guards |
+| [`docs/project-audit-2026-10-21.md`](./docs/project-audit-2026-10-21.md) | Full audit, known limitations, and next-step priority |
+
+## Operations
+
+The database is already created and connected. Migrations **003 through 009** have been applied to the existing Supabase project; migrations 001 and 002 were the initial schema setup. New migrations should be tested in the validation workflow's disposable PostgreSQL database before applying them in production.
+
+To launch a new discovery run, use [Discover public Flock records](https://github.com/ayeemecee0/Katoptron/actions/workflows/discover.yml) and select **Run workflow** on `main`. The workflow runs daily on a schedule.
+
+Only the Supabase **publishable key** is permitted in browser code. Keep the database service-role key restricted to GitHub Actions secrets and trusted server-side operations.
+
+## Next milestone
+
+Build a private, authenticated review interface that displays each queued item beside its **correct government document**, lets a reviewer classify Flock-specific versus general ALPR content, records the actual proposal/approval/execution status, and allows deliberate audited publication of narrowly supported claims. Keep unverified material out of public views.
