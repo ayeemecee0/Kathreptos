@@ -86,6 +86,60 @@ class HistoricLegistarTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 scanner.scan("cabq", "Albuquerque, NM")
 
+    def test_oversized_page_retries_same_offset_without_skipping(self):
+        attempts = []
+        all_matters = [
+            matter(i, "Flock Safety program" if i == 4 else "Ordinary council agenda")
+            for i in range(16, 0, -1)
+        ]
+
+        def get_page(url):
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+            offset = int(query["$skip"][0])
+            top = int(query["$top"][0])
+            attempts.append((offset, top))
+            if top > 2:
+                raise scanner.APIResponseTooLarge("API response too large")
+            return all_matters[offset:offset + top]
+
+        with (patch.object(scanner, "PAGE_SIZE", 8),
+              patch.object(scanner, "MAX_PAGES_PER_TENANT", 2),
+              patch.object(scanner, "MAX_API_REQUESTS_PER_TENANT", 12),
+              patch.object(scanner, "get_json", side_effect=get_page),
+              patch.object(scanner, "enrich", return_value="")):
+            leads = scanner.scan("cabq", "Albuquerque, NM")
+        self.assertEqual(attempts[:3], [(0, 8), (0, 4), (0, 2)])
+        self.assertEqual(attempts[-1], (14, 2))
+        self.assertEqual(len(attempts), 10)
+        self.assertEqual(len(leads), 1)
+        self.assertTrue(leads[0]["url"].endswith("ID=4"))
+        self.assertEqual(leads[0]["status"], "unreviewed")
+
+    def test_adaptive_scan_remains_request_bounded(self):
+        attempts = []
+
+        def oversized(url):
+            attempts.append(url)
+            raise scanner.APIResponseTooLarge("API response too large")
+
+        with (patch.object(scanner, "PAGE_SIZE", 256),
+              patch.object(scanner, "MAX_PAGES_PER_TENANT", 8),
+              patch.object(scanner, "MAX_API_REQUESTS_PER_TENANT", 4),
+              patch.object(scanner, "get_json", side_effect=oversized)):
+            self.assertEqual(scanner.scan("cabq", "Albuquerque, NM"), [])
+        self.assertEqual(len(attempts), 4)
+
+    def test_json_reader_does_not_increase_download_limit(self):
+        class BigResponse:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n): return b"x" * n
+
+        with (patch.object(scanner.urllib.request, "urlopen", return_value=BigResponse()),
+              patch.object(scanner, "API_RESPONSE_BYTES", 40)):
+            with self.assertRaises(scanner.APIResponseTooLarge):
+                scanner.get_json("https://webapi.legistar.com/v1/cabq/matters")
+
     def test_only_specific_keywords_match(self):
         self.assertTrue(scanner.TERMS.search("License Plate Readers"))
         self.assertTrue(scanner.TERMS.search("Automatic License Plate Recognition"))
