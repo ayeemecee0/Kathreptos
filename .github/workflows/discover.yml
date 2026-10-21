@@ -32,6 +32,8 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" || { echo "::error::Missing SUPABASE_URL repository secret"; exit 1; }
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY repository secret"; exit 1; }
+      - name: Test official government domain safety
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
       - name: Discover and queue unverified leads
         run: python scripts/discover.py --output candidates.json
       - name: Auto-publish narrowly verified official agency records
