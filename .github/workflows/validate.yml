@@ -18,6 +18,7 @@ on:
       - 'supabase/migrations/013_automatic_verified_flock_agenda_mentions.sql'
       - 'supabase/migrations/014_revoke_auto_mentions_on_source_revocation.sql'
       - 'supabase/migrations/015_auto_legislative_decisions.sql'
+      - 'supabase/migrations/016_official_contract_documents.sql'
       - 'records.html'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
@@ -278,6 +279,8 @@ jobs:
             -f supabase/migrations/014_revoke_auto_mentions_on_source_revocation.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/015_auto_legislative_decisions.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/016_official_contract_documents.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.verified_flock_agenda_mentions(
             tenant,matter_id,jurisdiction_label,matter_title,file_number,
