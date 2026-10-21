@@ -56,7 +56,8 @@ begin
   select verification_status,jurisdiction_label,evidence_url
     into v_status,v_label,v_evidence
     from public.government_source_registry
-    where source_url=new.registry_source_url and source_kind='legistar';
+    where source_url='https://' || new.tenant || '.legistar.com/'
+      and source_kind='legistar';
   if v_status is distinct from 'verified'
       or v_label is distinct from new.jurisdiction_label
       or v_evidence is distinct from new.government_evidence_url then
@@ -67,7 +68,8 @@ begin
     join public.discovery_queue q on q.id=r.discovery_queue_id
     where r.tenant=new.tenant and r.matter_id=new.matter_id
       and r.review_state <> 'rejected' and q.status <> 'rejected'
-      and r.official_api_url=new.official_api_url
+      and r.official_api_url='https://webapi.legistar.com/v1/' ||
+        new.tenant || '/matters/' || new.matter_id::text
   ) then
     raise exception 'Public mention requires a previously staged, nonrejected official API matter';
   end if;
