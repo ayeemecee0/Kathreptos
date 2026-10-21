@@ -95,6 +95,10 @@ for each row execute function public.guard_auto_verified_flock_agenda_mention();
 alter table public.verified_flock_agenda_mentions enable row level security;
 revoke all on public.verified_flock_agenda_mentions from anon,authenticated;
 grant select on public.verified_flock_agenda_mentions to anon,authenticated;
+-- The unattended service role may add a new independently verified mention,
+-- but cannot overwrite or delete an existing publication.
+revoke update,delete on public.verified_flock_agenda_mentions from service_role;
+grant select,insert on public.verified_flock_agenda_mentions to service_role;
 create policy public_verified_flock_agenda_mentions
   on public.verified_flock_agenda_mentions for select
   to anon,authenticated using(status='verified');
