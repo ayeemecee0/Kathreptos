@@ -54,7 +54,7 @@ class ContractTests(unittest.TestCase):
     def test_other_tenants_cannot_be_claimed_as_their_documents(self):
         for url in (
             "https://oakland.legistar1.com/costamesa/attachments/" + PDF_ID + ".pdf",
-            "https://legistar.granicus.com/oakland/attachments/" + PDF_ID + ".pdf",
+            "https://legistar.granicus.com/commerce/attachments/" + PDF_ID + ".pdf",
             "https://evil.granicus.com/oakland/attachments/" + PDF_ID + ".pdf",
             "https://oakland.legistar1.com/oakland/attachments/not-a-uuid.pdf",
             "https://oakland.legistar1.com/oakland/attachments/" + PDF_ID + ".pdf?token=x",
