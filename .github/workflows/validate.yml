@@ -17,6 +17,7 @@ on:
       - 'supabase/migrations/012_reopen_private_research_leads.sql'
       - 'supabase/migrations/013_automatic_verified_flock_agenda_mentions.sql'
       - 'supabase/migrations/014_revoke_auto_mentions_on_source_revocation.sql'
+      - 'supabase/migrations/015_auto_legislative_decisions.sql'
       - 'records.html'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
@@ -275,6 +276,8 @@ jobs:
             -f supabase/migrations/013_automatic_verified_flock_agenda_mentions.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/014_revoke_auto_mentions_on_source_revocation.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/015_auto_legislative_decisions.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.verified_flock_agenda_mentions(
             tenant,matter_id,jurisdiction_label,matter_title,file_number,
@@ -340,7 +343,40 @@ jobs:
           values('commerce',12379,'Commerce City, CO',
                  'Flock Safety Safe Cities Program',
                  'https://www.c3gov.com/Government/City-Council/Council-Voting-Records');
+          insert into public.verified_flock_legislative_decisions
+            (tenant,matter_id,history_id,jurisdiction_label,matter_title,
+             action_name,action_body,passed_flag_name,decision_outcome,action_date)
+          values('commerce',12379,77,'Commerce City, CO',
+                 'Flock Safety Safe Cities Program',
+                 'Adopted as Amended','City Council','Passed',
+                 'adopted_as_amended','2026-04-06');
           SQL
+          # Only a truly recorded, corroborated action may publish.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_legislative_decisions" |
+            tail -1 | grep -qx 1
+          # The service role cannot edit a published event.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             update public.verified_flock_legislative_decisions set
+                decision_outcome='approved' where history_id=77;" \
+             >/tmp/katoptron-immutable-decision.log 2>&1; then
+            echo "::error::Workflow rewrote an independently verified decision"
+            exit 1
+          fi
+          # Conflicting action/pass flag and committee-only decisions must fail.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "insert into public.verified_flock_legislative_decisions
+             (tenant,matter_id,history_id,jurisdiction_label,matter_title,
+              action_name,action_body,passed_flag_name,decision_outcome,action_date)
+             values('commerce',12379,78,'Commerce City, CO',
+             'Flock Safety Safe Cities Program',
+             'Adopted','Public Safety Committee','Failed','adopted','2026-04-06');" \
+            >/tmp/katoptron-ambiguous-decision.log 2>&1; then
+            echo "::error::Ambiguous committee/flag action escaped its constraints"
+            exit 1
+          fi
+          grep -q 'violates check constraint' /tmp/katoptron-ambiguous-decision.log
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
             tail -1 | grep -qx 1
@@ -351,6 +387,12 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
             tail -1 | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_legislative_decisions" |
+            tail -1 | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.verified_flock_legislative_decisions
+             where tenant='commerce' and status='revoked'" | grep -qx 1
           # A reviewer must never be able to publish an already-approved item.
           # Check the private allowlist has no direct table grants for users.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
