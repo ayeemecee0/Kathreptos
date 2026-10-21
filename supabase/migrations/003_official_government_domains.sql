@@ -19,7 +19,7 @@ create table if not exists public.official_government_domains (
   discovered_at timestamptz not null default now(),
   check (verification_status <> 'verified' or
     (legistar_tenant is not null and
-     evidence_url ~ '^https://' and
+     evidence_url is not null and evidence_url ~ '^https://' and
      nullif(trim(reviewed_by), '') is not null and
      reviewed_at is not null))
 );
