@@ -69,7 +69,7 @@ class HistoricLegistarTests(unittest.TestCase):
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
             offset = int(query["$skip"][0])
             calls.append(offset)
-            return [matter(i, "No ALPR language") for i in
+            return [matter(i, "General council business") for i in
                     range(2000 - offset, 2000 - offset - 3, -1)]
 
         with (patch.object(scanner, "PAGE_SIZE", 3),
