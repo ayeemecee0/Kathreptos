@@ -69,10 +69,9 @@ extractable PDF text.
 - 7: no explicit vendor name in machine-extracted PDF text; importantly,
   this includes an attachment titled "Flock User Agreement" and **the title
   alone is not sufficient proof of the contents**
-- 2: encrypted PDFs are held
-- 1: PDF parsing dependency error. The dependency manifest now installs
-  \`pypdf[crypto]\` to support permitted crypto codecs, but any encrypted PDF
-  remains held until it can be independently and safely verified
+- 3: encrypted PDFs are held. The previously missing PDF crypto dependency is
+  now installed. The formerly unparseable Mountain View attachment was identified
+  as encrypted and correctly held, with no remaining PDF parsing failures
 
 This scan did **not** produce a false signed-contract or payment claim.
 Rather than loosen the proof standards, the next meaningful coverage
