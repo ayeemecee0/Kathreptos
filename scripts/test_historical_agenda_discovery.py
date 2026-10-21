@@ -140,6 +140,61 @@ class HistoricLegistarTests(unittest.TestCase):
             with self.assertRaises(scanner.APIResponseTooLarge):
                 scanner.get_json("https://webapi.legistar.com/v1/cabq/matters")
 
+    def test_queue_reports_inserted_versus_existing_rows(self):
+        class FakeResponse:
+            def __init__(self, content):
+                self.content = content
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, n):
+                return self.content
+
+        lead = {
+            "url": "https://seattle.legistar.com/LegislationDetail.aspx?ID=123",
+            "headline": "Flock Safety camera contract",
+            "publisher": "Seattle, WA",
+            "status": "unreviewed",
+        }
+        with (patch.dict("os.environ", {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_SERVICE_ROLE_KEY": "not-a-secret",
+              }),
+              patch.object(scanner.urllib.request, "urlopen",
+                           return_value=FakeResponse(b'[]'))) as ignored:
+            self.assertFalse(scanner.queue(lead))
+        with (patch.dict("os.environ", {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_SERVICE_ROLE_KEY": "not-a-secret",
+              }),
+              patch.object(scanner.urllib.request, "urlopen",
+                           return_value=FakeResponse(b'[{"url":"example"}]'))):
+            self.assertTrue(scanner.queue(lead))
+
+    def test_queue_rejects_unexpected_response(self):
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, n):
+                return b'{"not":"an array"}'
+
+        with (patch.dict("os.environ", {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_SERVICE_ROLE_KEY": "not-a-secret",
+              }),
+              patch.object(scanner.urllib.request, "urlopen",
+                           return_value=FakeResponse())):
+            with self.assertRaises(ValueError):
+                scanner.queue({"url": "https://seattle.legistar.com/"})
+
     def test_only_specific_keywords_match(self):
         self.assertTrue(scanner.TERMS.search("License Plate Readers"))
         self.assertTrue(scanner.TERMS.search("Automatic License Plate Recognition"))
