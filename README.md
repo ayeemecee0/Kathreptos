@@ -13,7 +13,7 @@ Katoptron is a public-records accountability project focused on **Flock Safety**
 
 **Automation policy:** Public government agenda mentions with exact, re-fetched official API titles naming **Flock Safety** are published automatically. They are labelled as *agenda mentions*, never approvals, signed contracts, vendor payments, or installed cameras. The project still needs separate stronger evidence rules before safely automating those higher-level facts.
 
-Read the [full end-to-end project audit and prioritized roadmap (October 2026)](./docs/project-audit-2026-10-21.md).
+Read the [automation and source-integrity policy](./docs/automatic-official-verification.md) for the current operating model. The [October 2026 project audit](./docs/project-audit-2026-10-21.md) documents the earlier manual-first architecture and the original data-quality findings.
 
 ## Source integrity and publication policy
 
