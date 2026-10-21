@@ -1,22 +1,18 @@
 # Official government-domain trust registry
 
-Katoptron uses a private Supabase allowlist for government-operated custom
-websites that do not use the .gov top-level domain.
+Katoptron uses a private Supabase allowlist for independently reviewed government-operated custom websites and explicit .gov-to-Legistar naming exceptions. Discovery cannot approve a domain or name mapping on its own.
 
-## Initial setup (one time)
+## Database setup
 
-1. Open the existing Katoptron project at https://supabase.com/dashboard.
-2. Select SQL Editor, then New query.
-3. Open migration 003: ../supabase/migrations/003_official_government_domains.sql
-4. Copy all the SQL into the editor and click Run.
-5. Confirm the query reports success.
+Migrations 003, 004 and 005 have been applied to the Katoptron Supabase project. For a fresh project, apply them sequentially after migrations 001 and 002.
 
-The migration creates public.official_government_domains (private via RLS)
-and seeds three evidence-reviewed government websites:
+The private public.official_government_domains table currently includes:
 
 - cityofmadison.com — Madison, Wisconsin — madison.legistar.com
 - c3gov.com — Commerce City, Colorado — commerce.legistar.com
 - slco.org — Salt Lake County, Utah — slco.legistar.com (historical)
+- cabq.gov — Albuquerque, New Mexico — cabq.legistar.com (reviewed .gov tenant alias)
+- cookcountyil.gov — Cook County, Illinois — cook-county.legistar.com (reviewed .gov tenant alias)
 
 The Salt Lake County entry has no current approved HTML evidence page and
 does not automatically verify the historical Legistar portal.
@@ -24,7 +20,7 @@ does not automatically verify the historical Legistar portal.
 ## Verification policy
 
 - An independent government source must substantiate control of a custom domain.
-- A reviewed record binds the exact host to one jurisdiction and Legistar tenant.
+- A reviewed record binds the exact host to one jurisdiction and Legistar tenant. Explicit .gov naming exceptions are stored in the same private table, so "cabq" cannot be mistaken for a different jurisdiction.
 - Only the registered apex host and explicitly allowed www variant are trusted.
 - A site directly linking to a tenant is not proof that it owns every linked tenant.
 - Before promoting a Legistar source, the verifier still checks a live HTTPS
@@ -81,7 +77,7 @@ delete previously published records.
 ## Monitoring
 
 The discovery logs report:
-- Explicitly verified custom government domains loaded
+- Reviewed government domain bindings loaded
 - Legistar candidates with government evidence
 - Newly verified Legistar tenants
 
