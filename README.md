@@ -43,7 +43,7 @@ Read the [full end-to-end project audit and prioritized roadmap (October 2026)](
 
 ## Operations
 
-The database is already created and connected. Migrations **003 through 013** have been applied to the existing Supabase project; migrations 001 and 002 were the initial schema setup. All new migrations are tested in a disposable PostgreSQL database before production.
+The database is already created and connected. Migrations **003 through 014** have been applied to the existing Supabase project; migrations 001 and 002 were the initial schema setup. All new migrations are tested in a disposable PostgreSQL database before production.
 
 To launch a new discovery run, use [Discover public Flock records](https://github.com/ayeemecee0/Katoptron/actions/workflows/discover.yml) and select **Run workflow** on `main`. The workflow runs daily on a schedule.
 
