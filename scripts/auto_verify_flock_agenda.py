@@ -175,6 +175,7 @@ def main():
     published = 0
     held = 0
     errors = 0
+    duplicates = 0
     for row in rows:
         try:
             claim, reason = official_mention(row, registry)
@@ -182,7 +183,9 @@ def main():
                 held += 1
                 continue
             verifiable += 1
-            published += int(submit_verified_mention(claim))
+            was_inserted = submit_verified_mention(claim)
+            published += int(was_inserted)
+            duplicates += int(not was_inserted)
         except Exception as exc:
             errors += 1
             # A fetch/verification failure never causes a public claim.
@@ -191,7 +194,7 @@ def main():
                   type(exc).__name__, str(exc)[:120])
     print("Official Flock Safety agenda mentions confirmed against live API:", verifiable)
     print("New exact-title government agenda mentions auto-published:", published)
-    print("Existing verified agenda mentions skipped:", verifiable - published - errors)
+    print("Existing verified agenda mentions skipped:", duplicates)
     print("Agenda matters held for incomplete/ambiguous evidence:", held + errors)
     print("Contracts, approvals, votes, deployments auto-published: 0 (not proven by an agenda title)")
 
