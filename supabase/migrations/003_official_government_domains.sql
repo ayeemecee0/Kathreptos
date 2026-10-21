@@ -39,9 +39,17 @@ language plpgsql
 set search_path = pg_catalog
 as $
 begin
-  if current_user = 'service_role' and new.verification_status = 'verified'
-      and (tg_op = 'INSERT' or old.verification_status is distinct from 'verified') then
-    raise exception 'Government domain approval requires a database-owner review';
+  if current_user = 'service_role' then
+    if tg_op = 'INSERT' then
+      if new.verification_status = 'verified' then
+        raise exception 'Government domain approval requires a database-owner review';
+      end if;
+    elsif tg_op = 'UPDATE' then
+      if new.verification_status = 'verified'
+          and old.verification_status is distinct from 'verified' then
+        raise exception 'Government domain approval requires a database-owner review';
+      end if;
+    end if;
   end if;
   return new;
 end;
