@@ -69,6 +69,9 @@ STATE_CODES = {
     "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
 }
 ABBREVIATIONS = set(STATE_CODES.values())
+# Search noise: the customer-care Legistar site does not identify a
+# government jurisdiction. Never treat vendor-support tenants as cities.
+NON_GOVERNMENT_TENANTS = {"customercare"}
 LEGISTAR = re.compile(r"https?://([a-z0-9-]{3,40})\.legistar\.com(?:/|\b)",re.I)
 GOV = re.compile(r"https?://[a-z0-9.-]+\.gov(?:/[^\s<>\"']*)?",re.I)
 
@@ -86,7 +89,8 @@ def candidate(url,kind,label=None,status="candidate",evidence=None,approved=None
     host=(p.hostname or "").lower()
     if p.scheme!="https" or not host or p.username or p.password or p.port not in (None,443):
         return None
-    if kind=="legistar" and not re.fullmatch(r"[a-z0-9-]{3,40}\.legistar\.com",host):
+    if kind=="legistar" and (not re.fullmatch(r"[a-z0-9-]{3,40}\.legistar\.com",host)
+                             or host.split(".", 1)[0] in NON_GOVERNMENT_TENANTS):
         return None
     if kind!="legistar" and not trusted_official_url(url, approved or {}):
         return None
@@ -168,6 +172,8 @@ def tenant_url(url):
         host = (p.hostname or "").lower()
         if (p.scheme.lower() != "https" or not re.fullmatch(r"[a-z0-9-]{3,40}\.legistar\.com", host, re.I)
                 or p.username or p.password or p.port not in (None, 443)):
+            return None
+        if host.split(".", 1)[0] in NON_GOVERNMENT_TENANTS:
             return None
         return "https://" + host + "/"
     except ValueError:
@@ -350,11 +356,10 @@ def collect():
     targeted = []
     for url in registry_tenants[:MAX_TENANT_SEARCHES]:
         hostname = urllib.parse.urlsplit(url).hostname
-        code = hostname.split(".", 1)[0]
         # Search results are filtered to official .gov pages AFTER discovery.
         # Requiring site:.gov inside Bing RSS tends to hide actual city websites.
         targeted.append('"' + hostname + '" "city council"')
-        targeted.append('site:' + code + '.gov "' + hostname + '"')
+        targeted.append('"' + hostname + '" "government agenda"')
     for entry in approved.values():
         targeted.append('site:' + entry["domain"] +
                         ' "' + entry["legistar_tenant"] + '.legistar.com"')
