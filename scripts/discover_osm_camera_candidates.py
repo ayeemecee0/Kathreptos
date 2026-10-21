@@ -41,6 +41,36 @@ class LimitedReader:
             raise ValueError("Compressed OSM dataset exceeded size limit")
         return data
 
+class PrefixReader:
+    """Allow sniffing gzip magic without dropping bytes from streamed JSON."""
+    def __init__(self, prefix, stream):
+        self.prefix=prefix
+        self.stream=stream
+    def read(self, size=-1):
+        if size is None or size<0:
+            v=self.prefix
+            self.prefix=b""
+            return v+self.stream.read()
+        a=self.prefix[:size]
+        self.prefix=self.prefix[size:]
+        if len(a)==size:
+            return a
+        return a+self.stream.read(size-len(a))
+
+
+def parse_data_stream(raw):
+    first=raw.read(2)
+    if first==b"\x1f\x8b":
+        decoded=gzip.GzipFile(fileobj=PrefixReader(first,raw))
+        # Decompressed data is bounded separately from compressed bytes.
+        stream=LimitedReader(decoded,160*1024*1024)
+    elif first in (b'{"',b'{\n',b'{ ',b'{\r',b'{\t'):
+        stream=PrefixReader(first,raw)
+    else:
+        raise ValueError("Unrecognized OSM GeoJSON encoding")
+    return ijson.items(stream,"features.item")
+
+
 def candidate_from_feature(feature):
     if not isinstance(feature,dict) or feature.get("type")!="Feature":
         return None
@@ -141,9 +171,7 @@ def scan(dry_run=False,shard=None):
         if response.geturl()!=DATA_URL:
             raise ValueError("Community OSM source redirected to unapproved host")
         raw=LimitedReader(response)
-        with gzip.GzipFile(fileobj=raw) as decompressed:
-            return scan_features(ijson.items(decompressed,"features.item"),
-                                 shard,dry_run=dry_run)
+        return scan_features(parse_data_stream(raw),shard,dry_run=dry_run)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__)
