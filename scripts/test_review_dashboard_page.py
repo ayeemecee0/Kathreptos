@@ -70,7 +70,7 @@ class ReviewerPageTests(unittest.TestCase):
         self.assertIn('u.protocol!==\'https:\'', self.js)
 
     def test_evidence_reader_cannot_proxy_arbitrary_urls(self):
-        self.assertIn('review_id: id', self.js)
+        self.assertIn('review_id:id', self.js)
         self.assertIn("editorial_evidence_ref", self.edge)
         self.assertIn('"https://webapi.legistar.com/v1/"', self.edge)
         self.assertNotIn("fetch(input.url", self.edge)
