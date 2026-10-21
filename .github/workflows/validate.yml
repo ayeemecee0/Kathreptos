@@ -19,6 +19,7 @@ on:
       - 'supabase/migrations/014_revoke_auto_mentions_on_source_revocation.sql'
       - 'supabase/migrations/015_auto_legislative_decisions.sql'
       - 'supabase/migrations/016_official_contract_documents.sql'
+      - 'supabase/migrations/017_verified_document_hosts.sql'
       - 'records.html'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
@@ -281,6 +282,26 @@ jobs:
             -f supabase/migrations/015_auto_legislative_decisions.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/016_official_contract_documents.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/017_verified_document_hosts.sql
+          # Source-domain validation must be enforced inside PostgreSQL,
+          # not only in the scanner. These are vendor-scoped example URLs,
+          # not a claim that the government documents are signed contracts.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://oakland.legistar1.com/oakland/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'oakland','Oakland, CA');" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://legistar.granicus.com/Commerce/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'commerce','Commerce City, CO');" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://legistar.granicus.com/commerce/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'oakland','Oakland, CA');" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://unknown.gov/FlockAgreement.pdf','oakland','Oakland, CA');" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.verified_flock_agenda_mentions(
             tenant,matter_id,jurisdiction_label,matter_title,file_number,

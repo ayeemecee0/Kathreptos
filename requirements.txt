@@ -1,2 +1,2 @@
 feedparser>=6.0.11,<7
-pypdf>=5,<7
+pypdf[crypto]>=5,<7

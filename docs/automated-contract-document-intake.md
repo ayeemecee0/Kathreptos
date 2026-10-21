@@ -55,3 +55,26 @@ The database independently enforces the platform/municipal-host rules.
 The main GitHub validation workflow installs \`pypdf\` through
 \`requirements.txt\`; the initial test suite failure was caused by
 the PDF parser being omitted from that dependency manifest.
+
+
+## First corrected production scan and classification
+
+The first scan with verified platform-host support validated all **20 official
+attachment URLs**, with no rejected links or network download errors. None
+could be classified as an original Flock-specific *agreement* from their
+extractable PDF text.
+
+- 10: no clear agreement-form body/clauses (mostly presentations, policy
+  records, reports and legislation)
+- 7: no explicit vendor name in machine-extracted PDF text; importantly,
+  this includes an attachment titled "Flock User Agreement" and **the title
+  alone is not sufficient proof of the contents**
+- 2: encrypted PDFs are held
+- 1: PDF parsing dependency error. The dependency manifest now installs
+  \`pypdf[crypto]\` to support permitted crypto codecs, but any encrypted PDF
+  remains held until it can be independently and safely verified
+
+This scan did **not** produce a false signed-contract or payment claim.
+Rather than loosen the proof standards, the next meaningful coverage
+work is government-hosted **executed agreement/contract repositories**,
+with explicit execution proof independent of agenda titles.
