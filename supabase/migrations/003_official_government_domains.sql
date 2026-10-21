@@ -30,6 +30,29 @@ create index if not exists official_government_domains_status_idx
 alter table public.official_government_domains enable row level security;
 revoke all on public.official_government_domains from anon, authenticated;
 
+-- Defense-in-depth: workflow service-role credentials may discover candidate
+-- domains, but cannot grant domain authority even if a future script has a bug.
+-- Run deliberate approvals in the Supabase SQL Editor as the database owner.
+create or replace function public.guard_official_government_domain_approval()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $
+begin
+  if current_user = 'service_role' and new.verification_status = 'verified'
+      and (tg_op = 'INSERT' or old.verification_status is distinct from 'verified') then
+    raise exception 'Government domain approval requires a database-owner review';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists official_government_domain_approval_guard
+  on public.official_government_domains;
+create trigger official_government_domain_approval_guard
+before insert or update on public.official_government_domains
+for each row execute function public.guard_official_government_domain_approval();
+
 -- Initial operator-reviewed entries. Authority records (on state .gov pages)
 -- independently corroborate that each domain belongs to this government.
 -- A verified domain is NOT permission to trust all Legistar links on its pages:
