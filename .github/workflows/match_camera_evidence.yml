@@ -1,0 +1,48 @@
+name: Corroborate independent camera sources
+
+on:
+  workflow_run:
+    workflows: ["Discover community Flock camera candidates", "Auto-verify Flock government GIS camera locations"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '57 13 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/match_camera_source_evidence.py'
+      - 'scripts/test_match_camera_source_evidence.py'
+      - '.github/workflows/match_camera_evidence.yml'
+      - 'supabase/migrations/022_camera_source_matches.sql'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-independent-camera-corroboration
+  cancel-in-progress: false
+
+jobs:
+  match:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Confirm private credentials
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
+      - name: Test independent corroboration safeguards
+        run: python -m unittest discover -s scripts -p 'test_match_camera_source_evidence.py' -v
+      - name: Correlate private OSM reports with already verified GIS points
+        run: python scripts/match_camera_source_evidence.py
