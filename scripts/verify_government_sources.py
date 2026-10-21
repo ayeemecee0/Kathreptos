@@ -170,7 +170,7 @@ def verify(row, approved):
 
 def main():
     approved = load_approved_domains()
-    print("Explicitly verified custom government domains loaded:", len(approved))
+    print("Reviewed government domain bindings loaded:", len(approved))
     params = urllib.parse.urlencode({"select": "source_url,evidence_url,jurisdiction_label,source_kind,verification_status",
                                      "source_kind": "eq.legistar", "verification_status": "eq.candidate",
                                      "limit": str(MAX_ROWS)})
