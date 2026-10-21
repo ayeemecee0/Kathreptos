@@ -9,6 +9,7 @@ on:
       - 'supabase/migrations/006_legistar_source_integrity_and_review.sql'
       - 'supabase/migrations/007_editorial_triage_agenda_leads.sql'
       - 'supabase/migrations/008_publish_verified_oakland_resolution.sql'
+      - 'supabase/migrations/009_publication_editorial_guard.sql'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
@@ -115,6 +116,35 @@ jobs:
             "select count(*) from public.agenda_evidence_reviews
              where tenant='oakland' and matter_id=36866
              and review_state='published'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/009_publication_editorial_guard.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -c "alter role service_role bypassrls;
+                grant usage on schema public to service_role;
+                grant select,insert,update on public.sources, public.actions,
+                  public.contracts, public.deployments to service_role;"
+          # Service-role credentials may queue leads but cannot create verified
+          # sources or modify/insert already-published public records.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             insert into public.sources (url,title,status) values
+             ('https://example.gov/unreviewed','No independent review','verified');" \
+             >/tmp/katoptron-source-guard.log 2>&1; then
+            echo "::error::Service role bypassed source publication protection"
+            exit 1
+          fi
+          grep -q "Public source verification requires database-owner editorial review" \
+            /tmp/katoptron-source-guard.log
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             update public.actions set factual_description=factual_description
+             where review_status='published';" \
+             >/tmp/katoptron-action-guard.log 2>&1; then
+            echo "::error::Service role bypassed action publication protection"
+            exit 1
+          fi
+          grep -q "Public fact publication requires database-owner editorial review" \
+            /tmp/katoptron-action-guard.log
           # Validate the actual seeded SQL records with the same parser as
           # production (not only hard-coded mock fixtures).
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
