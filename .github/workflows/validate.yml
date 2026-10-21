@@ -4,6 +4,7 @@ on:
     paths:
       - 'scripts/**'
       - 'supabase/migrations/003_official_government_domains.sql'
+      - 'supabase/migrations/004_correct_commerce_city_evidence.sql'
       - '.github/workflows/validate.yml'
   workflow_dispatch:
 
@@ -44,7 +45,19 @@ jobs:
             -c "create role anon; create role authenticated; create role service_role;"
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/003_official_government_domains.sql
-          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc             "select count(*) from public.official_government_domains where verification_status='verified'"             | grep -qx 3
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/004_correct_commerce_city_evidence.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.official_government_domains where verification_status='verified'" | grep -qx 3
+          # Validate the actual seeded SQL records with the same parser as
+          # production (not only hard-coded mock fixtures).
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
+            "select coalesce(json_agg(row_to_json(t)), '[]'::json) from
+            (select domain,jurisdiction_label,legistar_tenant,legistar_evidence_url,
+                    allow_www,verification_status,evidence_url,reviewed_by,reviewed_at
+             from public.official_government_domains
+             where verification_status='verified') t" |
+            PYTHONPATH=scripts python -c 'import json,sys; from government_domain_registry import parse_verified_rows; approved=parse_verified_rows(json.load(sys.stdin)); assert len(approved)==3, approved; print("Validated all 3 seeded domain authorities")'
       - name: Check Python syntax
         run: python -m compileall -q scripts
       - name: Test government-domain safety
