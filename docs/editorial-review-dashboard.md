@@ -1,5 +1,8 @@
 # Katoptron private editorial review dashboard
 
+**Optional exception handling:** Clearly identified official Flock Safety agenda mentions are verified and published automatically by the separate [official-source verification workflow](./automatic-official-verification.md). No user needs to approve these mentions in this dashboard. Use the private dashboard when evidence is insufficient for a higher-stakes factual claim, such as council adoption, signed contract or deployment.
+
+
 **Dashboard:** https://ayeemecee0.github.io/Katoptron/review.html
 
 The HTML is hosted on GitHub Pages, but the contents of the private queues,
