@@ -165,7 +165,7 @@ class HistoricLegistarTests(unittest.TestCase):
                     "SUPABASE_SERVICE_ROLE_KEY": "not-a-secret",
               }),
               patch.object(scanner.urllib.request, "urlopen",
-                           return_value=FakeResponse(b'[]'))) as ignored:
+                           return_value=FakeResponse(b'[]'))):
             self.assertFalse(scanner.queue(lead))
         with (patch.dict("os.environ", {
                     "SUPABASE_URL": "https://example.supabase.co",
