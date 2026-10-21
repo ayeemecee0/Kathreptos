@@ -1,2 +1,3 @@
 feedparser>=6.0.11,<7
 pypdf[crypto]>=5,<7
+ijson>=3.3,<4

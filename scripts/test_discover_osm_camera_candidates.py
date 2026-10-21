@@ -12,8 +12,7 @@ class PublicDatasetTests(unittest.TestCase):
   item=osm.candidate_from_feature(point())
   self.assertEqual(item["source_kind"],"osm_public_dataset")
   self.assertEqual(item["candidate_key"],"osm:node:1312")
-  self.assertIn("unverified",item["evidence_excerpt"].lower()+
-    " unverified" if "unverified" in item["evidence_excerpt"].lower() else "")
+  self.assertIn("NOT proof",item["evidence_excerpt"])
   for bad in (
     point(brand="Motorola Solutions"),point(brand="FlockHopper map"),
     point(kind="way"),point(lat=12),point(lon=-50),

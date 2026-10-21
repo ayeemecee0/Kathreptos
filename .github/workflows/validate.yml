@@ -21,6 +21,7 @@ on:
       - 'supabase/migrations/016_official_contract_documents.sql'
       - 'supabase/migrations/017_verified_document_hosts.sql'
       - 'supabase/migrations/018_camera_map_locations.sql'
+      - 'supabase/migrations/019_camera_source_pipeline.sql'
       - 'index.html'
       - 'map.js'
       - 'map.css'
@@ -291,6 +292,16 @@ jobs:
             -f supabase/migrations/017_verified_document_hosts.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/018_camera_map_locations.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/019_camera_source_pipeline.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.trusted_flock_gis_sources','UPDATE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_discovery_candidates','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_camera_discovery_candidates','INSERT')" | grep -qx t
           # No hypothetical cameras may be seeded into the live verified map.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.flock_camera_locations" | grep -qx 0
