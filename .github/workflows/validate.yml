@@ -16,6 +16,7 @@ on:
       - 'supabase/migrations/011_general_lead_review_and_audit.sql'
       - 'supabase/migrations/012_reopen_private_research_leads.sql'
       - 'supabase/migrations/013_automatic_verified_flock_agenda_mentions.sql'
+      - 'supabase/migrations/014_revoke_auto_mentions_on_source_revocation.sql'
       - 'records.html'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
@@ -272,6 +273,8 @@ jobs:
           # strictly a government agenda MENTION, never an approved contract.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/013_automatic_verified_flock_agenda_mentions.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/014_revoke_auto_mentions_on_source_revocation.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.verified_flock_agenda_mentions(
             tenant,matter_id,jurisdiction_label,matter_title,file_number,
@@ -303,9 +306,12 @@ jobs:
           # The automatic mention does not create a contract or council vote.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.contracts" | grep -qx 0
+          # Revoking a government registry entry must automatically hide the
+          # published mention without any independent/manual publication edit.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
-            "update public.verified_flock_agenda_mentions set status='revoked'
-             where tenant='costamesa' and matter_id=2660;"
+            "update public.government_source_registry
+                set verification_status='candidate'
+             where source_url='https://costamesa.legistar.com/';"
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
             tail -1 | grep -qx 0
@@ -317,6 +323,34 @@ jobs:
             exit 1
           fi
           grep -q "cannot be silently reapproved" /tmp/katoptron-no-silent-reapproval.log
+          # A reviewed custom-government domain can be revoked independently
+          # of the tenant registry, and its public mentions must disappear.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.government_source_registry
+            (source_url,host,source_kind,jurisdiction_label,verification_status,evidence_url)
+          values
+            ('https://commerce.legistar.com/','commerce.legistar.com','legistar',
+             'Commerce City, CO','verified',
+             'https://www.c3gov.com/Government/City-Council/Council-Voting-Records');
+          insert into public.discovery_queue(url,headline,publisher)
+          values('https://webapi.legistar.com/v1/commerce/matters/12379',
+                 'Flock Safety Safe Cities Program','Commerce City, CO');
+          insert into public.verified_flock_agenda_mentions
+            (tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url)
+          values('commerce',12379,'Commerce City, CO',
+                 'Flock Safety Safe Cities Program',
+                 'https://www.c3gov.com/Government/City-Council/Council-Voting-Records');
+          SQL
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "update public.official_government_domains
+                set verification_status='rejected'
+              where domain='c3gov.com';"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 0
           # A reviewer must never be able to publish an already-approved item.
           # Check the private allowlist has no direct table grants for users.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
