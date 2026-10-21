@@ -233,6 +233,14 @@ def run(dry_run=False):
                       "count", len(items),
                       "keys", sorted(items[0])[:30] if isinstance(items[0], dict) else "not-a-dict",
                       "link_hosts", sorted(hosts.items()))
+                for sample in items[:2]:
+                    if isinstance(sample, dict):
+                        link = str(sample.get("MatterAttachmentHyperlink") or "")
+                        p = urllib.parse.urlsplit(link)
+                        print("Government attachment sample URL structure:", tenant, mid,
+                              "host", p.hostname,
+                              "path", p.path[:200],
+                              "query_keys", sorted(urllib.parse.parse_qs(p.query))[:12])
             else:
                 print("Government attachment metadata:", tenant, mid, "count 0")
             document_ids = set()
