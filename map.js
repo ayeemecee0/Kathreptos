@@ -390,6 +390,9 @@
     });
     $('play').addEventListener('click',replay);
     $('reset').addEventListener('click',reset);
+    $('viewPilot').addEventListener('click',()=>{
+      state.map?.setView([47.858,-121.973],13);
+    });
     $('national').addEventListener('click',()=>{
       state.map?.setView(USA_CENTER,4);
     });
