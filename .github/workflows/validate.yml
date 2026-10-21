@@ -10,6 +10,7 @@ on:
       - 'supabase/migrations/007_editorial_triage_agenda_leads.sql'
       - 'supabase/migrations/008_publish_verified_oakland_resolution.sql'
       - 'supabase/migrations/009_publication_editorial_guard.sql'
+      - 'supabase/migrations/010_editorial_dashboard_auth_and_rpc.sql'
       - 'supabase/migrations/001_init.sql'
       - 'supabase/migrations/002_government_source_registry.sql'
       - '.github/workflows/validate.yml'
@@ -145,6 +146,82 @@ jobs:
           fi
           grep -q "Public fact publication requires database-owner editorial review" \
             /tmp/katoptron-action-guard.log
+          # Temporary Auth schema simulates Supabase auth.uid() and user IDs.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          create schema auth;
+          create table auth.users(id uuid primary key);
+          create function auth.uid() returns uuid
+            language sql stable
+            as 'select nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';
+          grant usage on schema auth to authenticated;
+          grant execute on function auth.uid() to authenticated;
+          insert into auth.users(id) values
+            ('11111111-1111-4111-8111-111111111111'),
+            ('22222222-2222-4222-8222-222222222222');
+          SQL
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/010_editorial_dashboard_auth_and_rpc.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.editorial_reviewers(user_id,role,granted_by)
+            values ('11111111-1111-4111-8111-111111111111','publisher','CI test'),
+                   ('22222222-2222-4222-8222-222222222222','reviewer','CI test');
+          insert into public.government_source_registry(
+            source_url,host,source_kind,jurisdiction_label,verification_status,evidence_url)
+            values('https://costamesa.legistar.com/','costamesa.legistar.com',
+                   'legistar','Costa Mesa, CA','verified','https://costamesa.gov/');
+          SQL
+          # Unauthorized logins must never inspect private leads.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role authenticated; select public.editorial_list();" \
+            >/tmp/editorial-anon-account.log 2>&1; then
+            echo "::error::Unapproved account accessed private review queue"
+            exit 1
+          fi
+          grep -q 'Reviewer access required' /tmp/editorial-anon-account.log
+          # Login against explicit publisher allowlist works and supports
+          # approving then publishing a dated government action.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub',
+             '11111111-1111-4111-8111-111111111111',true);
+          do $check_session$
+          begin
+            if public.editorial_session()->>'role' <> 'publisher' then
+              raise exception 'Publisher identity not established';
+            end if;
+          end;
+          $check_session$;
+          select public.editorial_decide(
+            (value->>'id')::uuid,'approve',
+            (value->>'updated_at')::timestamptz,
+            'contract_or_procurement','explicit_flock','proposed',
+            'https://costamesa.legistar.com/LegislationDetail.aspx?GUID=83DDFC82-A148-4F71-A8FE-30577AFD0FA6&ID=6576097',
+            'Costa Mesa government proposed a Flock ALPR lease; this statement does not assert a signed contract.',
+            '2024-03-19'::date,'Reviewed staff agenda report'
+          )
+          from pg_catalog.jsonb_array_elements(public.editorial_list('all',100,0)->'items')
+          where value->>'matter_id'='2660';
+          select public.editorial_decide(
+            (value->>'id')::uuid,'publish',
+            (value->>'updated_at')::timestamptz)
+          from pg_catalog.jsonb_array_elements(public.editorial_list('all',100,0)->'items')
+          where value->>'matter_id'='2660';
+          commit;
+          SQL
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.published_actions where action_date='2024-03-19'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.editorial_review_events
+               where event_type in ('approve','publish')" | grep -qx 2
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.contracts" | grep -qx 0
+          # A reviewer must never be able to publish an already-approved item.
+          # Check the private allowlist has no direct table grants for users.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('authenticated','public.editorial_reviewers','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.agenda_evidence_reviews','SELECT')" | grep -qx f
           # Validate the actual seeded SQL records with the same parser as
           # production (not only hard-coded mock fixtures).
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
