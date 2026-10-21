@@ -45,7 +45,7 @@ class HistoricLegistarTests(unittest.TestCase):
         self.assertTrue(all(l["publisher"] == "Madison, WI" for l in leads))
         self.assertEqual(leads[0]["headline"], "Automatic License Plate Recognition program")
         self.assertTrue(all(l["url"].startswith(
-            "https://madison.legistar.com/LegislationDetail.aspx?ID=") for l in leads))
+            "https://webapi.legistar.com/v1/madison/matters/") for l in leads))
 
     def test_duplicate_api_page_does_not_loop(self):
         duplicate_page = [matter(200, "ALPR"), matter(199, "Other")]
@@ -112,7 +112,7 @@ class HistoricLegistarTests(unittest.TestCase):
         self.assertEqual(attempts[-1], (14, 2))
         self.assertEqual(len(attempts), 10)
         self.assertEqual(len(leads), 1)
-        self.assertTrue(leads[0]["url"].endswith("ID=4"))
+        self.assertTrue(leads[0]["url"].endswith("/matters/4"))
         self.assertEqual(leads[0]["status"], "unreviewed")
 
     def test_adaptive_scan_remains_request_bounded(self):
@@ -194,6 +194,17 @@ class HistoricLegistarTests(unittest.TestCase):
                            return_value=FakeResponse())):
             with self.assertRaises(ValueError):
                 scanner.queue({"url": "https://seattle.legistar.com/"})
+
+    def test_restricted_legistar_matter_not_queued(self):
+        public = matter(100, "Flock Safety camera contract")
+        private = matter(99, "Flock Safety confidential restricted matter")
+        private["MatterRestrictViewViaWeb"] = True
+        with (patch.object(scanner, "PAGE_SIZE", 250),
+              patch.object(scanner, "get_json", return_value=[public, private]),
+              patch.object(scanner, "enrich", return_value="")):
+            leads = scanner.scan("oakland", "Oakland, CA")
+        self.assertEqual([l["url"] for l in leads],
+                         ["https://webapi.legistar.com/v1/oakland/matters/100"])
 
     def test_only_specific_keywords_match(self):
         self.assertTrue(scanner.TERMS.search("License Plate Readers"))
