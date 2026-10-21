@@ -37,7 +37,7 @@ create or replace function public.guard_official_government_domain_approval()
 returns trigger
 language plpgsql
 set search_path = pg_catalog
-as $
+as $government_review_guard$
 begin
   if current_user = 'service_role' then
     if tg_op = 'INSERT' then
@@ -53,7 +53,7 @@ begin
   end if;
   return new;
 end;
-$;
+$government_review_guard$;
 
 drop trigger if exists official_government_domain_approval_guard
   on public.official_government_domains;
