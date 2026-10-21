@@ -61,7 +61,7 @@ class MapPageTests(unittest.TestCase):
         old=(ROOT/'legacy-simulator.html').read_text(encoding='utf-8')
         self.assertIn('SYNTH-4827',old)
         self.assertIn('Synthetic',old)
-        self.assertIn('Original simulator',self.html)
+        self.assertIn('ORIGINAL SIMULATOR',self.html)
 
 
 if __name__=='__main__':
