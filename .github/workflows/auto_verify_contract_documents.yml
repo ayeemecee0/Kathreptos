@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 20
     env:
       SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SB_SECRET_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
