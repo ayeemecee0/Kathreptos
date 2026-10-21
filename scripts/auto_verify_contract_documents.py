@@ -7,6 +7,7 @@ Only government-hosted, bounded, readable PDFs can pass. Scan-only PDFs and
 other inaccessible records are held without publishing unsupported facts.
 """
 import argparse
+from collections import Counter
 import hashlib
 import io
 import re
@@ -251,6 +252,7 @@ def run(dry_run=False):
     staged = staged_candidates()
     municipal_domains = verified_document_domains(registry)
     seen = set()
+    rejection_reasons = Counter()
     totals = {"matters": 0, "attachments": 0, "rejected_links": 0, "qualified": 0,
               "published": 0, "existing": 0, "revoked": 0,
               "held": 0, "errors": 0}
@@ -297,6 +299,9 @@ def run(dry_run=False):
                     info, issue = contract_pdf_evidence(pdf, parent["jurisdiction_label"])
                     if issue:
                         totals["held"] += 1
+                        rejection_reasons[issue] += 1
+                        print("Official PDF held:", tenant, mid, aid, name[:90],
+                              "reason:", issue)
                         continue
                     totals["qualified"] += 1
                     claim = public_document(row, parent, metadata, info)
@@ -323,6 +328,8 @@ def run(dry_run=False):
             totals["errors"] += 1
             print("Contract matter held:", str(tenant)[:35], str(mid)[:20],
                   type(exc).__name__, str(exc)[:120])
+    for issue, count in rejection_reasons.most_common():
+        print("Document rejection reason:", issue, "count", count)
     for field, n in totals.items():
         print("Contract document", field + ":", n)
     print("Signed contracts, executions, payments and camera deployments inferred: 0")
