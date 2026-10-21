@@ -1,0 +1,43 @@
+name: Auto-verify Flock government GIS camera locations
+
+on:
+  schedule:
+    - cron: '27 11 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/auto_verify_camera_gis.py'
+      - 'scripts/test_auto_verify_camera_gis.py'
+      - 'supabase/migrations/019_camera_source_pipeline.sql'
+      - '.github/workflows/auto_verify_camera_gis.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-official-camera-gis
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Confirm Supabase credentials
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
+      - name: Test GIS source and manufacturer safeguards
+        run: python -m unittest discover -s scripts -p 'test_auto_verify_camera_gis.py' -v
+      - name: Publish independently corroborated official GIS camera coordinates
+        run: python scripts/auto_verify_camera_gis.py
