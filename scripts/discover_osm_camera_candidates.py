@@ -102,7 +102,7 @@ def upload_batch(batch):
 def scan_features(features,shard,dry_run=False):
     if type(shard) is not int or not 0<=shard<SHARDS:
         raise ValueError("Shard outside expected range")
-    counts=Counter();batch=[]
+    counts=Counter();selected=[]
     for f in features:
         counts["seen"]+=1
         if counts["seen"]>MAX_FEATURES:
@@ -117,15 +117,13 @@ def scan_features(features,shard,dry_run=False):
         counts["shard_matched"]+=1
         if counts["staged"]>=MAX_CANDIDATES_PER_RUN:
             continue
-        batch.append(item);counts["staged"]+=1
-        if len(batch)>=BATCH_SIZE:
-            if not dry_run:
-                counts["inserted"]+=upload_batch(batch)
-            batch=[]
-    if batch and not dry_run:
-        counts["inserted"]+=upload_batch(batch)
-    if counts["seen"]<1000:
-        raise ValueError("National community dataset contains too few features")
+        selected.append(item);counts["staged"]+=1
+    # Validate source completeness BEFORE any database mutation.
+    if counts["seen"]<50_000:
+        raise ValueError("Nationwide community dataset truncated or below integrity floor")
+    if not dry_run:
+        for offset in range(0,len(selected),BATCH_SIZE):
+            counts["inserted"]+=upload_batch(selected[offset:offset+BATCH_SIZE])
     for key in ("seen","flock_tagged","shard_matched","staged","inserted"):
         print("OSM community candidates",key+":",counts[key])
     print("Verified government camera locations published from OSM candidate data: 0")
