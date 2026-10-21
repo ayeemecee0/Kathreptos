@@ -1,7 +1,8 @@
-"""Approved local-government domains, with explicit jurisdiction/Legistar bindings.
+"""Approved government domain authorities, with explicit jurisdiction/Legistar bindings.
 
 Only rows explicitly reviewed and marked verified in the PRIVATE Supabase table
-can authorize a non-.gov host. Discovery may never approve a new domain.
+can authorize a non-.gov host or grant a .gov tenant-name exception.
+Discovery may never approve a new domain or tenant binding.
 """
 import ipaddress
 import json
@@ -13,7 +14,7 @@ import urllib.request
 
 DOMAIN_RE = re.compile(r"^[a-z0-9-]+(?:\.[a-z0-9-]+)+$")
 TENANT_RE = re.compile(r"^[a-z0-9-]{3,40}$")
-CUSTOM_SUFFIXES = (".com", ".org", ".net", ".us")
+CUSTOM_SUFFIXES = (".com", ".org", ".net", ".us", ".gov")
 
 
 def public_dns(host):
