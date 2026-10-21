@@ -4,8 +4,8 @@
 <style>
 :root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0a0d12;color:#e8edf4}*{box-sizing:border-box}body{margin:0}header{padding:24px max(20px,5vw);border-bottom:1px solid #344052}main{max-width:1100px;margin:auto;padding:26px 20px}a{color:#a9cfff}h1{letter-spacing:3px}p{line-height:1.6;color:#b9c6d7}.toolbar{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}input,select,button{background:#182330;color:#fff;border:1px solid #415166;border-radius:8px;padding:11px}input{flex:2;min-width:220px}select{flex:1;min-width:140px}button{cursor:pointer}.card{border:1px solid #344052;background:#111822;border-radius:12px;padding:18px;margin:12px 0}.meta{color:#a9b6c8;font-size:13px}.empty{border:1px dashed #516078;padding:22px;border-radius:10px}.pill{display:inline-block;border:1px solid #50637a;padding:4px 9px;border-radius:20px;font-size:12px;margin-bottom:10px}#status{min-height:25px}
 </style></head><body><header><a href="./index.html">← Simulator</a><h1>KATOPTRON</h1><p>Nationwide Flock Safety public records · Published and source-verified entries only</p></header>
-<main><p>This database distinguishes verified government decisions from automatically verified <strong>official agenda mentions</strong> and synthetic simulations. An agenda listing that names Flock Safety does <strong>not</strong> establish a signed contract, council approval, actual spending, or camera installation. It is not a national census.</p>
-<div class="toolbar"><input id="query" type="search" placeholder="Search agency, jurisdiction, or description" aria-label="Search records"><select id="kind" aria-label="Record type"><option value="all">All record types</option><option value="actions">Official actions</option><option value="contracts">Contracts</option><option value="deployments">Deployments</option><option value="mentions">Official agenda mentions</option></select><button id="refresh">Refresh</button></div>
+<main><p>This database distinguishes documented government actions from automatically verified <strong>legislative decision events</strong>, narrower <strong>official agenda mentions</strong>, and synthetic simulations. An agenda listing that names Flock Safety does <strong>not</strong> establish a signed contract, council approval, actual spending, or camera installation. It is not a national census.</p>
+<div class="toolbar"><input id="query" type="search" placeholder="Search agency, jurisdiction, or description" aria-label="Search records"><select id="kind" aria-label="Record type"><option value="all">All record types</option><option value="actions">Editorially verified actions</option><option value="decisions">Auto-verified legislative decisions</option><option value="contracts">Contracts</option><option value="deployments">Deployments</option><option value="mentions">Official agenda mentions</option></select><button id="refresh">Refresh</button></div>
 <p id="status" role="status">Loading published records…</p><section id="results" aria-live="polite"></section>
 </main><script src="./config.js"></script><script>
 'use strict';
@@ -26,9 +26,10 @@ async function load(){
   $('status').textContent='Loading published records…';
   try{
     if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey)throw new Error('Missing public Supabase configuration');
-    const [actions,contracts,deployments,mentions,sources,agencies,people,jurisdictions]=await Promise.all([
+    const [actions,contracts,deployments,mentions,decisions,sources,agencies,people,jurisdictions]=await Promise.all([
       read('published_actions'),read('published_contracts'),read('published_deployments'),
       read('verified_flock_agenda_mentions').catch(err=>{agendaFeedWarning=err.message;return [];}),
+      read('verified_flock_legislative_decisions').catch(err=>{agendaFeedWarning=err.message;return [];}),
       read('sources'),read('agencies'),read('people'),read('jurisdictions')
     ]);
     const sourceMap=new Map(sources.map(x=>[x.id,x]));
@@ -56,6 +57,20 @@ async function load(){
         sourceTitle:'View exact official government matter (Legistar API)'
       });
     }
+    for(const item of decisions){
+      cache.push({
+        kind:'decisions',
+        date:item.action_date||'',
+        title:item.jurisdiction_label||'Government legislative action',
+        summary:'Official legislative action recorded: '+(item.action_body||'Governing body')+
+          ' — '+(item.action_name||'')+' (recorded result: '+(item.passed_flag_name||'')+
+          '). Related matter: '+(item.matter_title||'')+
+          '. This describes one recorded action on this date; it does not by itself prove a signed agreement, camera installation, final status, or any individual vote.',
+        details:[item.file_number,'Auto-verified government action history',item.action_date].filter(Boolean).join(' · '),
+        source:item.official_history_url,
+        sourceTitle:'View exact official legislative action history'
+      });
+    }
     render();
   }catch(err){$('status').textContent='Unable to load records: '+err.message;$('results').replaceChildren();}
 }
@@ -63,11 +78,12 @@ function render(){
  const q=$('query').value.trim().toLowerCase(),kind=$('kind').value;
  const rows=cache.filter(r=>(kind==='all'||r.kind===kind)&&[r.title,r.summary,r.details].join(' ').toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date));
  $('status').textContent=rows.length+' verified public record'+(rows.length===1?'':'s')+' matching filters ('+
-  rows.filter(row=>row.kind==='mentions').length+' agenda mentions; these are not contract approvals)'+
+  rows.filter(row=>row.kind==='mentions').length+' agenda mentions; '+
+  rows.filter(row=>row.kind==='decisions').length+' verified legislative actions; neither implies a signed contract)'+
   (agendaFeedWarning?' · Official agenda feed temporarily unavailable':'');
  $('results').replaceChildren();
  if(!rows.length){$('results').append(textNode('p','No published records match. The database may not have verified entries yet.','empty'));return;}
- for(const r of rows){const card=document.createElement('article');card.className='card';card.append(textNode('span',r.kind==='mentions'?'Official agenda mention — not approval':r.kind,'pill'),textNode('h2',r.title),textNode('div',[r.date,r.details].filter(Boolean).join(' · '),'meta'),textNode('p',r.summary));const href=safeLink(r.source);if(href){const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=r.sourceTitle+' ↗';card.append(a);} $('results').append(card);}
+ for(const r of rows){const card=document.createElement('article');card.className='card';card.append(textNode('span',r.kind==='mentions'?'Official agenda mention — not approval':r.kind==='decisions'?'Recorded legislative decision — not a signed contract':r.kind,'pill'),textNode('h2',r.title),textNode('div',[r.date,r.details].filter(Boolean).join(' · '),'meta'),textNode('p',r.summary));const href=safeLink(r.source);if(href){const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=r.sourceTitle+' ↗';card.append(a);} $('results').append(card);}
 }
 $('query').addEventListener('input',render);$('kind').addEventListener('change',render);$('refresh').addEventListener('click',load);load();
 </script></body></html>
