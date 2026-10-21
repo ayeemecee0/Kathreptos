@@ -217,6 +217,24 @@ def run(dry_run=False):
             if not isinstance(items, list) or len(items) > MAX_ATTACHMENTS:
                 totals["held"] += 1
                 continue
+            # Public source API diagnostics: exact field names, attachment count,
+            # and only URL host/path. Never log any secrets or PDF document text.
+            if items:
+                from collections import Counter
+                hosts = Counter()
+                for item in items[:MAX_ATTACHMENTS]:
+                    if isinstance(item, dict):
+                        link = str(item.get("MatterAttachmentHyperlink") or
+                                   item.get("MatterAttachmentUrl") or
+                                   item.get("MatterAttachmentURL") or "")
+                        parsed_link = urllib.parse.urlsplit(link)
+                        hosts[(parsed_link.hostname or "relative-or-missing")[:80]] += 1
+                print("Government attachment metadata:", tenant, mid,
+                      "count", len(items),
+                      "keys", sorted(items[0])[:30] if isinstance(items[0], dict) else "not-a-dict",
+                      "link_hosts", sorted(hosts.items()))
+            else:
+                print("Government attachment metadata:", tenant, mid, "count 0")
             document_ids = set()
             for item in items:
                 metadata = attachment_metadata(item, tenant, mid)
