@@ -160,7 +160,8 @@ on public.verified_flock_legislative_decisions
 for select to anon,authenticated using (
   status='verified' and exists (
     select 1 from public.verified_flock_agenda_mentions m
-    where m.tenant=tenant and m.matter_id=matter_id
+    where m.tenant=verified_flock_legislative_decisions.tenant
+      and m.matter_id=verified_flock_legislative_decisions.matter_id
       and m.status='verified'
   )
 );
