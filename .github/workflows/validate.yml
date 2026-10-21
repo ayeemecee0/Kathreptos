@@ -5,6 +5,7 @@ on:
       - 'scripts/**'
       - 'supabase/migrations/003_official_government_domains.sql'
       - 'supabase/migrations/004_correct_commerce_city_evidence.sql'
+      - 'supabase/migrations/005_reviewed_gov_legistar_aliases.sql'
       - '.github/workflows/validate.yml'
   workflow_dispatch:
 
@@ -47,8 +48,10 @@ jobs:
             -f supabase/migrations/003_official_government_domains.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/004_correct_commerce_city_evidence.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/005_reviewed_gov_legistar_aliases.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from public.official_government_domains where verification_status='verified'" | grep -qx 3
+            "select count(*) from public.official_government_domains where verification_status='verified'" | grep -qx 5
           # Validate the actual seeded SQL records with the same parser as
           # production (not only hard-coded mock fixtures).
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
@@ -57,7 +60,7 @@ jobs:
                     allow_www,verification_status,evidence_url,reviewed_by,reviewed_at
              from public.official_government_domains
              where verification_status='verified') t" |
-            PYTHONPATH=scripts python -c 'import json,sys; from government_domain_registry import parse_verified_rows; approved=parse_verified_rows(json.load(sys.stdin)); assert len(approved)==3, approved; print("Validated all 3 seeded domain authorities")'
+            PYTHONPATH=scripts python -c 'import json,sys; from government_domain_registry import parse_verified_rows; approved=parse_verified_rows(json.load(sys.stdin)); assert len(approved)==5, approved; print("Validated all 5 seeded and reviewed domain authorities")'
       - name: Check Python syntax
         run: python -m compileall -q scripts
       - name: Test government-domain safety
