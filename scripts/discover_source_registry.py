@@ -340,7 +340,7 @@ def identity_for_tenant(page, tenant, evidence_url, approved):
 
 def collect():
     approved = load_approved_domains()
-    print("Explicitly verified custom government domains loaded:", len(approved))
+    print("Reviewed government domain bindings loaded:", len(approved))
     found = {}
     for code, label in SEEDS.items():
         item = candidate("https://" + code + ".legistar.com/", "legistar", label,
