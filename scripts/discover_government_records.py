@@ -15,6 +15,7 @@ from government_domain_registry import (
 TERMS = re.compile(r"\b(?:flock\s+safety|automated?\s+license\s+plate\s+readers?|ALPR|LPR\s+cameras?)\b", re.I)
 TENANT = re.compile(r"([a-z0-9-]{3,40})\.legistar\.com", re.I)
 USER_AGENT = "Katoptron/1.0 public records research"
+LEGACY_PREAPPROVED = {"seattle", "lacounty", "costamesa", "oakland"}
 
 
 def get_json(url, headers=None):
@@ -72,13 +73,23 @@ def registry_clients():
         # Legacy manually preapproved seeds record their tenant portal as evidence;
         # .gov evidence relies on the existing official-government verification.
         # For custom domains, source authority MUST still be approved today.
-        if parsed_evidence and not gov_host(parsed_evidence.hostname) and not TENANT.fullmatch(parsed_evidence.hostname):
-            current_label = approved_tenant_for_page(
-                evidence, match.group(1).lower(), approved)
+        client_code = match.group(1).lower()
+        legacy_proof = (client_code in LEGACY_PREAPPROVED and
+                        evidence.lower().rstrip("/") ==
+                        "https://" + host)
+        if not parsed_evidence:
+            print("Registry entry skipped: missing trusted evidence URL", host)
+            continue
+        if gov_host(parsed_evidence.hostname):
+            pass  # Already verified government-source record backed by .gov
+        elif legacy_proof:
+            pass  # Known four manually reviewed Legistar tenants only
+        else:
+            current_label = approved_tenant_for_page(evidence, client_code, approved)
             if current_label != label:
                 print("Registry entry skipped: custom domain authority revoked or mismatched", host)
                 continue
-        clients[match.group(1).lower()] = label[:150]
+        clients[client_code] = label[:150]
     return clients
 
 
