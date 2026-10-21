@@ -42,5 +42,5 @@ jobs:
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
       - name: Run legislative decision safety tests
         run: python -m unittest discover -s scripts -p 'test_auto_verify_legislative_decisions.py' -v
-      - name: Inspect official legislative histories without publishing
-        run: python scripts/auto_verify_legislative_decisions.py --dry-run --show-actions
+      - name: Auto-publish only exact independently corroborated legislative decisions
+        run: python scripts/auto_verify_legislative_decisions.py
