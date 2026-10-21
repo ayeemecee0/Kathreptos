@@ -1,0 +1,42 @@
+name: Discover candidate Flock camera GIS sources
+
+on:
+  schedule:
+    - cron: '11 14 * * 3'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover_camera_gis_sources.py'
+      - 'scripts/test_discover_camera_gis_sources.py'
+      - '.github/workflows/discover_camera_gis_sources.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-new-gis-source-candidates
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check private Supabase key
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
+      - name: Verify candidate-only source discovery
+        run: python -m unittest discover -s scripts -p 'test_discover_camera_gis_sources.py' -v
+      - name: Discover Flock GIS leads from pinned public services
+        run: python scripts/discover_camera_gis_sources.py
