@@ -29,6 +29,12 @@ def approved_rows():
 class GovernmentDomainTests(unittest.TestCase):
     def setUp(self):
         self.approved = domains.parse_verified_rows(approved_rows())
+        env_patch = patch.dict("os.environ", {
+            "SUPABASE_URL": "https://example.supabase.co",
+            "SUPABASE_SERVICE_ROLE_KEY": "test-key-not-a-secret",
+        })
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
 
     def test_approved_exact_and_www(self):
         self.assertIsNotNone(domains.official_url("https://cityofmadison.com/", self.approved))
