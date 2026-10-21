@@ -385,7 +385,7 @@ async function openItem(id){
     $('generalVendor').value=selected.vendor_relation||'not_assessed';
     $('generalSource').value=selected.primary_source_url||'';
     $('generalNotes').value=selected.reviewer_notes||'';
-    show('reopenGeneral',state==='rejected');
+    show('reopenGeneral',state==='rejected'||state==='accepted');
     for(const id of ['saveGeneral','acceptGeneral','rejectGeneral'])$(id).disabled=state==='accepted'||state==='rejected';
   }
   loadHistory(id);
