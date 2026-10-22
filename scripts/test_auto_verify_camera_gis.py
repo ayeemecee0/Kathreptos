@@ -21,10 +21,51 @@ COUNTY={
  "expected_id_field":"OBJECTID","bounds_south":38.55,"bounds_north":39.25,
  "bounds_west":-105.3,"bounds_east":-104.3
 }
+PEORIA={
+ "source_key":"peoria_az",
+ "gis_layer_url":"https://gis.peoriaaz.gov/arcgis/rest/services/PM/pmPublicWorks/MapServer/286",
+ "government_evidence_url":"https://devservices.peoriaaz.gov/devservices/Cap/CapHome.aspx?TabName=HOME&module=Planning",
+ "jurisdiction_label":"Peoria, AZ",
+ "source_status":"verified","expected_camera_type_field":"FlockLayer",
+ "expected_id_field":"OBJECTID","bounds_south":33.2,"bounds_north":34.5,
+ "bounds_west":-113,"bounds_east":-111.4
+}
 def feature(oid=44,kind="Flock Safety Falcon",lat=47.86,lon=-121.98):
  return {"attributes":{"OBJECTID":oid,"CameraType":kind},
          "geometry":{"x":lon,"y":lat}}
 class GISVerification(unittest.TestCase):
+ def test_city_public_works_original_flock_layer_identity(self):
+  self.assertIsNotNone(gis.trusted_source(PEORIA))
+  for altered in (
+    {"source_status":"candidate"},
+    {"gis_layer_url":"https://gis.peoriaaz.gov/other/MapServer/286"},
+    {"jurisdiction_label":"Peoria, IL"},
+    {"bounds_south":30.0},
+  ):
+   self.assertIsNone(gis.trusted_source({**PEORIA,**altered}))
+ def test_city_flock_layer_has_identified_bounded_points(self):
+  items={"features":[
+    {"attributes":{"OBJECTID":7,"CameraID":"P007"},"geometry":{"x":-112.2,"y":33.6}},
+    {"attributes":{"OBJECTID":8,"CameraID":""},"geometry":{"x":-112.2,"y":33.6}},
+    {"attributes":{"OBJECTID":9,"CameraID":"P009"},"geometry":{"x":-104.8,"y":33.6}}
+  ]}
+  rows,held,n=gis.decode_features(PEORIA,items)
+  self.assertEqual(len(rows),1)
+  self.assertTrue(rows[0]["record_key"].startswith("gis-peoria_az-7-"))
+  self.assertIn("city Public Works",rows[0]["evidence_summary"])
+  self.assertEqual(sum(held.values()),2)
+ def test_city_gis_layer_changed_or_wrong_geometry_fails(self):
+  service={"layers":[{"id":286,"name":"Flock Cameras"}]}
+  layer={"name":"Flock Cameras","type":"Feature Layer","geometryType":"esriGeometryPoint",
+         "fields":[{"name":"OBJECTID","type":"esriFieldTypeOID"},
+                   {"name":"CameraID","type":"esriFieldTypeString"},
+                   {"name":"Location","type":"esriFieldTypeString"}]}
+  with patch.object(gis,"get_official_json",side_effect=[service,layer,{"features":[]}]) as req:
+   gis.gis_query(PEORIA)
+  self.assertEqual(req.call_count,3)
+  with patch.object(gis,"get_official_json",side_effect=[service,{**layer,"name":"Other Cameras"}]):
+   with self.assertRaises(ValueError):
+    gis.gis_query(PEORIA)
  def test_county_source_matches_only_owner_bound_sheriff_layer(self):
   self.assertIsNotNone(gis.trusted_source(COUNTY))
   for alteration in (

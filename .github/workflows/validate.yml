@@ -28,6 +28,7 @@ on:
       - 'supabase/migrations/023_owner_bound_gis_authority.sql'
       - 'supabase/migrations/024_government_gis_disclosure_leads.sql'
       - 'supabase/migrations/025_restrict_camera_privileged_rpcs.sql'
+      - 'supabase/migrations/026_peoria_city_camera_source.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -315,6 +316,10 @@ jobs:
             -f supabase/migrations/024_government_gis_disclosure_leads.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/025_restrict_camera_privileged_rpcs.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/026_peoria_city_camera_source.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | grep -qx 2
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \

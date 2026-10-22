@@ -24,6 +24,7 @@ MAX_GIS_BYTES = 2_000_000
 SOURCE_HOST_BINDINGS = {
     "monroe_wa": ("gis.monroewa.gov", "monroewa.gov", "Monroe, WA"),
     "elpaso_co": ("gisservices.elpasoco.com", "admin.elpasoco.com", "El Paso County, CO"),
+    "peoria_az": ("gis.peoriaaz.gov", "devservices.peoriaaz.gov", "Peoria, AZ"),
 }
 EXACT_FLOCK = re.compile(r"(?:^|\b)flock(?:\s+safety|\s+falcon)?(?:\b|$)", re.I)
 NON_ALPR = re.compile(r"\b(?:raven|gunshot|audio|condor|ptz|cctv|traffic\s+signal)\b", re.I)
@@ -77,6 +78,12 @@ def trusted_source(row):
             or not (38.55<=bounds[0]<bounds[2]<=39.25 and
                     -105.3<=bounds[1]<bounds[3]<=-104.3)):
             return None
+    elif key=="peoria_az":
+        if (parsed.path!="/arcgis/rest/services/PM/pmPublicWorks/MapServer/286"
+            or row.get("expected_camera_type_field")!="FlockLayer"
+            or not (33.2<=bounds[0]<bounds[2]<=34.5 and
+                    -113<=bounds[1]<bounds[3]<=-111.4)):
+            return None
     else:
         return None
     return row
@@ -124,12 +131,14 @@ def decode_features(source, payload):
         if type(identity) is not int or identity <=0 or identity in all_ids:
             held["missing or conflicting government GIS ID"]+=1;continue
         all_ids.add(identity)
-        is_gov_flock_layer=source["source_key"]=="elpaso_co"
+        is_gov_flock_layer=source["source_key"] in ("elpaso_co","peoria_az")
         if is_gov_flock_layer:
-            name=attrs.get("NAME")
+            id_field="NAME" if source["source_key"]=="elpaso_co" else "CameraID"
+            name=attrs.get(id_field)
             if not isinstance(name,str) or not 1<=len(name.strip())<=40:
-                held["county Flock layer entry lacks camera name"]+=1;continue
-            camera_type="Flock (county Sheriff GIS layer)"
+                held["government Flock layer entry lacks camera identifier"]+=1;continue
+            camera_type=("Flock (county Sheriff GIS layer)" if source["source_key"]=="elpaso_co"
+                         else "Flock (city Public Works GIS layer)")
         else:
             if not classify_camera_type(attrs.get("CameraType")):
                 held["vendor/model not explicitly Flock ALPR"]+=1;continue
@@ -160,7 +169,9 @@ def decode_features(source, payload):
                 f"Municipal public GIS camera layer. Exact OBJECTID {identity}; "
                 + (f"government CameraType field says '{camera_type}'. The city separately documents its Flock program. "
                  if not is_gov_flock_layer else
-                 "the county Sheriff GIS explicitly names its point layer Flock_Cameras; current layer metadata reverified. ")
+                 ("the county Sheriff GIS explicitly names its point layer Flock_Cameras; current layer metadata reverified. "
+                  if source["source_key"]=="elpaso_co" else
+                  "the city Public Works GIS explicitly names its point layer Flock Cameras; CameraID identifier and current layer metadata verified. "))
                 + "This is a documented GIS point, not proof of operation or plate reads."),
             "evidence_sha256":sha,
             "verification_method":"official_georeferenced_camera_record_v1",
@@ -192,9 +203,31 @@ def gis_query(source):
             not any(f.get("name")=="OBJECTID" and f.get("type")=="esriFieldTypeOID"
                     for f in fields if isinstance(f,dict))):
             raise ValueError("County government layer lost explicit Flock camera provenance")
+    if source["source_key"]=="peoria_az":
+        base=source["gis_layer_url"].rsplit("/",1)[0]
+        service=get_official_json(base+"?f=json")
+        layer=get_official_json(source["gis_layer_url"]+"?f=json")
+        if not isinstance(service,dict) or not isinstance(layer,dict):
+            raise ValueError("City GIS source metadata unavailable")
+        layers=service.get("layers")
+        fields=layer.get("fields")
+        if (service.get("error") or layer.get("error") or
+            not isinstance(layers,list) or
+            not any(x.get("id")==286 and x.get("name")=="Flock Cameras"
+                    for x in layers if isinstance(x,dict)) or
+            layer.get("name")!="Flock Cameras" or
+            layer.get("type")!="Feature Layer" or
+            layer.get("geometryType")!="esriGeometryPoint" or
+            not isinstance(fields,list) or
+            not {"OBJECTID","CameraID","Location"}.issubset(
+                {x.get("name") for x in fields if isinstance(x,dict)}) or
+            not any(x.get("name")=="OBJECTID" and x.get("type")=="esriFieldTypeOID"
+                    for x in fields if isinstance(x,dict))):
+            raise ValueError("Peoria municipal Flock point-layer metadata changed")
     args=urllib.parse.urlencode({
         "where":"1=1",
         "outFields":("OBJECTID,NAME" if source["source_key"]=="elpaso_co"
+                     else "OBJECTID,CameraID,Location" if source["source_key"]=="peoria_az"
                      else "OBJECTID,MRID,CameraType,Facing"),
         "returnGeometry":"true",
         "outSR":"4326",
