@@ -34,6 +34,7 @@ class MapPageTests(unittest.TestCase):
         self.assertTrue({'map','routeForm','from','to','hypothetical',
                          'coverageStatus','timelineEvents','play'}.issubset(self.ids))
         self.assertIn('./map.js',self.src)
+        self.assertIn('./route-geometry.js',self.src)
         self.assertIn('./config.js',self.src)
         self.assertIn('./map.css',self.html)
 
@@ -42,6 +43,9 @@ class MapPageTests(unittest.TestCase):
         self.assertNotIn('All camera locations are fictional',self.html)
         self.assertIn('Nationwide',self.html)
         self.assertIn('flock_camera_locations',self.script)
+        self.assertIn('loadRouteEvidence(trip)',self.script)
+        self.assertIn('state.routeRecords',self.script)
+        self.assertIn('Geo.closestOnRoute',self.script)
         self.assertIn('verification_status: \'eq.verified\'',self.script)
 
     def test_no_faked_road_routes_or_default_hypothetical_pins(self):

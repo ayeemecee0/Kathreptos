@@ -4,12 +4,14 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const CFG = window.KATOPTRON_CONFIG;
+  const Geo = window.KatoptronRouteGeometry;
   const MAX_VISIBLE = 1200;
   const CAMERA_NEAR_ROUTE_M = 120; // Demonstration proximity threshold, NOT a device read range.
   const USA_CENTER = [39, -98];
   const state = {
     map: null, pointLayer: null, areaLayer: null, routeLayer: null, simLayer: null,
-    visible: [], route: null, observations: [], replayTimer: null,
+    visible: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
+    observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null
   };
 
@@ -69,6 +71,78 @@
     });
     loadVisibleLocations();
   }
+  function publicCameraUrl(bounds) {
+    const query = new URLSearchParams({
+      select: 'id,record_key,label,jurisdiction_label,latitude,longitude,location_accuracy,uncertainty_radius_m,source_type,source_url,evidence_summary,last_confirmed_on,last_source_recheck_at',
+      verification_status: 'eq.verified',
+      latitude: 'gte.' + bounds.south.toFixed(6),
+      longitude: 'gte.' + bounds.west.toFixed(6),
+      order: 'published_at.desc',
+      limit: String(MAX_VISIBLE)
+    });
+    query.append('latitude', 'lte.' + bounds.north.toFixed(6));
+    query.append('longitude', 'lte.' + bounds.east.toFixed(6));
+    return CFG.supabaseUrl.replace(/\/$/, '') +
+      '/rest/v1/flock_camera_locations?' + query.toString();
+  }
+  async function cameraRows(bounds, signal) {
+    const response = await fetch(publicCameraUrl(bounds), {
+      // Publishable API keys are not user JWTs.
+      headers: { apikey: CFG.supabasePublishableKey },
+      signal, cache:'no-store'
+    });
+    if (!response.ok) throw new Error('Camera API HTTP ' + response.status);
+    const rows = await response.json();
+    if (!Array.isArray(rows)) throw new Error('Unexpected camera API response');
+    return rows.filter(x => x && validCoord(Number(x.latitude),Number(x.longitude)) &&
+      (x.location_accuracy === 'exact' || x.location_accuracy === 'approximate'));
+  }
+  async function loadRouteEvidence(route) {
+    state.routeCoverage='checking';
+    state.routeRecords=[];
+    setText('nearbyCount','…');
+    setText('observationCount','…');
+    setText('routeStatus','Checking verified camera evidence across the ENTIRE driving route…');
+    try {
+      if (!Geo) throw new Error('Route geometry library unavailable');
+      const boxes=Geo.corridorBoxes(route.points);
+      const collected=new Map();
+      // Bounded, small concurrent requests; never silently claim no cameras
+      // if any corridor portion fails or hits the query record limit.
+      let next=0;
+      async function worker() {
+        while(next<boxes.length) {
+          const box=boxes[next++];
+          const rows=await cameraRows(box);
+          if(rows.length>=MAX_VISIBLE)
+            throw new Error('Camera evidence density exceeds this corridor query limit; analysis incomplete');
+          for(const row of rows) collected.set(row.record_key,row);
+        }
+      }
+      await Promise.all(Array.from({length:Math.min(3,boxes.length)},worker));
+      if(state.route!==route)return;
+      state.routeRecords=[...collected.values()];
+      state.routeCoverage='complete';
+      computeObservations();
+      setText('routeStatus','Checked '+boxes.length+
+        ' evidence region(s) across the route. Results are modeled, never actual plate reads. '+
+        'Unpublished cameras may still exist.');
+    } catch(e) {
+      if(state.route!==route)return;
+      state.routeCoverage='unavailable';
+      state.routeRecords=[];
+      setText('nearbyCount','Unknown');
+      setText('observationCount','Unknown');
+      setText('timelineBadge','DATA INCOMPLETE');
+      setText('timelineIntro','Some or all of this journey could not be checked against published records. '+
+        'Do not infer that there are no Flock cameras. '+e.message);
+      $('timelineEvents').replaceChildren();
+      $('play').disabled=true;
+      setText('routeStatus','Verified camera coverage unavailable: '+e.message+
+        '. Road route remains visible, but detection estimates are disabled.');
+    }
+  }
+
   async function loadVisibleLocations() {
     if (!state.map || !CFG?.supabaseUrl || !CFG?.supabasePublishableKey) {
       setText('coverageStatus', 'Public database configuration is unavailable.');
@@ -89,33 +163,10 @@
       return;
     }
     setText('coverageSpinner', 'Checking live sources…');
-    const query = new URLSearchParams({
-      select: 'id,record_key,label,jurisdiction_label,latitude,longitude,location_accuracy,uncertainty_radius_m,source_type,source_url,evidence_summary,last_confirmed_on,last_source_recheck_at',
-      verification_status: 'eq.verified',
-      latitude: 'gte.' + south.toFixed(6),
-      longitude: 'gte.' + west.toFixed(6),
-      order: 'published_at.desc',
-      limit: String(MAX_VISIBLE)
-    });
-    // PostgREST supports repeated column filters for bounded coordinates.
-    query.append('latitude', 'lte.' + north.toFixed(6));
-    query.append('longitude', 'lte.' + east.toFixed(6));
-    const url = CFG.supabaseUrl.replace(/\/$/, '') + '/rest/v1/flock_camera_locations?' + query.toString();
     try {
-      const response = await fetch(url, {
-        headers: {
-          apikey: CFG.supabasePublishableKey,
-          Authorization: 'Bearer ' + CFG.supabasePublishableKey
-        },
-        signal: state.abort.signal, cache:'no-store'
-      });
-      if (!response.ok) throw new Error('Camera API HTTP ' + response.status);
-      const rows = await response.json();
+      const rows=await cameraRows({south,north,west,east},state.abort.signal);
       if (requestId !== state.requestNumber) return;
-      if (!Array.isArray(rows)) throw new Error('Unexpected camera API response');
-      state.visible = rows.filter((x) =>
-        x && validCoord(Number(x.latitude), Number(x.longitude)) &&
-        (x.location_accuracy === 'exact' || x.location_accuracy === 'approximate'));
+      state.visible = rows;
       drawLocations();
       setText('coverageSpinner', 'Live data');
       const shown = state.visible.length;
@@ -155,7 +206,7 @@
     }
     setText('exactCount', exact);
     setText('areaCount', areas);
-    if (state.route) computeObservations();
+    // Do not recalculate entire-route evidence from just this viewport.
   }
   function rad(n) { return n * Math.PI / 180; }
   function meters(a,b) {
@@ -224,39 +275,36 @@
     return points[Math.min(points.length-1,Math.round(proportion*(points.length-1)))];
   }
   function nearRoute(point,points) {
-    let best = Infinity, bestIdx = -1;
-    for (let i=0;i<points.length;i++) {
-      const d = meters(point,points[i]);
-      if (d < best) {best=d; bestIdx=i;}
-    }
-    return {distance:best,index:bestIdx};
+    return Geo.closestOnRoute(point,points);
   }
   function formatMinutes(value) { return 'T+' + Math.round(value) + ' min'; }
   function computeObservations() {
-    if (!state.route) return;
+    if (!state.route || state.routeCoverage!=='complete') return;
     const points = state.route.points;
     let found = 0;
     const observations = [];
-    for (const row of state.visible) {
+    for (const row of state.routeRecords) {
       if (row.location_accuracy !== 'exact') continue;
       const close = nearRoute([Number(row.latitude),Number(row.longitude)],points);
       if (close.distance > CAMERA_NEAR_ROUTE_M) continue;
       found += 1;
-      observations.push({kind:'verified',name:row.label,index:close.index,
-        point:points[close.index],source:row.source_url});
+      const a=points[close.index],b=points[close.index+1];
+      const point=[a[0]+close.fraction*(b[0]-a[0]),
+        a[1]+close.fraction*(b[1]-a[1])];
+      observations.push({kind:'verified',name:row.label,progress:close.progress,
+        point,source:row.source_url});
     }
-    const possibleAreas = state.visible.filter(row =>
+    const possibleAreas = state.routeRecords.filter(row =>
       row.location_accuracy === 'approximate' &&
       nearRoute([Number(row.latitude),Number(row.longitude)],points).distance <
         Number(row.uncertainty_radius_m) + 1000).length;
     if ($('hypothetical').checked) {
       [0.20,0.45,0.73].forEach((fraction,i)=>{
-        const index = Math.round(fraction*(points.length-1));
         observations.push({kind:'hypothetical',name:'Illustrative observation '+(i+1),
-          index,point:sampleIndex(points,fraction),source:null});
+          progress:fraction,point:Geo.pointAtProgress(points,fraction),source:null});
       });
     }
-    observations.sort((a,b)=>a.index-b.index);
+    observations.sort((a,b)=>a.progress-b.progress);
     state.observations = observations;
     setText('nearbyCount',found);
     setText('observationCount',observations.length);
@@ -281,7 +329,7 @@
       const li=document.createElement('li');
       if (event.kind==='verified') li.className='verified';
       const bold=document.createElement('strong');
-      const mins=state.route.duration/60 * event.index/Math.max(1,state.route.points.length-1);
+      const mins=state.route.duration/60 * event.progress;
       bold.textContent=formatMinutes(mins)+' · '+(event.kind==='verified'?'Potential camera proximity':'Fictional sample');
       const sub=document.createElement('small');
       sub.textContent=event.kind==='verified'
@@ -351,10 +399,10 @@
       setText('routeStatus','Road route loaded: '+a.label+' → '+b.label+
         '. No license plate or location history is stored by Katoptron.');
       renderRoute();
-      await loadVisibleLocations();
-      computeObservations();
-      $('play').disabled=false;
       $('reset').disabled=false;
+      $('play').disabled=true;
+      await loadRouteEvidence(trip);
+      if (state.routeCoverage==='complete') $('play').disabled=false;
       setText('mapLabel','Driving route: '+a.label+' → '+b.label);
     } catch (error) {
       setText('routeStatus','Route unavailable: '+error.message+
@@ -366,6 +414,8 @@
     state.simLayer.clearLayers();
     state.routeLayer.clearLayers();
     state.route=null;
+    state.routeRecords=[];
+    state.routeCoverage='unchecked';
     state.observations=[];
     $('play').disabled=true;$('reset').disabled=true;
     setText('routeDistance','—');setText('nearbyCount','—');
@@ -380,7 +430,7 @@
     $('showApprox').addEventListener('change',drawLocations);
     $('hypothetical').addEventListener('change',()=>{
       state.simLayer?.clearLayers();
-      if (state.route) computeObservations();
+      if (state.routeCoverage==='complete') computeObservations();
     });
     $('routeForm').addEventListener('submit',planRoute);
     $('sampleRoute').addEventListener('click',()=>{

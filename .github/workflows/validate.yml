@@ -28,6 +28,7 @@ on:
       - 'supabase/migrations/023_owner_bound_gis_authority.sql'
       - 'index.html'
       - 'map.js'
+      - 'route-geometry.js'
       - 'map.css'
       - 'legacy-simulator.html'
       - 'records.html'
@@ -497,5 +498,8 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Test government-domain safety
         run: python -m unittest discover -s scripts -p 'test_*.py' -v
-      - name: Validate map interface JavaScript syntax
-        run: node --check map.js
+      - name: Validate map and route geometry JavaScript
+        run: |
+          node --check route-geometry.js
+          node --check map.js
+          node scripts/test_route_geometry.js
