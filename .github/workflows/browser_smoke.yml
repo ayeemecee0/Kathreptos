@@ -1,0 +1,45 @@
+name: Browser release smoke
+
+on:
+  workflow_run:
+    workflows: ["pages build and deployment"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '05 16 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-browser-release-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned browser-test runtime
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test the live map in Chromium
+        run: node scripts/smoke_browser.cjs
+      - name: Upload failing browser screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-failure
+          path: katoptron-smoke-failure.png
+          if-no-files-found: ignore
+          retention-days: 7
