@@ -1,0 +1,34 @@
+name: Discover public ArcGIS Flock camera source leads
+on:
+  schedule:
+    - cron: '46 15 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover_arcgis_catalog.py'
+      - 'scripts/test_discover_arcgis_catalog.py'
+      - '.github/workflows/discover_arcgis_catalog.yml'
+permissions:
+  contents: read
+concurrency:
+  group: katoptron-global-private-arcgis
+  cancel-in-progress: false
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Unit-test unverified source isolation
+        run: python -m unittest discover -s scripts -p 'test_discover_arcgis_catalog.py' -v
+      - name: Search ArcGIS item catalog and privately stage qualified hints
+        run: python scripts/discover_arcgis_catalog.py
