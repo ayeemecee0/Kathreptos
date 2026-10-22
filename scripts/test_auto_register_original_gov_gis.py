@@ -53,6 +53,7 @@ class NewOriginalGov(unittest.TestCase):
         patch.object(x,"qualified_original_layer",return_value=[
           "CameraID",None,[{"id":4,"lat":38.5,"lon":-98.45}],"c"*64,candidate]),
         patch.object(x,"stage_candidate"),
+        patch.object(x,"sync",return_value={"published":1,"errors":0}),
         patch.object(x,"api_request",return_value=True) as rpc):
    result=x.run()
   self.assertEqual(result["registered"],1)
