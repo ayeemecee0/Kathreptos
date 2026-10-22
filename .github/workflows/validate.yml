@@ -357,11 +357,11 @@ jobs:
               'verified',now(),
               'ROLLBACK-ONLY: independently approved additional GIS layer. Camera coordinates remain unchanged and all original source approval requirements remain.'
             from public.gis_government_host_authorities where authority_key='elpaso_co';
-            do $$ begin
+            do \$\$ begin
               if (select count(*) from public.gis_government_host_authorities
                   where government_gis_host='gisservices.elpasoco.com')<>2
               then raise exception 'Distinct layers on reviewed host incorrectly blocked'; end if;
-            end $$;
+            end \$\$;
             rollback;"
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('service_role','public.flock_documented_programs','SELECT')" | grep -qx t
