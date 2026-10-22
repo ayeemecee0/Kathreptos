@@ -308,22 +308,31 @@
     }
     setText('coverageSpinner', 'Checking live sources…');
     try {
-      const [rows,areas]=await Promise.all([
+      // Camera points must remain available even if the optional government
+      // polygon dataset is not yet reachable through the Data API.
+      // Fail the approximate-area indicator separately, never silently
+      // converting an unknown area status into a verified zero.
+      const [rows,areasResult]=await Promise.all([
         cameraRows({south,north,west,east},state.abort.signal),
-        loadOfficialAreas(state.abort.signal)
+        loadOfficialAreas(state.abort.signal).then(
+          value=>({value}),error=>({error}))
       ]);
       if (requestId !== state.requestNumber) return;
       state.visible = rows;
-      state.areas = areas;
+      state.areas = areasResult.value || [];
       updateJurisdictions();
       drawLocations();
+      if(areasResult.error) setText('areaCount','Unknown');
       setText('coverageSpinner', 'Live data');
       const shown = state.visible.length + state.areas.length;
       const capped = state.visible.length >= MAX_VISIBLE;
-      setText('coverageStatus', shown
+      const areaWarning=areasResult.error
+        ? ' Official deployment-area evidence is temporarily unavailable; area coverage is unknown.'
+        : '';
+      setText('coverageStatus', (shown
         ? String(shown) + (capped ? '+ records in current viewport. Zoom in to reduce the result limit.' :
            ' source-backed entries in the current map view; not an exhaustive camera census.')
-        : 'No source-verified camera coordinates in this view yet. This is an evidence gap, NOT evidence that there are no cameras.');
+        : 'No source-verified camera coordinates in this view yet. This is an evidence gap, NOT evidence that there are no cameras.') + areaWarning);
     } catch (error) {
       if (error.name === 'AbortError' || requestId !== state.requestNumber) return;
       state.visible = [];
