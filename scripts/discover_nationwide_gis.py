@@ -23,7 +23,7 @@ from government_domain_registry import public_dns
 MAX_RESULTS=50
 MAX_VISITS=28
 MAX_LINKS=25
-SEARCHERS=("bing-rss",)
+SEARCHERS=("bing-rss","ddg-html")
 FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\b.{0,35}\balpr\b',re.I)
 CAMERAS=re.compile(r'\b(camera|license plate|alpr|lpr)\b',re.I)
 
@@ -84,19 +84,22 @@ def stage(item):
 def scan(dry_run=False,plan=None):
     counts=Counter();hits={}
     for label,query in (plan or query_plan()):
-        provider,url=("bing-rss","https://www.bing.com/search?format=rss&q="+urllib.parse.quote(query))
-        try:
-            _,result=search_provider((provider,url))
-            if not isinstance(result,list):
-                raise ValueError("Search provider did not return parseable links")
-            counts["searches_completed"]+=1
-            for raw in result[:MAX_RESULTS]:
-                original=gov_url(raw)
-                if original and original not in hits:
-                    hits[original]=(label,query)
-        except Exception as exc:
-            counts["search_errors"]+=1
-            print("National GIS discovery search held:",label,type(exc).__name__,str(exc)[:120])
+        for provider in SEARCHERS:
+            url=(("https://www.bing.com/search?format=rss&q=" if provider=="bing-rss"
+                  else "https://html.duckduckgo.com/html/?q=")+urllib.parse.quote(query))
+            try:
+                _,result=search_provider((provider,url))
+                if not isinstance(result,list):
+                    raise ValueError("Search provider did not return parseable links")
+                counts["searches_completed"]+=1
+                for raw in result[:MAX_RESULTS]:
+                    original=gov_url(raw)
+                    if original and original not in hits:
+                        hits[original]=(label,query)
+            except Exception as exc:
+                counts["search_errors"]+=1
+                print("National GIS discovery search held:",label,provider,
+                      type(exc).__name__,str(exc)[:120])
     if not counts["searches_completed"]:
         raise ValueError("All national government source discovery providers unavailable")
     counts["gov_search_urls"]=len(hits)
