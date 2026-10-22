@@ -1,0 +1,39 @@
+name: Corroborate GIS leads using government hyperlinks
+
+on:
+  schedule:
+    - cron: '37 17 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/corroborate_candidate_government_links.py'
+      - 'scripts/test_corroborate_candidate_government_links.py'
+      - '.github/workflows/corroborate_candidate_government_links.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-original-government-gis-links
+  cancel-in-progress: false
+
+jobs:
+  link-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Unit-test original-government direct-link boundary
+        run: python -m unittest discover -s scripts -p 'test_corroborate_candidate_government_links.py' -v
+      - name: Find exact original government hyperlinks to private GIS candidates
+        run: python scripts/corroborate_candidate_government_links.py
