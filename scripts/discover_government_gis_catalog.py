@@ -19,7 +19,9 @@ FLOCK=re.compile(r'^flock[_ -]*cameras?$',re.I)
 SERVICE_NAME=re.compile(r'^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)?$')
 FOLDER_NAME=re.compile(r'^[A-Za-z0-9_-]{1,90}$')
 MAX_FOLDERS=35
-MAX_SERVICES=240
+# Large city GIS catalogs are scanned in 32-service daily slices; rejecting
+# the entire catalog because it exceeds 240 services hides valid sources.
+MAX_SERVICES=2500
 PER_DAY=32
 
 
