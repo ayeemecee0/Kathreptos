@@ -38,6 +38,34 @@ class TestProfiles(unittest.TestCase):
  def test_duplicate_government_id_not_published(self):
   with self.assertRaises(ValueError):
    v.verify_points(S,P,{"features":[f(),f()]})
+ def test_lawrenceville_mixed_school_camera_exclusion(self):
+  city={**S,"source_key":"lawrenceville_ga",
+        "jurisdiction_label":"Lawrenceville, GA",
+        "bounds_south":33.75,"bounds_west":-84.15,
+        "bounds_north":34.1,"bounds_east":-83.85}
+  policy={**P,"source_key":"lawrenceville_ga","vendor_field":"CameraType"}
+  payload={"features":[
+    {"attributes":{"OBJECTID":828,"CameraID":"1","CameraType":"PD Flock Camera"},
+     "geometry":{"x":-83.97,"y":33.92}},
+    {"attributes":{"OBJECTID":829,"CameraID":"2","CameraType":"PD School Camera"},
+     "geometry":{"x":-83.99,"y":33.93}}]}
+  rows,held,total=v.verify_points(city,policy,payload)
+  self.assertEqual((len(rows),total),(1,2))
+  self.assertEqual(held["not a Flock camera per original GIS field"],1)
+  with self.assertRaises(ValueError):
+   v.check_metadata(city,policy,SERVICE,L)
+ def test_webster_city_vendor_stated_in_original_service(self):
+  city={**S,"source_key":"webster_tx","jurisdiction_label":"Webster, TX"}
+  policy={**P,"source_key":"webster_tx","expected_layer_name":"FLOCK Cameras - Webster PD",
+          "camera_id_field":"ID","service_evidence_mode":"explicit_flock_service_text"}
+  meta={"name":"FLOCK Cameras - Webster PD","type":"Feature Layer",
+        "geometryType":"esriGeometryPoint",
+        "fields":[{"name":"OBJECTID","type":"esriFieldTypeOID"},
+                  {"name":"ID","type":"esriFieldTypeString"}]}
+  service={"serviceDescription":"Webster PD Cameras (FLOCK) for reading vehicle license plates"}
+  v.check_metadata(city,policy,service,meta)
+  with self.assertRaises(ValueError):
+   v.check_metadata(city,policy,{"serviceDescription":"Traffic cameras"},meta)
  def test_dryrun_never_writes(self):
   with (patch.object(v,"approved_sources",return_value=[(S,P)]),
         patch.object(v,"query_gis",return_value={"features":[f()]}),

@@ -20,7 +20,7 @@ from auto_verify_camera_gis import (
 
 LIMIT=1000
 FIELD=re.compile(r"^[A-Za-z][A-Za-z0-9_]{1,50}$")
-FLOCK_LAYER=re.compile(r"^flock[_ ]cameras$",re.I)
+FLOCK_LAYER=re.compile(r"^flock[_ ]cameras(?: - [A-Za-z][A-Za-z ]{0,60})?$",re.I)
 
 
 def approved_sources():
@@ -82,6 +82,7 @@ def authorize(s,p,r):
     elif p.get("identity_mode")=="official_flock_layer":
         if (not r or not FLOCK_LAYER.fullmatch(p.get("expected_layer_name") or "") or
             not FIELD.fullmatch(p.get("camera_id_field") or "") or
+            (p.get("vendor_field") is not None and not FIELD.fullmatch(p["vendor_field"])) or
             p.get("service_evidence_mode") not in
               ("listed_flock_layer","explicit_flock_service_text")):
             raise ValueError("Unapproved government layer-name Flock attribution")
@@ -108,7 +109,8 @@ def check_metadata(s,p,service,layer):
             raise ValueError("Government per-feature vendor field absent")
     else:
         expected=p["expected_layer_name"]
-        if layer.get("name")!=expected or p["camera_id_field"] not in names:
+        if (layer.get("name")!=expected or p["camera_id_field"] not in names or
+            (p.get("vendor_field") is not None and p["vendor_field"] not in names)):
             raise ValueError("Flock-only source layer name or identifier changed")
         if p["service_evidence_mode"]=="listed_flock_layer":
             layer_id=int(s["gis_layer_url"].rsplit("/",1)[1])
@@ -120,7 +122,8 @@ def check_metadata(s,p,service,layer):
         else:
             info=service.get("documentInfo") or {}
             descriptor=" ".join(str(x or "") for x in
-                (service.get("mapName"),info.get("Keywords"),info.get("Title"))).lower()
+                (service.get("mapName"),service.get("serviceDescription"),
+                 service.get("description"),info.get("Keywords"),info.get("Title"))).lower()
             if "flock" not in descriptor or not ("camera" in descriptor or "cctv" in descriptor):
                 raise ValueError("Government GIS service vendor description changed")
 
@@ -129,8 +132,13 @@ def query_gis(s,p):
     parent=s["gis_layer_url"].rsplit("/",1)[0]
     check_metadata(s,p,get_official_json(parent+"?f=json"),
                    get_official_json(s["gis_layer_url"]+"?f=json"))
-    tag=p["vendor_field"] if p["identity_mode"]=="per_feature_vendor" else p["camera_id_field"]
-    qs=urllib.parse.urlencode({"where":"1=1","outFields":"OBJECTID,"+tag,
+    fields=["OBJECTID"]
+    if p["identity_mode"]=="per_feature_vendor":
+        fields.append(p["vendor_field"])
+    else:
+        fields.append(p["camera_id_field"])
+        if p.get("vendor_field"):fields.append(p["vendor_field"])
+    qs=urllib.parse.urlencode({"where":"1=1","outFields":",".join(sorted(set(fields))),
          "returnGeometry":"true","outSR":"4326","orderByFields":"OBJECTID ASC",
          "resultRecordCount":str(LIMIT),"f":"json"})
     return get_official_json(s["gis_layer_url"]+"/query?"+qs)
@@ -161,6 +169,11 @@ def verify_points(s,p,data):
             identifier=a.get(p["camera_id_field"])
             if not isinstance(identifier,str) or not 1<=len(identifier.strip())<=100:
                 holds["no individual camera identifier"]+=1;continue
+            # A mixed government point layer may include school/traffic
+            # equipment. Filter each feature if an additional reviewed
+            # per-camera manufacturer/type field is defined.
+            if p.get("vendor_field") and not classify_camera_type(a.get(p["vendor_field"])):
+                holds["not a Flock camera per original GIS field"]+=1;continue
             # Preserve earlier evidence fingerprints for unchanged published
             # sources, avoiding fictitious withdrawal/republication history.
             camera_type=("Flock (county Sheriff GIS layer)" if
