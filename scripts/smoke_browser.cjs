@@ -14,6 +14,25 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=16,{timeout:25000});
   await page.getByRole('button',{name:/Explore Peoria/}).click();
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=74,{timeout:25000});
+  // Jurisdiction and label filters apply only to map display, not source data.
+  await page.locator('#jurisdictionFilter').selectOption('Peoria, AZ');
+  await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=74,{timeout:25000});
+  await page.locator('#cameraTextFilter').fill('not-a-valid-government-camera-label');
+  await page.waitForFunction(()=>document.querySelector('#exactCount')?.textContent==='0',{timeout:6000});
+  await page.locator('#cameraTextFilter').fill('');
+  await page.locator('#jurisdictionFilter').selectOption('');
+  await page.locator('#mapSearch').fill('33.67,-112.29');
+  await page.locator('#mapSearchForm button').click();
+  await page.waitForFunction(()=>document.querySelector('#mapSearchStatus')?.textContent?.includes('Map centered'),{timeout:8000});
+  // Public evidence history exposes verified records, not unpublished candidates.
+  const audit=await page.evaluate(async()=>{
+    const c=window.KATOPTRON_CONFIG;
+    const url=c.supabaseUrl+'/rest/v1/flock_camera_evidence_history?select=event_type,recorded_at&limit=3';
+    const res=await fetch(url,{headers:{apikey:c.supabasePublishableKey}});
+    if(!res.ok)throw Error('Evidence history HTTP '+res.status);
+    return res.json();
+  });
+  assert.ok(audit.length>0 && audit.every(x=>x.event_type==='published'||x.event_type==='source_rechecked'));
   const point=await page.evaluate(async()=>{
    const c=window.KATOPTRON_CONFIG;
    const url=c.supabaseUrl+'/rest/v1/flock_camera_locations?select=latitude,longitude&jurisdiction_label=eq.El%20Paso%20County%2C%20CO&verification_status=eq.verified&limit=1';
@@ -45,7 +64,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#play').isDisabled(),true);
   assert.equal((await page.locator('#observationCount').textContent()).trim(),'—');
   assert.deepEqual(errors,[]);
-  console.log('BROWSER SMOKE PASSED: 3 real municipal GIS datasets, route evidence, replay and reset');
+  console.log('BROWSER SMOKE PASSED: 3 GIS sources, map filters/search, public history, route evidence, replay and reset');
  }catch(e){
   console.error('BROWSER SMOKE FAILED',e.stack||e);
   await page.screenshot({path:'katoptron-smoke-failure.png',fullPage:true}).catch(()=>{});
