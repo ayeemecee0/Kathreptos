@@ -5,7 +5,7 @@ Katoptron is a **nationwide Flock Safety camera-map and route-surveillance educa
 ## Current project status
 
 - **Primary public experience:** [Nationwide camera map and route simulator](https://ayeemecee0.github.io/Katoptron/) is the homepage. Search arbitrary US start and destination points, display real roads from a public routing demo, inspect any published evidence-backed camera pins or uncertainty areas, and optionally replay clearly distinguished synthetic potential sightings.
-- **Map records database:** [Migration 018](./supabase/migrations/018_camera_map_locations.sql) creates the RLS-protected `flock_camera_locations` table. 34 source-verified GIS camera points have been published across Monroe, Washington (18) and El Paso County, Colorado (16). Unmapped areas still do not demonstrate an absence of surveillance.
+- **Map records database:** [Migration 018](./supabase/migrations/018_camera_map_locations.sql) creates the RLS-protected `flock_camera_locations` table. 108 government GIS points are now published across Peoria AZ (74), Monroe WA (18) and El Paso County CO (16). Unmapped areas still do not demonstrate an absence of surveillance.
 - **Archived fictional simulator:** [Original synthetic model](https://ayeemecee0.github.io/Katoptron/legacy-simulator.html) remains accessible for demonstrations.
 - **Source-verified public database:** [Verified government records](https://ayeemecee0.github.io/Katoptron/records.html), backed by Supabase read-only public views and row-level security.
 - **Automatic public evidence verification:** [Daily discovery workflow](./.github/workflows/discover.yml) finds official government matters, then [automatic Flock mention verification](./.github/workflows/auto_verify_agenda.yml) re-fetches live Legistar records and publishes only exact, source-verified agenda mentions with explicit Flock Safety titles. No manual click required.
@@ -99,3 +99,8 @@ The first production run automatically approved the county's source and discover
 ## Production readiness
 
 See [Current production readiness audit](./docs/production-readiness-audit-2026-10-22.md), [evidence methodology](./methodology.html), and [privacy](./privacy.html). Live source verification covers two jurisdictions only. Public demo route/geocoder infrastructure is not a production-scale service.
+
+
+### Third verified GIS deployment: Peoria, Arizona
+
+On October 22, 2026, Katoptron independently checked the City of Peoria government's GIS host, its Public Works MapServer point layer 286 explicitly named Flock Cameras, and its individual CameraID and Location fields. The live read-only probe returned 74 features with valid camera identifiers and geographic coordinates. Migration [026](./supabase/migrations/026_peoria_city_camera_source.sql) approved this exact municipality-operated layer; the existing daily verifier independently reread layer metadata, published 74 records, and rechecked 34 previously published points with zero production errors. These are published GIS points, not proof of active readings.

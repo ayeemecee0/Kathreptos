@@ -8,11 +8,11 @@ Nationwide source-backed Flock camera map, user-planned real-road synthetic surv
 
 | Priority | Milestone | State | Acceptance criteria |
 |---|---|---|---|
-| P0 | Database privileges and public source provenance | FIXED in migration 025 | Anonymous roles cannot call owner-bound source promotion or trigger internals; 34 records remain accessible via anon SELECT |
+| P0 | Database privileges and public source provenance | FIXED in migration 025 | Anonymous roles cannot call owner-bound source promotion or trigger internals; 108 records remain accessible via anon SELECT |
 | P0 | Whole-route simulation accuracy | IMPLEMENTED and tests passing | Full route corridor queried, proximity measured against segments, timeline by distance traveled, unknown data not counted as zero |
 | P0 | Original evidence lifecycle and source revocations | OPERATIONAL FOR TWO SOURCES | Government GIS points immutable, daily source checks, revocation withdraws |
 | P1 | Municipality disclosure link crawler | IMPLEMENTED, LOW COVERAGE | Crawl approved official Flock-linked pages, stage direct ArcGIS URLs privately; first run checked 4 pages and found no new direct layer links |
-| P1 | Expand verified GIS authority nationwide | PARTIAL | Only two currently approved municipal sources; third-party ArcGIS and OSM are private candidates |
+| P1 | Expand verified GIS authority nationwide | PARTIAL | Three currently approved municipal sources; third-party ArcGIS and OSM are private candidates |
 | P1 | Real browser smoke testing and monitoring | INCOMPLETE | Test live public API, map and route; failures must produce alerts |
 | P1 | Replace Photon and OSRM demo infrastructure | BLOCKED | Provision routing/geocoding services with suitable uptime/rate/privacy guarantees and configure provider credentials |
 | P1 | Abuse-controlled community submissions | NOT STARTED | Protected intake, throttling, photo/source verification, consent and privacy restrictions |
@@ -23,7 +23,7 @@ Nationwide source-backed Flock camera map, user-planned real-road synthetic surv
 
 ## Verified state
 
-34 verified public points (18 Monroe WA, 16 El Paso County CO), two official approved GIS roots, 1,586 private OSM candidates and one third-party GIS candidate. Zero verified approximate areas. The original simulator and government records remain available.
+108 verified public points (74 Peoria AZ, 18 Monroe WA, 16 El Paso County CO), three government-authorized GIS source bindings, 1,586 private OSM candidates and one third-party GIS candidate. Zero verified approximate areas. The original simulator and government records remain available.
 
 The security audit uncovered a source-promotion RPC that was callable by anon/authenticated. Migration 025 explicitly revoked those grants and confirmed service-role-only execution. Supabase security advisors now flag only intended read-only helper predicates plus editorial authenticated functions requiring separate in-function reviewer authorization, and Auth leaked-password protection configuration.
 

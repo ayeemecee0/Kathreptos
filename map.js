@@ -446,6 +446,9 @@
     $('viewColorado').addEventListener('click',()=>{
       state.map?.setView([38.85,-104.75],11);
     });
+    $('viewPeoria').addEventListener('click',()=>{
+      state.map?.setView([33.63,-112.24],11);
+    });
     $('national').addEventListener('click',()=>{
       state.map?.setView(USA_CENTER,4);
     });

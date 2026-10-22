@@ -12,6 +12,8 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=18,{timeout:25000});
   await page.getByRole('button',{name:/Explore El Paso County/}).click();
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=16,{timeout:25000});
+  await page.getByRole('button',{name:/Explore Peoria/}).click();
+  await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=74,{timeout:25000});
   const point=await page.evaluate(async()=>{
    const c=window.KATOPTRON_CONFIG;
    const url=c.supabaseUrl+'/rest/v1/flock_camera_locations?select=latitude,longitude&jurisdiction_label=eq.El%20Paso%20County%2C%20CO&verification_status=eq.verified&limit=1';
@@ -43,7 +45,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#play').isDisabled(),true);
   assert.equal((await page.locator('#observationCount').textContent()).trim(),'—');
   assert.deepEqual(errors,[]);
-  console.log('BROWSER SMOKE PASSED: real Monroe/El Paso camera API, route evidence, replay and reset');
+  console.log('BROWSER SMOKE PASSED: 3 real municipal GIS datasets, route evidence, replay and reset');
  }catch(e){
   console.error('BROWSER SMOKE FAILED',e.stack||e);
   await page.screenshot({path:'katoptron-smoke-failure.png',fullPage:true}).catch(()=>{});
