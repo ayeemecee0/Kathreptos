@@ -34,3 +34,14 @@ Four original government disclosure pages checked in first crawler run yielded z
 Reliable geocoding and routing infrastructure (current endpoints are public demos), broad verified geographic coverage, community intake moderation/abuse controls, real end-to-end browser testing, accessible mobile flows, incident response, Auth security settings and operational monitoring.
 
 **Do not label the full project production-ready until these acceptance gates are satisfied.**
+
+
+## Additional verified completions from October 22
+
+- **Peoria AZ now live:** 74 newly sourced official GIS camera points added by automated verifier, bringing the production verified total to 108 across three jurisdictions. Corrected CI migration checks for the third verified government GIS root. All published exact locations have evidence links; no camera uptime or plate reads are implied.
+- **End-to-end browser checks passing:** Headless Chromium release smoke tested the three municipalities against the actual public Supabase camera API, plus simulated road-route evidence, replay and reset. Job: https://github.com/ayeemecee0/Katoptron/actions/runs/39810600259. The workflow now also tests local checkout changes on push, avoiding races with GitHub Pages deployment.
+- **Daily public-health monitor:** New script/workflow validates published site assets, source-check freshness (72-hour threshold), baseline minimum counts, and no revoked camera record leakage. First live run passed (https://github.com/ayeemecee0/Katoptron/actions/runs/39811207783). An intentional verified camera withdrawal below a baseline will fail the monitor until an evidence audit updates the baseline.
+- **Database performance repair:** Migration 027 adds eight missing foreign-key indexes on government-record and editorial tables; Supabase performance advisor no longer reports any unindexed foreign keys. New unused-index advisories are informational immediately after creation.
+- **Complete migration and code CI:** October 22 latest validation run https://github.com/ayeemecee0/Katoptron/actions/runs/39811440690 passed with migrations 001 through 027 and all discovered script tests.
+
+The following remain **not production-ready**: authenticated anti-abuse community reporting with evidence validation, independent GIS authority discovery at broad national scale, dedicated geocoder/router infrastructure and provider privacy guarantees, accessibility/user research, sustained load testing, operational response and backups, Auth password-leak protection dashboard configuration, and the full sourced personnel/accountability directory. Do not claim an exhaustive nationwide camera inventory.
