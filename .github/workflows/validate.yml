@@ -25,6 +25,7 @@ on:
       - 'supabase/migrations/020_camera_source_recheck_freshness.sql'
       - 'supabase/migrations/021_camera_gis_authority_candidates.sql'
       - 'supabase/migrations/022_camera_source_matches.sql'
+      - 'supabase/migrations/023_owner_bound_gis_authority.sql'
       - 'index.html'
       - 'map.js'
       - 'map.css'
@@ -303,6 +304,18 @@ jobs:
             -f supabase/migrations/021_camera_gis_authority_candidates.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/022_camera_source_matches.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/023_owner_bound_gis_authority.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.gis_government_host_authorities where verification_status='verified'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.trusted_flock_gis_sources where source_key='elpaso_co' and source_status='candidate'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.gis_government_host_authorities','UPDATE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select public.gis_camera_authority_current('https://gis.monroewa.gov/citygis/rest/services/UtilityData/Street_Layers/MapServer/22','Monroe, WA')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
