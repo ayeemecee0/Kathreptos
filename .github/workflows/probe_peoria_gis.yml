@@ -1,0 +1,23 @@
+name: Probe Peoria municipal Flock GIS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/probe_peoria_gis.py'
+      - '.github/workflows/probe_peoria_gis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  verify-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Inspect live government GIS layer with no write credentials
+        run: python scripts/probe_peoria_gis.py
