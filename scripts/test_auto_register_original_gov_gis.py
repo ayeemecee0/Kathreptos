@@ -37,13 +37,27 @@ class NewOriginalGov(unittest.TestCase):
   with (patch.object(x,"private_government_pages",return_value=[
            {"page_url":PAGE,"page_sha256":"a"*64,"gis_links":[URL]}]),
         patch.object(x,"public_dns",return_value=True),
-        patch.object(x,"fetch_government_page",return_value=(doc(),"b"*64)),
+        patch.object(x,"fetch_government_page",return_value=(Anchors(),"b"*64)),
         patch.object(x,"qualified_original_layer") as verify,
         patch.object(x,"api_request") as api):
    out=x.run()
   self.assertEqual(out["registered"],0)
   verify.assert_not_called()
   api.assert_not_called()
+ def test_changed_official_page_with_same_link_rechecks_digest(self):
+  candidate={"gis_layer_url":URL,"layer_name":"Flock Cameras"}
+  with (patch.object(x,"private_government_pages",return_value=[
+          {"page_url":PAGE,"page_sha256":"a"*64,"gis_links":[URL]}]),
+        patch.object(x,"public_dns",return_value=True),
+        patch.object(x,"fetch_government_page",return_value=(doc(),"b"*64)),
+        patch.object(x,"qualified_original_layer",return_value=[
+          "CameraID",None,[{"id":4,"lat":38.5,"lon":-98.45}],"c"*64,candidate]),
+        patch.object(x,"stage_candidate"),
+        patch.object(x,"api_request",return_value=True) as rpc):
+   result=x.run()
+  self.assertEqual(result["registered"],1)
+  self.assertEqual(result["government_page_digest_refreshed"],1)
+  self.assertEqual(rpc.call_args_list[0].kwargs["payload"]["p_expected_old_sha"],"a"*64)
  def test_dryrun_no_mutations(self):
   candidate={"gis_layer_url":URL,"layer_name":"Flock Cameras"}
   with (patch.object(x,"private_government_pages",return_value=[

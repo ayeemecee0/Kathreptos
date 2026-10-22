@@ -134,14 +134,28 @@ def run(dry_run=False):
                 if not public_dns(ph) or not public_dns(lh):
                     raise ValueError("Original government host failed public DNS checks")
                 doc,digest=fetch_government_page(page)
-                if digest!=source["page_sha256"]:
-                    raise ValueError("Original source page changed since queue discovery; do not reuse stale evidence")
                 if not direct_candidate_links(doc,page,digest,
                      "Government GIS: "+ph,{url:{}}):
                     raise ValueError("Original .gov disclosure has no direct Flock camera GIS hyperlink")
                 field,vendor,points,layer_hash,candidate=qualified_original_layer(page,url)
                 stats["qualified_live_layers"]+=1
-                if dry_run: continue
+                if dry_run:continue
+                if digest!=source["page_sha256"]:
+                    # The same exact original government Flock GIS link still
+                    # exists, and current point metadata/geometry was verified.
+                    # Preserve an append-only digest trail before advancing
+                    # the private discovery page's fingerprint.
+                    refreshed=api_request("rpc/refresh_unverified_gov_gis_page_digest",
+                      method="POST",payload={
+                         "p_page_url":page,
+                         "p_expected_old_sha":source["page_sha256"],
+                         "p_current_live_sha":digest,
+                         "p_existing_layer_url":url,
+                      })
+                    if refreshed is not True:
+                        raise ValueError("Government source evidence refresh refused")
+                    source["page_sha256"]=digest
+                    stats["government_page_digest_refreshed"]+=1
                 # Stage candidate privately before any request for government
                 # source authority, never directly write public coordinates.
                 stage_candidate(candidate)
@@ -168,7 +182,7 @@ def run(dry_run=False):
         if refreshed["errors"]:
             stats["errors"]+=refreshed["errors"]
     for key in ("qualified_live_layers","registered","new_verified_public_camera_pins",
-                "held","errors"):
+                "government_page_digest_refreshed","held","errors"):
         print("Auto-first-party government GIS",key+":",stats[key])
     print("Newly trusted ArcGIS Online private/community organizations: 0")
     return stats
