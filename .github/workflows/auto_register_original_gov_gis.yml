@@ -1,0 +1,38 @@
+name: Verify new original government GIS Flock camera sources
+
+on:
+  schedule:
+    - cron: '51 14 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/auto_register_original_gov_gis.py'
+      - 'scripts/test_auto_register_original_gov_gis.py'
+      - '.github/workflows/auto_register_original_gov_gis.yml'
+      - 'supabase/migrations/039_automatic_first_party_government_gis_sources.sql'
+permissions:
+  contents: read
+concurrency:
+  group: katoptron-new-government-owned-fresh-gis
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Require backend verification key
+        run: test -n "$SUPABASE_SERVICE_ROLE_KEY"
+      - name: Unit-test same-government-apex source and evidence safeguards
+        run: python -m unittest discover -s scripts -p 'test_auto_register_original_gov_gis.py' -v
+      - name: Validate public original-government camera GIS and register independent source
+        run: python scripts/auto_register_original_gov_gis.py
