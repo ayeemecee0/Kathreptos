@@ -35,6 +35,7 @@ on:
       - 'supabase/migrations/030_government_programs_without_coordinates.sql'
       - 'supabase/migrations/031_lawrenceville_webster_flock_gis.sql'
       - 'supabase/migrations/032_readonly_backend_government_program_citations.sql'
+      - 'supabase/migrations/033_multiple_exact_layers_per_government_host.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -336,6 +337,32 @@ jobs:
             -f supabase/migrations/031_lawrenceville_webster_flock_gis.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/032_readonly_backend_government_program_citations.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/033_multiple_exact_layers_per_government_host.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from pg_constraint where conrelid='public.gis_government_host_authorities'::regclass and conname='gis_government_host_authorities_host_layer_key'" | grep -qx 1
+          # The same exact GIS host may register a second independently reviewed
+          # layer, while both layer approvals remain distinct and source-scoped.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc "
+            begin;
+            insert into public.gis_government_host_authorities (
+              authority_key,government_gis_host,official_government_page,
+              jurisdiction_label,allowed_layer_path,expected_layer_name,
+              bounds_south,bounds_west,bounds_north,bounds_east,
+              verification_status,independently_reviewed_at,trust_explanation)
+            select 'elpaso_second_layer_ci',government_gis_host,
+              official_government_page,jurisdiction_label,
+              '/arcgis2/rest/services/Sheriff/NeighborhoodWatchGroups_EPSO_WFL1/MapServer/5',
+              expected_layer_name,bounds_south,bounds_west,bounds_north,bounds_east,
+              'verified',now(),
+              'ROLLBACK-ONLY: independently approved additional GIS layer. Camera coordinates remain unchanged and all original source approval requirements remain.'
+            from public.gis_government_host_authorities where authority_key='elpaso_co';
+            do $$ begin
+              if (select count(*) from public.gis_government_host_authorities
+                  where government_gis_host='gisservices.elpasoco.com')<>2
+              then raise exception 'Distinct layers on reviewed host incorrectly blocked'; end if;
+            end $$;
+            rollback;"
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('service_role','public.flock_documented_programs','SELECT')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
