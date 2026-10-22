@@ -15,6 +15,7 @@ import json
 import re
 import urllib.parse
 from collections import Counter
+from urllib.error import HTTPError
 
 from auto_verify_flock_agenda import api_request
 from auto_verify_camera_gis import get_official_json
@@ -172,10 +173,27 @@ def run(dry_run=False):
                 if confirmed is not True:
                     raise ValueError("Owner-bound government source registration declined")
                 stats["registered"]+=1
+            except HTTPError as ex:
+                # Publication conflicts are evidence holds; unexpected
+                # database or authentication errors must fail CI visibly.
+                response=ex.read(1200).decode("utf8","replace")
+                stats["held"]+=1
+                if not any(note in response for note in
+                   ("possible existing published camera",
+                    "No independently corroborated original .gov source",
+                    "too broad to infer a safe local verification envelope")):
+                    stats["errors"]+=1
+                print("Government source registration refused:",url,
+                      ex.code,response[:500])
+            except ValueError as ex:
+                stats["held"]+=1
+                print("New original government source lacks sufficient evidence:",
+                      url,str(ex)[:220])
             except Exception as ex:
                 stats["held"]+=1
-                print("New original government Flock source withheld:",
-                      url,type(ex).__name__,str(ex)[:210])
+                stats["errors"]+=1
+                print("Unexpected original government source verifier failure:",
+                      url,type(ex).__name__,str(ex)[:220])
     if not dry_run and stats["registered"]:
         refreshed=sync()
         stats["new_verified_public_camera_pins"]=refreshed["published"]
