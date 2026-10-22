@@ -34,10 +34,11 @@ class National(unittest.TestCase):
   with patch.object(d,"api_request",side_effect=[
     [{"url":"https://www.city.example.gov/flock","state_hint":"Colorado"},
      {"url":"https://bad.example/alpr","state_hint":"Texas"}],
-    [{"government_evidence_url":"https://city2.example.gov/flock"}]
+    [{"government_evidence_url":"https://city2.example.gov/flock"}],
+    [{"official_evidence_url":"https://city3.example.gov/Flock","state_code":"GA"}]
   ]):
    found=d.upstream_government_source_seeds()
-  self.assertEqual(len(found),2)
+  self.assertEqual(len(found),3)
   self.assertNotIn("https://bad.example/alpr",found)
  def test_no_mutation_dryrun(self):
   h=html('<h2>Flock Safety ALPR cameras</h2>')

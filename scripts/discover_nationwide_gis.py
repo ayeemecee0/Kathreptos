@@ -92,8 +92,11 @@ def upstream_government_source_seeds():
         raise ValueError("Existing government discovery backlog truncated")
     agendas=api_request("verified_flock_agenda_mentions?select=government_evidence_url&"
                        "status=eq.verified&limit=100")
-    if not isinstance(agendas,list) or len(agendas)>=100:
-        raise ValueError("Verified public government agenda sources truncated")
+    programs=api_request("flock_documented_programs?select=official_evidence_url,state_code"
+                         "&record_status=eq.verified&limit=100")
+    if (not isinstance(agendas,list) or len(agendas)>=100
+        or not isinstance(programs,list) or len(programs)>=100):
+        raise ValueError("Verified public government source registry truncated")
     found={}
     for item in prior:
         url=gov_url(item.get("url") or "")
@@ -104,6 +107,11 @@ def upstream_government_source_seeds():
         url=gov_url(item.get("government_evidence_url") or "")
         if url:
             found[url]=("Verified legislative record","Flock Safety legislative government source")
+    for item in programs:
+        url=gov_url(item.get("official_evidence_url") or "")
+        if url:
+            found[url]=(str(item.get("state_code") or "Official program"),
+                        "Original government Flock program citation")
     return found
 
 
@@ -171,5 +179,5 @@ if __name__=="__main__":
     a=argparse.ArgumentParser(description=__doc__)
     a.add_argument("--dry-run",action="store_true")
     result=scan(a.parse_args().dry_run)
-    if result["searches_completed"]==0:
-        raise SystemExit("No functioning official GIS discovery search provider")
+    if result["searches_completed"]==0 and result["source_registry_gov_urls"]==0:
+        raise SystemExit("No functioning government GIS discovery source")
