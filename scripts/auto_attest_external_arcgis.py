@@ -18,7 +18,7 @@ from urllib.error import HTTPError
 
 from auto_verify_flock_agenda import api_request
 from auto_verify_camera_gis import get_official_json
-from auto_verify_camera_profiles import check_metadata, verify_points
+from auto_verify_camera_profiles import check_metadata, verify_points, sync as refresh_verified
 from corroborate_candidate_government_links import direct_candidate_links
 from discover_government_gis_links import fetch_government_page
 
@@ -219,7 +219,15 @@ def run(dry_run=False):
             counts["held"]+=1;counts["unexpected_errors"]+=1
             print("Unexpected external GIS source verifier error:",
                   url,type(exc).__name__,str(exc)[:220])
-    for key in ("independently_qualified","registered","held","unexpected_errors"):
+    if counts["registered"] and not dry_run:
+        refreshed=refresh_verified()
+        counts["published_camera_points"]=refreshed["published"]
+        if refreshed["errors"]:
+            counts["unexpected_errors"]+=refreshed["errors"]
+            print("External GIS source registered but publication recheck failed",
+                  refreshed["errors"])
+    for key in ("independently_qualified","registered","published_camera_points",
+                "held","unexpected_errors"):
         print("External government GIS",key+":",counts[key])
     print("Flock points directly published from unreviewed Esri organization names: 0")
     return counts
