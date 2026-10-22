@@ -1,0 +1,34 @@
+name: Discover Flock layers in verified municipal GIS catalogs
+on:
+  schedule:
+    - cron: '39 12 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover_government_gis_catalog.py'
+      - 'scripts/test_discover_government_gis_catalog.py'
+      - '.github/workflows/discover_government_gis_catalog.yml'
+permissions:
+  contents: read
+concurrency:
+  group: katoptron-owner-bound-gis-catalogs
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate only reviewed government-service catalogs can be scanned
+        run: python -m unittest discover -s scripts -p 'test_discover_government_gis_catalog.py' -v
+      - name: Sample official county and city GIS catalogs for Flock camera point layer candidates
+        run: python scripts/discover_government_gis_catalog.py
