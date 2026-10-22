@@ -16,6 +16,7 @@ import json
 import re
 import urllib.parse
 from collections import Counter
+from urllib.error import HTTPError
 
 from auto_verify_flock_agenda import api_request
 from auto_verify_camera_gis import get_official_json
@@ -154,16 +155,34 @@ def run(dry_run=False,publish=False):
                 if value is not True:
                     raise ValueError("Database independently refused source registration")
                 result["registered"]+=1
-        except Exception as exc:
+        except HTTPError as exc:
+            # Surface the actual database reason. A duplicate is a deliberate
+            # evidence hold; an unknown HTTP 400, permission failure, or
+            # registration bug must not count as a successful verification.
+            body=exc.read(1600).decode("utf8","replace")
+            if ("Possible already published government camera" in body
+                or "Not a distinct approved-host layer" in body):
+                result["duplicate_or_existing_held"]+=1
+            else:
+                result["errors"]+=1
             result["held"]+=1
             print("Government layer NOT registered:",url,
+                  "HTTP",exc.code,"database reason",body[:500])
+        except ValueError as exc:
+            result["held"]+=1
+            print("Government source evidence held:",url,str(exc)[:220])
+        except Exception as exc:
+            result["held"]+=1
+            result["errors"]+=1
+            print("Government source registration failed:",url,
                   type(exc).__name__,str(exc)[:220])
     if publish and not dry_run and result["registered"]:
         verified=refresh_verified()
         result["new_public_pins"]=verified["published"]
         if verified["errors"]:
             raise RuntimeError("Verified source camera refresh failed after new approval")
-    for key in ("eligible_live_layers","registered","held","new_public_pins"):
+    for key in ("eligible_live_layers","registered","held",
+                "duplicate_or_existing_held","errors","new_public_pins"):
         print("Derived government GIS",key+":",result[key])
     print("ArcGIS-only unverified third-party publishers approved: 0")
     return result
@@ -174,4 +193,6 @@ if __name__=="__main__":
     a.add_argument("--dry-run",action="store_true")
     a.add_argument("--publish",action="store_true")
     o=a.parse_args()
-    run(o.dry_run,o.publish)
+    result=run(o.dry_run,o.publish)
+    if result["errors"]:
+        raise SystemExit("A government GIS registration failed unexpectedly; check error logs")
