@@ -35,6 +35,9 @@ class MapPageTests(unittest.TestCase):
                          'coverageStatus','timelineEvents','play'}.issubset(self.ids))
         self.assertIn('./map.js',self.src)
         self.assertIn('./route-geometry.js',self.src)
+        self.assertTrue({'mapSearch','mapSearchForm','jurisdictionFilter',
+                         'cameraTextFilter','filterStatus'}.issubset(self.ids))
+        self.assertIn('flock_camera_evidence_history',self.script)
         self.assertIn('./config.js',self.src)
         self.assertIn('./map.css',self.html)
 

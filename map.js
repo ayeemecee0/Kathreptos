@@ -41,6 +41,9 @@
     add('span', record.jurisdiction_label);
     add('small', record.evidence_summary);
     add('small', 'Source last checked: ' + shortDate(record.last_source_recheck_at || record.last_confirmed_on));
+    add('small', 'Published evidence: ' + shortDate(record.published_at));
+    add('small', record.verification_method === 'official_georeferenced_camera_record_v1'
+      ? 'Evidence tier: original government GIS point' : 'Evidence tier: corroborated public source');
     const url = safeUrl(record.source_url);
     if (url) {
       const link = add('a', 'Inspect original evidence ↗');
@@ -48,6 +51,46 @@
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
     }
+    const historyButton=add('button','View evidence history');
+    historyButton.type='button';
+    historyButton.className='history-button';
+    historyButton.addEventListener('click',async ()=>{
+      historyButton.disabled=true;
+      historyButton.textContent='Retrieving history…';
+      const q=new URLSearchParams({select:'event_type,recorded_at',
+        record_key:'eq.'+record.record_key,order:'recorded_at.desc',limit:'15'});
+      try {
+        const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+          '/rest/v1/flock_camera_evidence_history?'+q.toString(),
+          {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
+        if(!response.ok)throw new Error('API HTTP '+response.status);
+        const rows=await response.json();
+        if(!Array.isArray(rows))throw new Error('Invalid evidence history response');
+        const list=document.createElement('ol');
+        list.className='evidence-history';
+        for(const event of rows){
+          const li=document.createElement('li');
+          const category={
+            published:'Evidence originally published',
+            source_rechecked:'Original source rechecked',
+            withdrawn:'Record withdrawn'
+          }[event.event_type] || 'Evidence event';
+          li.textContent=category+' · '+shortDate(event.recorded_at);
+          list.append(li);
+        }
+        if(!rows.length){
+          const note=document.createElement('small');
+          note.textContent='No public audit entries for this verified record.';
+          div.append(note);
+        } else div.append(list);
+        historyButton.textContent='Evidence history loaded';
+      }catch(error){
+        historyButton.disabled=false;
+        historyButton.textContent='Retry evidence history';
+        const status=add('small','History temporarily unavailable: '+error.message);
+        status.className='muted';
+      }
+    });
     return div;
   }
   function setupMap() {
@@ -73,7 +116,7 @@
   }
   function publicCameraUrl(bounds) {
     const query = new URLSearchParams({
-      select: 'id,record_key,label,jurisdiction_label,latitude,longitude,location_accuracy,uncertainty_radius_m,source_type,source_url,evidence_summary,last_confirmed_on,last_source_recheck_at',
+      select: 'id,record_key,label,jurisdiction_label,latitude,longitude,location_accuracy,uncertainty_radius_m,source_type,source_url,evidence_summary,last_confirmed_on,last_source_recheck_at,published_at,verification_method',
       verification_status: 'eq.verified',
       latitude: 'gte.' + bounds.south.toFixed(6),
       longitude: 'gte.' + bounds.west.toFixed(6),
@@ -167,6 +210,7 @@
       const rows=await cameraRows({south,north,west,east},state.abort.signal);
       if (requestId !== state.requestNumber) return;
       state.visible = rows;
+      updateJurisdictions();
       drawLocations();
       setText('coverageSpinner', 'Live data');
       const shown = state.visible.length;
@@ -178,11 +222,35 @@
     } catch (error) {
       if (error.name === 'AbortError' || requestId !== state.requestNumber) return;
       state.visible = [];
+      updateJurisdictions();
       drawLocations();
       setText('coverageSpinner', 'Source unavailable');
       setText('coverageStatus', 'Unable to load camera evidence (' +
         error.message + '). Camera coverage is unknown; retry by moving the map.');
     }
+  }
+  function updateJurisdictions() {
+    const select=$('jurisdictionFilter');
+    const prior=select.value;
+    const jurisdictions=[...new Set(state.visible.map(x=>x.jurisdiction_label)
+      .filter(x=>typeof x==='string'&&x.length<=150))].sort();
+    select.replaceChildren();
+    const all=document.createElement('option');
+    all.value='';all.textContent='All in current map view';
+    select.append(all);
+    for(const name of jurisdictions){
+      const option=document.createElement('option');
+      option.value=name;option.textContent=name;
+      select.append(option);
+    }
+    select.value=jurisdictions.includes(prior)?prior:'';
+  }
+  function recordMatchesFilters(record) {
+    const jurisdiction=$('jurisdictionFilter').value;
+    const term=$('cameraTextFilter').value.trim().toLocaleLowerCase();
+    return (!jurisdiction || record.jurisdiction_label===jurisdiction) &&
+      (!term || (record.label+' '+record.jurisdiction_label+' '+record.evidence_summary)
+        .toLocaleLowerCase().includes(term));
   }
   function drawLocations() {
     if (!state.map) return;
@@ -190,6 +258,7 @@
     state.areaLayer.clearLayers();
     let exact = 0, areas = 0;
     for (const record of state.visible) {
+      if (!recordMatchesFilters(record)) continue;
       const p = [Number(record.latitude), Number(record.longitude)];
       if (record.location_accuracy === 'exact' && $('showExact').checked) {
         exact += 1;
@@ -206,7 +275,9 @@
     }
     setText('exactCount', exact);
     setText('areaCount', areas);
-    // Do not recalculate entire-route evidence from just this viewport.
+    setText('filterStatus',exact+areas+' verified map entries displayed after filters. '+
+      'Location precision is source-specific; zero displayed does not mean no cameras.');
+    // Never apply map UI filters to the full-route evidence queries.
   }
   function rad(n) { return n * Math.PI / 180; }
   function meters(a,b) {
@@ -426,6 +497,22 @@
     setText('mapLabel','Nationwide view · Camera inventory incomplete');
   }
   function bind() {
+    $('mapSearchForm').addEventListener('submit',async event=>{
+      event.preventDefault();
+      const input=$('mapSearch').value.trim();
+      if(!input)return;
+      setText('mapSearchStatus','Searching US locations…');
+      try {
+        const result=await geocode(input);
+        state.map.setView(result.point,12);
+        setText('mapSearchStatus','Map centered on '+result.label+
+          '. Camera coverage remains incomplete.');
+      }catch(error){
+        setText('mapSearchStatus','Map search unavailable: '+error.message);
+      }
+    });
+    $('jurisdictionFilter').addEventListener('change',drawLocations);
+    $('cameraTextFilter').addEventListener('input',drawLocations);
     $('showExact').addEventListener('change',drawLocations);
     $('showApprox').addEventListener('change',drawLocations);
     $('hypothetical').addEventListener('change',()=>{

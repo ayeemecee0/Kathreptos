@@ -27,6 +27,16 @@
   <section class="sidebar-section" aria-labelledby="coverage-heading">
     <div class="section-heading"><h2 id="coverage-heading">Camera coverage</h2><span id="coverageSpinner" class="muted tiny">Loading…</span></div>
     <div class="stats"><div><strong id="exactCount">—</strong><span>Exact camera pins</span></div><div><strong id="areaCount">—</strong><span>Approximate areas</span></div></div>
+    <form id="mapSearchForm" class="map-search">
+      <label for="mapSearch">FIND A US PLACE</label>
+      <div class="search-row"><input id="mapSearch" maxlength="160" autocomplete="off" placeholder="City, address, or lat,lon" required><button type="submit">Find</button></div>
+    </form>
+    <p id="mapSearchStatus" class="micro" role="status">Search changes the map view, not the route simulator.</p>
+    <label for="jurisdictionFilter" class="field-label">FILTER VERIFIED JURISDICTIONS</label>
+    <select id="jurisdictionFilter"><option value="">All in current map view</option></select>
+    <label for="cameraTextFilter" class="field-label">FILTER RECORD LABELS</label>
+    <input id="cameraTextFilter" type="search" placeholder="Filter sourced entries" maxlength="100" autocomplete="off">
+    <p id="filterStatus" class="micro" role="status">Showing all source-backed map records.</p>
     <label class="toggle"><input id="showExact" type="checkbox" checked><span class="dot exact"></span> Verified exact locations</label>
     <label class="toggle"><input id="showApprox" type="checkbox" checked><span class="dot approx"></span> Approximate deployment areas</label>
     <p class="micro" id="coverageStatus" role="status">Loading verified location data from Supabase…</p>
