@@ -81,6 +81,32 @@ def stage(item):
         raise ValueError("Unexpected unverified government discovery queue response")
 
 
+def upstream_government_source_seeds():
+    """Reuse new original .gov sources found by the existing nationwide discoverer.
+
+    Original source links are still unverified until the fetched page itself
+    clearly documents a Flock camera program; no community claim is trusted.
+    """
+    prior=api_request("discovery_queue?select=url,state_hint&limit=900")
+    if not isinstance(prior,list) or len(prior)>=900:
+        raise ValueError("Existing government discovery backlog truncated")
+    agendas=api_request("verified_flock_agenda_mentions?select=government_evidence_url&"
+                       "status=eq.verified&limit=100")
+    if not isinstance(agendas,list) or len(agendas)>=100:
+        raise ValueError("Verified public government agenda sources truncated")
+    found={}
+    for item in prior:
+        url=gov_url(item.get("url") or "")
+        if url:
+            found[url]=(str(item.get("state_hint") or "Government discovery")[:90],
+                        "Flock Safety original government discovery queue")
+    for item in agendas:
+        url=gov_url(item.get("government_evidence_url") or "")
+        if url:
+            found[url]=("Verified legislative record","Flock Safety legislative government source")
+    return found
+
+
 def scan(dry_run=False,plan=None):
     counts=Counter();hits={}
     for label,query in (plan or query_plan()):
@@ -100,8 +126,17 @@ def scan(dry_run=False,plan=None):
                 counts["search_errors"]+=1
                 print("National GIS discovery search held:",label,provider,
                       type(exc).__name__,str(exc)[:120])
-    if not counts["searches_completed"]:
-        raise ValueError("All national government source discovery providers unavailable")
+    try:
+        seed_urls=upstream_government_source_seeds()
+        counts["source_registry_gov_urls"]=len(seed_urls)
+        for url,hint in seed_urls.items():
+            hits.setdefault(url,hint)
+    except Exception as exc:
+        counts["registry_errors"]+=1
+        print("Existing original-government discovery source registry held:",
+              type(exc).__name__,str(exc)[:120])
+    if not counts["searches_completed"] and not hits:
+        raise ValueError("All national source search and original-government registries unavailable")
     counts["gov_search_urls"]=len(hits)
     checked_hosts=set()
     for url,(label,query) in list(hits.items())[:MAX_VISITS]:
@@ -123,7 +158,8 @@ def scan(dry_run=False,plan=None):
         except Exception as exc:
             counts["pages_held"]+=1
             print("Original .gov page inaccessible:",host,type(exc).__name__,str(exc)[:100])
-    for k in ("searches_completed","search_errors","gov_search_urls","pages_checked",
+    for k in ("searches_completed","search_errors","source_registry_gov_urls","registry_errors",
+              "gov_search_urls","pages_checked",
               "flock_pages","direct_gis_links","submitted","pages_held","unsafe_hosts"):
         print("National GIS candidate",k+":",counts[k])
     print("Newly approved government GIS authorities from search: 0")

@@ -30,9 +30,19 @@ class National(unittest.TestCase):
   self.assertIn("government_gis_search_queue",api.call_args.args[0])
   self.assertNotIn("trusted_flock_gis_sources",api.call_args.args[0])
   self.assertNotIn("flock_camera_locations",api.call_args.args[0])
+ def test_existing_verified_discovery_queue_expands_search(self):
+  with patch.object(d,"api_request",side_effect=[
+    [{"url":"https://www.city.example.gov/flock","state_hint":"Colorado"},
+     {"url":"https://bad.example/alpr","state_hint":"Texas"}],
+    [{"government_evidence_url":"https://city2.example.gov/flock"}]
+  ]):
+   found=d.upstream_government_source_seeds()
+  self.assertEqual(len(found),2)
+  self.assertNotIn("https://bad.example/alpr",found)
  def test_no_mutation_dryrun(self):
   h=html('<h2>Flock Safety ALPR cameras</h2>')
   with (patch.object(d,"search_provider",return_value=("bing-rss",["https://city.example.gov/flock"])),
+        patch.object(d,"upstream_government_source_seeds",return_value={}),
         patch.object(d,"public_dns",return_value=True),
         patch.object(d,"fetch_government_page",return_value=(h,'a'*64)),
         patch.object(d,"stage") as stage):
