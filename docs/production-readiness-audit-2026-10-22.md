@@ -45,3 +45,12 @@ Reliable geocoding and routing infrastructure (current endpoints are public demo
 - **Complete migration and code CI:** October 22 latest validation run https://github.com/ayeemecee0/Katoptron/actions/runs/39811440690 passed with migrations 001 through 027 and all discovered script tests.
 
 The following remain **not production-ready**: authenticated anti-abuse community reporting with evidence validation, independent GIS authority discovery at broad national scale, dedicated geocoder/router infrastructure and provider privacy guarantees, accessibility/user research, sustained load testing, operational response and backups, Auth password-leak protection dashboard configuration, and the full sourced personnel/accountability directory. Do not claim an exhaustive nationwide camera inventory.
+
+
+## Milestones 1–3 implementation details (October 22)
+
+- Reusable owner-reviewed GIS camera classification profiles now live (migration 028), with automatic all-source production verification. It rechecked 108 original GIS points with zero withdrawals or failures. A separate public evidence history ledger records publication/recheck events, with RLS exposing histories only for currently verified points.
+- Rotating 50-state original-government web discovery (migration 029, daily workflow) plus an owner-verified ArcGIS service-catalog scanner. The first web-only Bing/DuckDuckGo pass yielded zero original government hits and thus no verified new sources, prompting integration of existing national discovery-queue/verified government record URLs. The service catalog scanner is a new additional discovery path and may not discover a deployable camera source immediately.
+- Map location search, map-only jurisdiction and text filtering, source-evidence history, and evidence-tier labels are implemented. They do not change planned-route evidence matching.
+- A five-jurisdiction public **government program record directory without camera coordinates** is now implemented with dated original source links; Los Altos Hills is correctly labeled as terminated. Zero unsupported approximate camera regions have been fabricated.
+- **Not yet achieved:** national verified point coverage, production-scale geocoder/routing providers, independent validation of newly found municipal GIS hosting roots at broad scale, documented uncertainty polygons, fully automated candidate corroboration into new approved profiles without unsafe authority promotion.
