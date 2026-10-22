@@ -1,0 +1,35 @@
+name: Recheck automatically discovered government GIS endorsements
+on:
+  schedule:
+    - cron: '38 22 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/recheck_auto_original_gov_gis.py'
+      - 'scripts/test_recheck_auto_original_gov_gis.py'
+      - 'supabase/migrations/040_withdraw_auto_gov_gis_on_documented_link_loss.sql'
+      - '.github/workflows/recheck_auto_original_gov_gis.yml'
+permissions:
+  contents: read
+concurrency:
+  group: katoptron-auto-original-government-source-recheck
+  cancel-in-progress: false
+jobs:
+  recheck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test narrow evidence revocation and outage safety
+        run: python -m unittest discover -s scripts -p 'test_recheck_auto_original_gov_gis.py' -v
+      - name: Recheck original government-linked GIS camera sources
+        run: python scripts/recheck_auto_original_gov_gis.py
