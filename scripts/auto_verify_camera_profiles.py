@@ -219,9 +219,16 @@ def verify_points(s,p,data):
                 holds["not a Flock camera per original GIS field"]+=1;continue
             # Preserve earlier evidence fingerprints for unchanged published
             # sources, avoiding fictitious withdrawal/republication history.
-            camera_type=("Flock (county Sheriff GIS layer)" if
-                p["service_evidence_mode"]=="explicit_flock_service_text" else
-                "Flock (city Public Works GIS layer)")
+            if s["source_key"].startswith("autogov_"):
+                camera_type="Flock (original government-hosted GIS camera layer)"
+            elif s.get("government_endorsed_external"):
+                camera_type="Flock (original government-endorsed external GIS layer)"
+            else:
+                # Preserve original evidence fingerprints for the already
+                # published municipal sources, avoiding phantom withdrawals.
+                camera_type=("Flock (county Sheriff GIS layer)" if
+                    p["service_evidence_mode"]=="explicit_flock_service_text" else
+                    "Flock (city Public Works GIS layer)")
         lat,lon=g.get("y"),g.get("x")
         if (type(lat) not in (int,float) or type(lon) not in (int,float) or
             not south<=lat<=north or not west<=lon<=east):
