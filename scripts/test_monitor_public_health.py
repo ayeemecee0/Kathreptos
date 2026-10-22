@@ -11,7 +11,7 @@ def row(name,check=None,status='verified'):
 class HealthTests(unittest.TestCase):
  def test_accepts_current_verified_evidence(self):
   rows=[row('Monroe, WA')]*18+[row('El Paso County, CO')]*16+[row('Peoria, AZ')]*74
-  counts,last=m.assess(rows,now=NOW)
+  counts,last=m.assess(rows,now=NOW,minimum={'Monroe, WA':18,'El Paso County, CO':16,'Peoria, AZ':74})
   self.assertEqual(sum(counts.values()),108)
  def test_new_verified_sources_part_of_baseline(self):
   rows=([row('Monroe, WA')]*18+[row('El Paso County, CO')]*16+
