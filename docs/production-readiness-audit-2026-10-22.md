@@ -8,11 +8,11 @@ Nationwide source-backed Flock camera map, user-planned real-road synthetic surv
 
 | Priority | Milestone | State | Acceptance criteria |
 |---|---|---|---|
-| P0 | Database privileges and public source provenance | FIXED in migration 025 | Anonymous roles cannot call owner-bound source promotion or trigger internals; 108 records remain accessible via anon SELECT |
+| P0 | Database privileges and public source provenance | FIXED in migration 025 | Anonymous roles cannot call owner-bound source promotion or trigger internals; 206 records remain accessible via anon SELECT |
 | P0 | Whole-route simulation accuracy | IMPLEMENTED and tests passing | Full route corridor queried, proximity measured against segments, timeline by distance traveled, unknown data not counted as zero |
 | P0 | Original evidence lifecycle and source revocations | OPERATIONAL FOR TWO SOURCES | Government GIS points immutable, daily source checks, revocation withdraws |
 | P1 | Municipality disclosure link crawler | IMPLEMENTED, LOW COVERAGE | Crawl approved official Flock-linked pages, stage direct ArcGIS URLs privately; first run checked 4 pages and found no new direct layer links |
-| P1 | Expand verified GIS authority nationwide | PARTIAL | Three currently approved municipal sources; third-party ArcGIS and OSM are private candidates |
+| P1 | Expand verified GIS authority nationwide | PARTIAL | Five currently approved municipal sources; third-party ArcGIS and OSM are private candidates |
 | P1 | Real browser smoke testing and monitoring | INCOMPLETE | Test live public API, map and route; failures must produce alerts |
 | P1 | Replace Photon and OSRM demo infrastructure | BLOCKED | Provision routing/geocoding services with suitable uptime/rate/privacy guarantees and configure provider credentials |
 | P1 | Abuse-controlled community submissions | NOT STARTED | Protected intake, throttling, photo/source verification, consent and privacy restrictions |
@@ -23,7 +23,7 @@ Nationwide source-backed Flock camera map, user-planned real-road synthetic surv
 
 ## Verified state
 
-108 verified public points (74 Peoria AZ, 18 Monroe WA, 16 El Paso County CO), three government-authorized GIS source bindings, 1,586 private OSM candidates and one third-party GIS candidate. Zero verified approximate areas. The original simulator and government records remain available.
+206 verified public points (74 Peoria AZ, 53 Webster TX, 45 Lawrenceville GA, 18 Monroe WA, 16 El Paso County CO), four government-authorized GIS host bindings plus the legacy Monroe municipal verifier, 1,586 previously identified private OSM candidates, and ten private GIS source candidates. Zero verified approximate areas. The original simulator and government records remain available.
 
 The security audit uncovered a source-promotion RPC that was callable by anon/authenticated. Migration 025 explicitly revoked those grants and confirmed service-role-only execution. Supabase security advisors now flag only intended read-only helper predicates plus editorial authenticated functions requiring separate in-function reviewer authorization, and Auth leaked-password protection configuration.
 
@@ -59,3 +59,13 @@ The following remain **not production-ready**: authenticated anti-abuse communit
 ## October 22 additional production milestone
 
 Verified 206 public original-government GIS camera points across five jurisdictions: Peoria AZ 74, Webster TX 53, Lawrenceville GA 45, Monroe WA 18, El Paso County CO 16. The October 22 production verification run explicitly excluded ten Lawrenceville school camera records in the city GIS source; all previously verified points were rechecked without withdrawals. Source approval under migration 031 is government-root reviewed and independent of the discovery-candidate registry. The daily health monitor and Chromium smoke now require the two new municipal datasets. Routine automated discovery remains an incomplete national-data acquisition process and cannot guarantee exhaustive nationwide source coverage.
+
+
+## Continued work, October 22
+
+- [Lawrenceville city government GIS](https://www.lawrencevillega.org/592/GISMaps) publicly links city-operated Flock map and portal. Live GIS layer lists 55 points, 45 expressly marked PD Flock Camera, 10 marked PD School Camera. **Only the 45 Flock records qualify** and are published.
+- [Webster city Maps page](https://www.webstertx.gov/868/Maps) links the city's GIS host. Its original Flock PD license-plate-camera service has 53 identified bounded points. These have been published with original GIS evidence and source-check dates; they are not live ALPR readings.
+- Migration 031 added two exact host/layer identities and independently reviewed data-driven verifier profiles, including Lawrenceville manufacturer-type filtering. The production pipeline published 98 and rechecked 108, with zero withdrawals or errors. Database revocation behavior was verified in a rollback-only transaction to keep records intact.
+- Current public camera record total 206 across five jurisdictions. [Public monitor](https://github.com/ayeemecee0/Katoptron/actions/runs/39825282715) passed after baselines expanded to five regions. Latest complete migration/code CI passed.
+- [Esri public catalog discovery](../scripts/discover_arcgis_catalog.py) now privately acquires Flock-labeled GIS candidate links. First run found 15 services, checked 14 and staged six new unverified layers; total private candidate source URLs 10. **No public points** were published based only on those candidate titles.
+- Remaining milestone 1 gap: independently authenticate newly discovered official government domains and ArcGIS organizations at broad national scale, cross-correlate source claims, and safely instantiate source policies. Milestone 3's approximate areas still require actual documented location geometry. Nationwide camera completeness is not attainable solely through software.

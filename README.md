@@ -5,7 +5,7 @@ Katoptron is a **nationwide Flock Safety camera-map and route-surveillance educa
 ## Current project status
 
 - **Primary public experience:** [Nationwide camera map and route simulator](https://ayeemecee0.github.io/Katoptron/) is the homepage. Search arbitrary US start and destination points, display real roads from a public routing demo, inspect any published evidence-backed camera pins or uncertainty areas, and optionally replay clearly distinguished synthetic potential sightings.
-- **Map records database:** [Migration 018](./supabase/migrations/018_camera_map_locations.sql) creates the RLS-protected `flock_camera_locations` table. 108 government GIS points are now published across Peoria AZ (74), Monroe WA (18) and El Paso County CO (16). Unmapped areas still do not demonstrate an absence of surveillance.
+- **Map records database:** [Migration 018](./supabase/migrations/018_camera_map_locations.sql) creates the RLS-protected `flock_camera_locations` table. 206 verified government GIS points are currently published across five jurisdictions: Peoria AZ (74), Webster TX (53), Lawrenceville GA (45), Monroe WA (18), and El Paso County CO (16). Unmapped areas still do not demonstrate an absence of surveillance.
 - **Archived fictional simulator:** [Original synthetic model](https://ayeemecee0.github.io/Katoptron/legacy-simulator.html) remains accessible for demonstrations.
 - **Source-verified public database:** [Verified government records](https://ayeemecee0.github.io/Katoptron/records.html), backed by Supabase read-only public views and row-level security.
 - **Automatic public evidence verification:** [Daily discovery workflow](./.github/workflows/discover.yml) finds official government matters, then [automatic Flock mention verification](./.github/workflows/auto_verify_agenda.yml) re-fetches live Legistar records and publishes only exact, source-verified agenda mentions with explicit Flock Safety titles. No manual click required.
@@ -98,7 +98,7 @@ The first production run automatically approved the county's source and discover
 
 ## Production readiness
 
-See [Current production readiness audit](./docs/production-readiness-audit-2026-10-22.md), [evidence methodology](./methodology.html), and [privacy](./privacy.html). Live source verification covers two jurisdictions only. Public demo route/geocoder infrastructure is not a production-scale service.
+See [Current production readiness audit](./docs/production-readiness-audit-2026-10-22.md), [evidence methodology](./methodology.html), and [privacy](./privacy.html). Live government GIS source verification covers five jurisdictions, with additional private candidates from national discovery. Public demo route/geocoder infrastructure is not a production-scale service.
 
 
 ### Third verified GIS deployment: Peoria, Arizona
@@ -114,9 +114,14 @@ On October 22, 2026, Katoptron independently checked the City of Peoria governme
 
 **Nationwide map usability:** The homepage adds city/address/map coordinates search, jurisdiction and record-label filters, explicit original source evidence tiers, and per-camera public [evidence event history](./supabase/migrations/028_camera_profiles_history.sql). A separate directory of [dated government programs without camera coordinates](./supabase/migrations/030_government_programs_without_coordinates.sql) includes original government publications from South Portland ME, Provo UT, League City TX, Perry GA and a **terminated** Los Altos Hills CA program. These are text/source records, **not fake pins or active-coverage assertions**. No credible deployment geometry source has yet qualified for publication of an approximate mapped area.
 
-**Completion limitation:** The software stages and map interfaces are developed, but worldwide/nationwide evidence coverage remains sparse (108 government GIS points, three jurisdictions). Broad-source discovery, automatic government-root authenticity for newly discovered hosting providers, and independently verified approximate area geometries remain ongoing. Do not claim the entire nationwide camera inventory is complete.
+**Completion limitation:** The software stages and map interfaces are developed, but nationwide evidence coverage remains sparse (206 government GIS points, five jurisdictions). Broad-source discovery, automatic government-root authenticity for newly discovered hosting providers, and independently verified approximate area geometries remain ongoing. Do not claim the entire nationwide camera inventory is complete.
 
 
 ### October 22: Lawrenceville GA and Webster TX municipal GIS expansion
 
 Independent current city-hosted GIS source probes and original city GIS portal documentation supported two more municipality-specific verified source profiles. Lawrenceville GA [original city GIS portal](https://www.lawrencevillega.org/592/GISMaps) links the city-owned point layer containing 55 camera records, but its CameraType field explicitly identifies only 45 as PD Flock Cameras; the other ten PD School Cameras are **excluded**. Webster TX [city Maps directory](https://www.webstertx.gov/868/Maps) links the city's GIS host, whose service explicitly identifies Webster PD Flock license-plate cameras, with 53 named points. The profile-driven publishing pipeline confirmed 45+53 new verified points and rechecked the previous 108. Current Katoptron public camera inventory is **206 exact government GIS points across five regions**, not a national census or evidence cameras are operational.
+
+
+### Nationwide ArcGIS catalog discovery
+
+The [ArcGIS Online search worker](./scripts/discover_arcgis_catalog.py) runs each day using Esri's documented [public item search API](https://developers.arcgis.com/rest/users-groups-and-items/search/). It examines only public ArcGIS Feature Service metadata on allowlisted Esri-hosted URLs and stages candidate Flock point layers **privately**. The first production run found 15 candidate services, successfully examined 14, and submitted six additional unverified Flock source layers (ten private GIS candidates total). It cannot authorize a government source, geolocate a published camera, prove vendor ownership or infer operational status. Original government host authentication remains a separate prerequisite. No camera was auto-published from an ArcGIS title alone.
