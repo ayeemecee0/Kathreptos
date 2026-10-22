@@ -36,6 +36,8 @@ on:
       - 'supabase/migrations/031_lawrenceville_webster_flock_gis.sql'
       - 'supabase/migrations/032_readonly_backend_government_program_citations.sql'
       - 'supabase/migrations/033_multiple_exact_layers_per_government_host.sql'
+      - 'supabase/migrations/034_strict_owner_derived_gis_autoregistration.sql'
+      - 'supabase/migrations/035_verified_official_camera_deployment_polygons.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -339,6 +341,20 @@ jobs:
             -f supabase/migrations/032_readonly_backend_government_program_citations.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/033_multiple_exact_layers_per_government_host.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/034_strict_owner_derived_gis_autoregistration.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/035_verified_official_camera_deployment_polygons.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.register_derived_government_flock_gis(text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.register_derived_government_flock_gis(text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.register_original_government_flock_area(text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_documented_coverage_areas','SELECT')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_documented_coverage_areas','INSERT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from pg_constraint where conrelid='public.gis_government_host_authorities'::regclass and conname='gis_government_host_authorities_host_layer_key'" | grep -qx 1
           # The same exact GIS host may register a second independently reviewed
