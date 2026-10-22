@@ -11,6 +11,10 @@ on:
     paths:
       - '.github/workflows/browser_smoke.yml'
       - 'scripts/smoke_browser.cjs'
+      - 'map.js'
+      - 'index.html'
+      - 'route-geometry.js'
+      - 'config.js'
   schedule:
     - cron: '05 16 * * 1'
 
@@ -38,7 +42,12 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
           npx playwright install --with-deps chromium
-      - name: Test the live map in Chromium
+      - name: Launch local static site for code-change validation
+        if: github.event_name == 'push'
+        run: python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/katoptron-http.log 2>&1 &
+      - name: Test map and route in Chromium
+        env:
+          KATOPTRON_SMOKE_BASE: ${{ github.event_name == 'push' && 'http://127.0.0.1:8765/' || 'https://ayeemecee0.github.io/Katoptron/' }}
         run: node scripts/smoke_browser.cjs
       - name: Upload failing browser screenshot
         if: failure()
