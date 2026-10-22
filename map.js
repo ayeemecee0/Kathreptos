@@ -447,7 +447,8 @@
       state.map?.setView([38.85,-104.75],11);
     });
     $('viewPeoria').addEventListener('click',()=>{
-      state.map?.setView([33.63,-112.24],11);
+      // Extent from the municipality's published Peoria GIS camera inventory.
+      state.map?.fitBounds([[33.54,-112.33],[33.81,-112.18]]);
     });
     $('national').addEventListener('click',()=>{
       state.map?.setView(USA_CENTER,4);
