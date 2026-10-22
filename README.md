@@ -125,3 +125,13 @@ Independent current city-hosted GIS source probes and original city GIS portal d
 ### Nationwide ArcGIS catalog discovery
 
 The [ArcGIS Online search worker](./scripts/discover_arcgis_catalog.py) runs each day using Esri's documented [public item search API](https://developers.arcgis.com/rest/users-groups-and-items/search/). It examines only public ArcGIS Feature Service metadata on allowlisted Esri-hosted URLs and stages candidate Flock point layers **privately**. The first production run found 15 candidate services, successfully examined 14, and submitted six additional unverified Flock source layers (ten private GIS candidates total). It cannot authorize a government source, geolocate a published camera, prove vendor ownership or infer operational status. Original government host authentication remains a separate prerequisite. No camera was auto-published from an ArcGIS title alone.
+
+### Government ownership evidence correlation and fail-closed publication
+
+The [government-link corroboration workflow](./scripts/corroborate_candidate_government_links.py) compares each privately staged ArcGIS candidate against **exact URLs actually linked from original, previously verified municipal disclosure pages**. Every positive match retains the government page URL, original HTML digest, GIS link and link label in the private `government_gis_disclosure_leads` registry. No third-party map title, search result, or hyperlink receipt is sufficient to promote a new trusted source on its own.
+
+The production pipeline initially returned no exact original-government hyperlinks to its 10 private GIS candidates after checking 10 accessible government source pages; accordingly, no candidate was published. Its daily scheduled runs can discover new evidence as government disclosures change.
+
+National .gov page discovery now pages its archived government-source URLs instead of overfilling the backend API response buffer. The first successful resumed scan found seven government URL leads, examined five pages, and staged four original government Flock citations privately. These are *research evidence*, not verified camera coordinates.
+
+Browser smoke uses a pinned official Playwright container with its Chromium dependencies already present, eliminating a long installation stall. The [successful Chromium job](https://github.com/ayeemecee0/Katoptron/actions/runs/39826753143) covered the current public map and synthetic route. The read-only service-role grant in [migration 032](./supabase/migrations/032_readonly_backend_government_program_citations.sql) allows private verifier jobs to use already-published government-program citations without granting data writes.
