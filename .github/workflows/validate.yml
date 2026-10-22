@@ -38,6 +38,9 @@ on:
       - 'supabase/migrations/033_multiple_exact_layers_per_government_host.sql'
       - 'supabase/migrations/034_strict_owner_derived_gis_autoregistration.sql'
       - 'supabase/migrations/035_verified_official_camera_deployment_polygons.sql'
+      - 'supabase/migrations/036_external_arcgis_original_government_endorsement.sql'
+      - 'supabase/migrations/037_strict_original_government_arcgis_receipt_attestation.sql'
+      - 'supabase/migrations/038_withdraw_external_gis_endorsement_on_source_change.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -345,6 +348,24 @@ jobs:
             -f supabase/migrations/034_strict_owner_derived_gis_autoregistration.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/035_verified_official_camera_deployment_polygons.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/036_external_arcgis_original_government_endorsement.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/037_strict_original_government_arcgis_receipt_attestation.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/038_withdraw_external_gis_endorsement_on_source_change.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.official_external_flock_gis_authorities','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.register_official_external_flock_gis(text,text,text,text,text,text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.register_official_external_flock_gis(text,text,text,text,text,text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.revoke_external_flock_endorsement_after_link_loss(text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.revoke_external_flock_endorsement_after_link_loss(text,text)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.official_external_flock_gis_authorities" | grep -qx 0
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.register_derived_government_flock_gis(text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
