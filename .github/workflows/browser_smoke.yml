@@ -29,19 +29,18 @@ jobs:
   smoke:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install pinned browser-test runtime
-        run: |
-          npm install --no-save --no-package-lock playwright@1.56.1
-          npx playwright install --with-deps chromium
+      - name: Install pinned Playwright JavaScript client
+        run: npm install --no-save --no-package-lock playwright@1.56.1
+      # The official Playwright container already provides Chromium and all OS
+      # dependencies; apt/dependency installation repeatedly stalled runners.
       - name: Launch local static site for code-change validation
         if: github.event_name == 'push'
         run: python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/katoptron-http.log 2>&1 &
