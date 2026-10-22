@@ -329,7 +329,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.government_gis_disclosure_leads','SELECT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from public.gis_government_host_authorities where verification_status='verified'" | grep -qx 1
+            "select count(*) from public.gis_government_host_authorities where verification_status='verified'" | grep -qx 2
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.trusted_flock_gis_sources where source_key='elpaso_co' and source_status='candidate'" | grep -qx 1
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
@@ -351,7 +351,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_column_privilege('service_role','public.flock_camera_locations','last_source_recheck_at','UPDATE')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | grep -qx 1
+            "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | grep -qx 2
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('service_role','public.trusted_flock_gis_sources','UPDATE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
