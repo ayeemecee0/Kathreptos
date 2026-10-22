@@ -19,7 +19,7 @@ class Catalog(unittest.TestCase):
            "fields":[{"name":"OBJECTID","type":"esriFieldTypeOID"}]}
   result=d.qualify_layer(R,service,286,"Flock Cameras",feature)
   self.assertEqual(result["trust_status"],"unverified")
-  self.assertIn("GIS",result["layer_purpose"])
+  self.assertIn("PRIVATE discovery lead",result["layer_purpose"])
   self.assertIsNone(d.qualify_layer(R,service,286,"Flock Cameras",
        {**feature,"geometryType":"esriGeometryPolygon"}))
  def test_no_candidate_is_published(self):
