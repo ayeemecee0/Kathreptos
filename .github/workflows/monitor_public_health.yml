@@ -1,0 +1,32 @@
+name: Monitor public map health
+
+on:
+  schedule:
+    - cron: '26 15 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/monitor_public_health.py'
+      - 'scripts/test_monitor_public_health.py'
+      - '.github/workflows/monitor_public_health.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Run health safety regression tests
+        run: python -m unittest discover -s scripts -p 'test_monitor_public_health.py' -v
+      - name: Verify live Katoptron website and public GIS data
+        run: python scripts/monitor_public_health.py
