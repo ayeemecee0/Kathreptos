@@ -158,7 +158,7 @@ def decode_features(source, payload):
             "source_url":source["gis_layer_url"],
             "evidence_summary":(
                 f"Municipal public GIS camera layer. Exact OBJECTID {identity}; "
-                (f"government CameraType field says '{camera_type}'. The city separately documents its Flock program. "
+                + (f"government CameraType field says '{camera_type}'. The city separately documents its Flock program. "
                  if not is_gov_flock_layer else
                  "the county Sheriff GIS explicitly names its point layer Flock_Cameras; current layer metadata reverified. ")
                 + "This is a documented GIS point, not proof of operation or plate reads."),
