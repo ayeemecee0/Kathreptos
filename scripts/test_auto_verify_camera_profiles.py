@@ -66,6 +66,20 @@ class TestProfiles(unittest.TestCase):
   v.check_metadata(city,policy,service,meta)
   with self.assertRaises(ValueError):
    v.check_metadata(city,policy,{"serviceDescription":"Traffic cameras"},meta)
+ def test_government_endorsed_arcgis_requires_exact_verified_attestation(self):
+  external={"source_key":"external_source","parent_source_key":"peoria_az",
+    "gis_layer_url":"https://services3.arcgis.com/abcd1234/arcgis/rest/services/Flock_Cameras/FeatureServer/0",
+    "government_disclosure_url":S["government_evidence_url"],
+    "verification_status":"verified"}
+  linked={**S,"source_key":"external_source",
+    "gis_layer_url":external["gis_layer_url"]}
+  self.assertTrue(v.authorize(linked,{**P,"source_key":"external_source"},None,external))
+  with self.assertRaises(ValueError):
+   v.authorize(linked,{**P,"source_key":"external_source"},None,
+               {**external,"verification_status":"revoked"})
+  with self.assertRaises(ValueError):
+   v.authorize(linked,{**P,"source_key":"external_source"},None,
+               {**external,"gis_layer_url":"https://evil.example/Fake/FeatureServer/1"})
  def test_dryrun_never_writes(self):
   with (patch.object(v,"approved_sources",return_value=[(S,P)]),
         patch.object(v,"query_gis",return_value={"features":[f()]}),

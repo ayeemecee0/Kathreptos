@@ -145,12 +145,9 @@ def source_payload(source,root,link,candidate):
     records,held,n=verify_points(temp_source,temp_policy,rows)
     if held or len(records)!=n:
         raise ValueError("Original source has non-Flock or ambiguous camera features; no partial publication")
+    # Original per-layer OBJECTID is the mandatory stable evidence identity.
+    # Use original feature IDs, not inferred coordinates or labels.
     locs=[]
-    for rec in records:
-        raw=rec["record_key"].split("-")
-        # Original per-layer OBJECTID is the mandatory stable evidence identity.
-        # Use original feature IDs, not inferred coordinates or labels.
-        pass
     for entry in features:
         att=entry["attributes"]
         locs.append({

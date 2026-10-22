@@ -34,21 +34,42 @@ def approved_sources():
     roots=api_request("gis_government_host_authorities?select=authority_key,"
         "government_gis_host,official_government_page,allowed_layer_path,"
         "jurisdiction_label,verification_status&verification_status=eq.verified&limit=100")
-    if not all(isinstance(x,list) and len(x)<100 for x in (src,policies,roots)):
+    external=api_request("official_external_flock_gis_authorities?select=source_key,"
+        "parent_source_key,government_disclosure_url,gis_layer_url,"
+        "verification_status&verification_status=eq.verified&limit=100")
+    if not all(isinstance(x,list) and len(x)<100 for x in (src,policies,roots,external)):
         raise ValueError("Untrusted or truncated GIS authority registry")
     ps={x["source_key"]:x for x in policies}
     rs={x["authority_key"]:x for x in roots}
+    by_key={x["source_key"]:x for x in src}
+    es={x["source_key"]:x for x in external}
     checked=[]
-    for s in src:
-        p=ps.get(s["source_key"])
-        if not p:
+    for source in src:
+        policy=ps.get(source["source_key"])
+        if not policy:
             raise ValueError("Verified government source has no owner-approved GIS policy")
-        authorize(s,p,rs.get(s["source_key"]))
-        checked.append((s,p))
+        endorsement=es.get(source["source_key"])
+        if endorsement:
+            parent=by_key.get(endorsement["parent_source_key"])
+            root=rs.get(endorsement["parent_source_key"])
+            if (not parent or not root or
+                parent["source_status"]!="verified" or
+                parent["gis_layer_url"]!="https://"+root["government_gis_host"]+
+                  root["allowed_layer_path"] or
+                parent["government_evidence_url"]!=root["official_government_page"] or
+                parent["jurisdiction_label"]!=root["jurisdiction_label"] or
+                source["jurisdiction_label"]!=parent["jurisdiction_label"] or
+                source["government_evidence_url"]!=root["official_government_page"]):
+                raise ValueError("External GIS endorsement lost its original government parent")
+            # This changes evidence copy, not which database authority or
+            # original GIS source can authorize publication.
+            source={**source,"government_endorsed_external":True}
+        authorize(source,policy,rs.get(source["source_key"]),endorsement)
+        checked.append((source,policy))
     return checked
 
 
-def authorize(s,p,r):
+def authorize(s,p,r,external=None):
     if (s.get("source_status")!="verified" or p.get("profile_status")!="verified"
         or p.get("source_key")!=s.get("source_key") or s.get("expected_id_field")!="OBJECTID"):
         raise ValueError("GIS authority not independently verified")
@@ -65,6 +86,16 @@ def authorize(s,p,r):
             s["government_evidence_url"]!=r["official_government_page"] or
             s["jurisdiction_label"]!=r["jurisdiction_label"]):
             raise ValueError("GIS URL/authority differs from owner-reviewed government root")
+    elif external:
+        if (external.get("verification_status")!="verified" or
+            external.get("source_key")!=s.get("source_key") or
+            external.get("gis_layer_url")!=s.get("gis_layer_url") or
+            external.get("government_disclosure_url")!=s.get("government_evidence_url") or
+            not re.fullmatch(
+              r"services[0-9]*\.arcgis\.com",a.hostname or "") or
+            not re.fullmatch(r"/[A-Za-z0-9]+/arcgis/rest/services/"
+              r"[A-Za-z0-9_-]+/FeatureServer/[0-9]+",a.path)):
+            raise ValueError("Original government-endorsed Esri source lost exact authority")
     else:
         # Legacy vendor-specific original-government GIS records are valid,
         # but not untrusted layer-name inference without a reviewed host root.
@@ -80,7 +111,7 @@ def authorize(s,p,r):
             p.get("service_evidence_mode")!="official_program_plus_vendor"):
             raise ValueError("Missing individual Flock vendor evidence policy")
     elif p.get("identity_mode")=="official_flock_layer":
-        if (not r or not FLOCK_LAYER.fullmatch(p.get("expected_layer_name") or "") or
+        if (not (r or external) or not FLOCK_LAYER.fullmatch(p.get("expected_layer_name") or "") or
             not FIELD.fullmatch(p.get("camera_id_field") or "") or
             (p.get("vendor_field") is not None and not FIELD.fullmatch(p["vendor_field"])) or
             p.get("service_evidence_mode") not in
@@ -195,9 +226,12 @@ def verify_points(s,p,data):
           "latitude":lat,"longitude":lon,"location_accuracy":"exact",
           "uncertainty_radius_m":0,"source_type":"official_government",
           "source_url":s["gis_layer_url"],
-          "evidence_summary":("Official government point camera source: "+
-             camera_type+". The exact GIS location and Flock identification "
-             "are source-backed; no device uptime or license plate read is established."),
+          "evidence_summary":(
+             ("Original government-endorsed, independently ArcGIS-hosted Flock camera data: "
+              if s.get("government_endorsed_external")
+              else "Official government point camera source: ")+
+             camera_type+". Exact GIS location and Flock identification are source-backed; "
+             "hosting ownership and device uptime/plate readings are not established."),
           "evidence_sha256":digest,
           "verification_method":"official_georeferenced_camera_record_v1",
           "last_confirmed_on":dt.date.today().isoformat()
