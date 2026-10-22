@@ -12,10 +12,48 @@ SOURCE={
  "expected_id_field":"OBJECTID","bounds_south":47.80,"bounds_north":48.00,
  "bounds_west":-122.12,"bounds_east":-121.80,
 }
+COUNTY={
+ "source_key":"elpaso_co",
+ "gis_layer_url":"https://gisservices.elpasoco.com/arcgis2/rest/services/Sheriff/NeighborhoodWatchGroups_FlockCCTVCameras_GISMap3_WFL1/MapServer/1",
+ "government_evidence_url":"https://admin.elpasoco.com/digital-strategy-and-technology/licensed-gis-data/",
+ "jurisdiction_label":"El Paso County, CO",
+ "source_status":"verified","expected_camera_type_field":"FlockLayer",
+ "expected_id_field":"OBJECTID","bounds_south":38.55,"bounds_north":39.25,
+ "bounds_west":-105.3,"bounds_east":-104.3
+}
 def feature(oid=44,kind="Flock Safety Falcon",lat=47.86,lon=-121.98):
  return {"attributes":{"OBJECTID":oid,"CameraType":kind},
          "geometry":{"x":lon,"y":lat}}
 class GISVerification(unittest.TestCase):
+ def test_county_source_matches_only_owner_bound_sheriff_layer(self):
+  self.assertIsNotNone(gis.trusted_source(COUNTY))
+  for alteration in (
+      {"source_status":"candidate"},
+      {"gis_layer_url":"https://services.arcgis.com/Random/FeatureServer/0"},
+      {"government_evidence_url":"https://bad.example/government"},
+      {"jurisdiction_label":"Elsewhere, CO"},
+      {"bounds_east":-103}):
+   self.assertIsNone(gis.trusted_source({**COUNTY,**alteration}))
+ def test_county_exact_layer_qualifies_name_but_not_other_cameras(self):
+  response={"features":[
+    {"attributes":{"OBJECTID":3,"NAME":"FLK 003"},"geometry":{"x":-104.81,"y":38.9}},
+    {"attributes":{"OBJECTID":4,"NAME":""},"geometry":{"x":-104.8,"y":38.9}},
+    {"attributes":{"OBJECTID":5,"NAME":"FLK 005"},"geometry":{"x":-98.0,"y":38.9}}
+  ]}
+  rows,held,n=gis.decode_features(COUNTY,response)
+  self.assertEqual(len(rows),1)
+  self.assertTrue(rows[0]["record_key"].startswith("gis-elpaso_co-3-"))
+  self.assertEqual(sum(held.values()),2)
+ def test_county_metadata_cannot_be_reclassified_as_generic_traffic(self):
+  meta={"mapName":"Flock Cameras GIS Map","documentInfo":{"Keywords":"El Paso County Sheriff Flock Safety"}}
+  layer={"name":"Flock_Cameras","type":"Feature Layer","geometryType":"esriGeometryPoint",
+         "fields":[{"name":"OBJECTID","type":"esriFieldTypeOID"}]}
+  with patch.object(gis,"get_official_json",side_effect=[meta,layer,{"features":[]}]) as req:
+   gis.gis_query(COUNTY)
+  self.assertEqual(req.call_count,3)
+  with patch.object(gis,"get_official_json",side_effect=[meta,{**layer,"name":"Traffic_Cameras"}]) as req:
+   with self.assertRaises(ValueError):
+    gis.gis_query(COUNTY)
  def test_exact_authority_binding(self):
   self.assertIsNotNone(gis.trusted_source(SOURCE))
   for bad in ({"source_key":"unreviewed"},{"source_status":"candidate"},
