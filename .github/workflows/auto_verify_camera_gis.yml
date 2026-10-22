@@ -13,6 +13,9 @@ on:
       - 'supabase/migrations/020_camera_source_recheck_freshness.sql'
       - 'supabase/migrations/023_owner_bound_gis_authority.sql'
       - 'supabase/migrations/026_peoria_city_camera_source.sql'
+      - 'supabase/migrations/028_camera_profiles_history.sql'
+      - 'scripts/auto_verify_camera_profiles.py'
+      - 'scripts/test_auto_verify_camera_profiles.py'
       - '.github/workflows/auto_verify_camera_gis.yml'
 
 permissions:
@@ -40,7 +43,9 @@ jobs:
       - name: Confirm Supabase credentials
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
-      - name: Test GIS source and manufacturer safeguards
-        run: python -m unittest discover -s scripts -p 'test_auto_verify_camera_gis.py' -v
+      - name: Test GIS source policy and manufacturer safeguards
+        run: |
+          python -m unittest discover -s scripts -p 'test_auto_verify_camera_gis.py' -v
+          python -m unittest discover -s scripts -p 'test_auto_verify_camera_profiles.py' -v
       - name: Publish independently corroborated official GIS camera coordinates
-        run: python scripts/auto_verify_camera_gis.py
+        run: python scripts/auto_verify_camera_profiles.py
