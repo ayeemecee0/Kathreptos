@@ -9,3 +9,13 @@
 .history-button{border:1px solid #407a86;border-radius:4px;background:#21404d;color:#e0f9fb;font-size:11px;padding:7px 10px;margin-top:8px;cursor:pointer}
 .history-button:disabled{opacity:.7}
 .evidence-history{padding-left:20px;margin:8px 0;font-size:11px;color:#c5dadd;line-height:1.7}
+
+.program-list{padding:0;margin:12px 0;list-style:none;max-height:310px;overflow:auto}
+.program-list li{padding:12px 0;border-bottom:1px solid #2e4453}
+.program-list li strong{display:block;font-size:12px;color:#e7f4f4}
+.program-list li>span{display:block;font-size:10px;font-weight:700;margin-top:5px}
+.program-list li>.program-ended{color:#f0ae8f}
+.program-list li>.program-documented{color:#8bd2c4}
+.program-list li p{font-size:11px;margin:7px 0;line-height:1.5}
+.program-list li a{font-size:11px}
+#programSearch{display:block;width:100%;background:#0b151f;color:#e3f6f4;border:1px solid #375266;border-radius:5px;padding:10px}

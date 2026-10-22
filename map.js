@@ -10,7 +10,7 @@
   const USA_CENTER = [39, -98];
   const state = {
     map: null, pointLayer: null, areaLayer: null, routeLayer: null, simLayer: null,
-    visible: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
+    visible: [], programs: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
     observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null
   };
@@ -113,6 +113,60 @@
       state.viewportTimer = setTimeout(loadVisibleLocations, 250);
     });
     loadVisibleLocations();
+    loadDocumentedPrograms();
+  }
+  function renderPrograms() {
+    const list=$('programList');
+    list.replaceChildren();
+    const term=$('programSearch').value.trim().toLowerCase();
+    const found=state.programs.filter(p=>
+      (p.jurisdiction_label+' '+p.official_claim_summary).toLowerCase().includes(term));
+    for(const program of found) {
+      const item=document.createElement('li');
+      const title=document.createElement('strong');
+      title.textContent=program.jurisdiction_label;
+      const status=document.createElement('span');
+      status.className=program.program_status==='terminated_at_source_date'
+        ? 'program-ended':'program-documented';
+      status.textContent=(program.program_status==='terminated_at_source_date'
+        ? 'Program terminated per source · ':'Program documented · ')+shortDate(program.source_date);
+      const description=document.createElement('p');
+      description.textContent=program.official_claim_summary;
+      const evidence=document.createElement('a');
+      evidence.textContent='Original government source ↗';
+      const original=safeUrl(program.official_evidence_url);
+      if(original) {
+        evidence.href=original; evidence.target='_blank'; evidence.rel='noopener noreferrer';
+      }
+      item.append(title,status,description);
+      if(original)item.append(evidence);
+      list.append(item);
+    }
+    setText('programStatus',found.length+' dated original-government program record(s). '+
+      'These are not verified camera coordinates.');
+  }
+  async function loadDocumentedPrograms() {
+    if(!CFG?.supabaseUrl || !CFG?.supabasePublishableKey) {
+      setText('programStatus','Source configuration unavailable.');
+      return;
+    }
+    const query=new URLSearchParams({
+      select:'program_key,jurisdiction_label,state_code,program_status,official_evidence_url,official_claim_summary,source_date,reported_camera_count',
+      record_status:'eq.verified',order:'jurisdiction_label.asc',limit:'100'
+    });
+    try {
+      const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+        '/rest/v1/flock_documented_programs?'+query.toString(),
+        {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
+      if(!response.ok)throw new Error('API HTTP '+response.status);
+      const records=await response.json();
+      if(!Array.isArray(records) || records.length>=100)
+        throw new Error('Program source list incomplete');
+      state.programs=records;
+      renderPrograms();
+    }catch(error){
+      setText('programStatus','Documented-program directory unavailable: '+error.message);
+    }
   }
   function publicCameraUrl(bounds) {
     const query = new URLSearchParams({
@@ -497,6 +551,7 @@
     setText('mapLabel','Nationwide view · Camera inventory incomplete');
   }
   function bind() {
+    $('programSearch').addEventListener('input',renderPrograms);
     $('mapSearchForm').addEventListener('submit',async event=>{
       event.preventDefault();
       const input=$('mapSearch').value.trim();

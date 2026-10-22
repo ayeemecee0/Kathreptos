@@ -14,6 +14,13 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=16,{timeout:25000});
   await page.getByRole('button',{name:/Explore Peoria/}).click();
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=74,{timeout:25000});
+  // Public programs are dated records, never synthetic/official GIS camera pins.
+  await page.waitForFunction(()=>document.querySelector('#programStatus')?.textContent?.includes('record(s)'),{timeout:18000});
+  assert.ok(Number(await page.locator('#programList > li').count())>=5);
+  await page.locator('#programSearch').fill('Los Altos Hills');
+  assert.equal(await page.locator('#programList > li').count(),1);
+  assert.ok((await page.locator('#programList').textContent()).includes('terminated'));
+  await page.locator('#programSearch').fill('');
   // Jurisdiction and label filters apply only to map display, not source data.
   await page.locator('#jurisdictionFilter').selectOption('Peoria, AZ');
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=74,{timeout:25000});
@@ -64,7 +71,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#play').isDisabled(),true);
   assert.equal((await page.locator('#observationCount').textContent()).trim(),'—');
   assert.deepEqual(errors,[]);
-  console.log('BROWSER SMOKE PASSED: 3 GIS sources, map filters/search, public history, route evidence, replay and reset');
+  console.log('BROWSER SMOKE PASSED: 3 GIS sources, sourced programs, map filters/search, public history, route evidence, replay and reset');
  }catch(e){
   console.error('BROWSER SMOKE FAILED',e.stack||e);
   await page.screenshot({path:'katoptron-smoke-failure.png',fullPage:true}).catch(()=>{});

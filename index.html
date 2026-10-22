@@ -42,6 +42,14 @@
     <p class="micro" id="coverageStatus" role="status">Loading verified location data from Supabase…</p>
     <button class="text-button" id="viewPilot" type="button">Explore Monroe, WA verified cameras →</button><button class="text-button" id="viewColorado" type="button" style="margin-left:12px">Explore El Paso County, CO →</button><button class="text-button" id="viewPeoria" type="button" style="margin-left:12px">Explore Peoria, AZ →</button>
   </section>
+  <section class="sidebar-section" aria-labelledby="program-heading">
+    <div class="section-heading"><h2 id="program-heading">Documented Flock programs</h2><span class="stage">NO CAMERA PINS IMPLIED</span></div>
+    <p class="micro">These government disclosures describe Flock activity without independently verified individual camera coordinates. Historical or terminated programs are labeled by source date.</p>
+    <label for="programSearch" class="field-label">SEARCH DOCUMENTED JURISDICTIONS</label>
+    <input id="programSearch" type="search" maxlength="100" autocomplete="off" placeholder="City or state">
+    <ul id="programList" class="program-list" aria-live="polite"></ul>
+    <p id="programStatus" class="micro" role="status">Loading original government documentation…</p>
+  </section>
   <section class="sidebar-section" aria-labelledby="route-heading">
    <div class="section-heading"><h2 id="route-heading">Plan a route</h2><span class="stage">01 / SIMULATE</span></div>
    <form id="routeForm">
