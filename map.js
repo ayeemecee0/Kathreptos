@@ -10,7 +10,7 @@
   const USA_CENTER = [39, -98];
   const state = {
     map: null, pointLayer: null, areaLayer: null, routeLayer: null, simLayer: null,
-    visible: [], programs: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
+    visible: [], areas: [], programs: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
     observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null
   };
@@ -240,6 +240,52 @@
     }
   }
 
+  async function loadOfficialAreas(signal) {
+    const query=new URLSearchParams({
+      select:'area_key,jurisdiction_label,area_label,outline_lonlat,evidence_url,evidence_summary,evidence_verified_at',
+      geometry_status:'eq.verified',limit:'200'
+    });
+    const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+      '/rest/v1/flock_documented_coverage_areas?'+query.toString(),
+      {headers:{apikey:CFG.supabasePublishableKey},signal,cache:'no-store'});
+    if(!response.ok)throw new Error('Area evidence API HTTP '+response.status);
+    const rows=await response.json();
+    if(!Array.isArray(rows)||rows.length>=200)
+      throw new Error('Official deployment-area source query incomplete');
+    return rows.filter(area=>(
+      area && Array.isArray(area.outline_lonlat) &&
+      area.outline_lonlat.length>=4 && area.outline_lonlat.length<=250 &&
+      area.outline_lonlat.every(vertex=>
+        Array.isArray(vertex)&&vertex.length===2&&
+        validCoord(Number(vertex[1]),Number(vertex[0]))) &&
+      JSON.stringify(area.outline_lonlat[0])===
+        JSON.stringify(area.outline_lonlat[area.outline_lonlat.length-1])
+    ));
+  }
+  function officialAreaPopup(area) {
+    const root=document.createElement('div');
+    root.className='camera-popup';
+    const title=document.createElement('strong');
+    title.textContent=area.area_label;
+    const qualifier=document.createElement('p');
+    qualifier.textContent='Official documented deployment area, not a camera location. '+
+      'No location inside the polygon is proven to contain an active reader.';
+    const summary=document.createElement('p');
+    summary.textContent=area.evidence_summary;
+    const date=document.createElement('small');
+    date.textContent='Original area geometry verified: '+shortDate(area.evidence_verified_at);
+    root.append(title,qualifier,summary,date);
+    const original=safeUrl(area.evidence_url);
+    if(original){
+      const link=document.createElement('a');
+      link.href=original;
+      link.target='_blank';link.rel='noopener noreferrer';
+      link.textContent='Original government polygon source ↗';
+      root.append(document.createElement('br'),link);
+    }
+    return root;
+  }
+
   async function loadVisibleLocations() {
     if (!state.map || !CFG?.supabaseUrl || !CFG?.supabasePublishableKey) {
       setText('coverageStatus', 'Public database configuration is unavailable.');
@@ -255,20 +301,25 @@
     const east = Math.min(-64, bounds.getEast());
     if (north < south || east < west) {
       state.visible = [];
+      state.areas = [];
       drawLocations();
       setText('coverageStatus', 'Move the map to a US location to inspect documented coverage.');
       return;
     }
     setText('coverageSpinner', 'Checking live sources…');
     try {
-      const rows=await cameraRows({south,north,west,east},state.abort.signal);
+      const [rows,areas]=await Promise.all([
+        cameraRows({south,north,west,east},state.abort.signal),
+        loadOfficialAreas(state.abort.signal)
+      ]);
       if (requestId !== state.requestNumber) return;
       state.visible = rows;
+      state.areas = areas;
       updateJurisdictions();
       drawLocations();
       setText('coverageSpinner', 'Live data');
-      const shown = state.visible.length;
-      const capped = shown >= MAX_VISIBLE;
+      const shown = state.visible.length + state.areas.length;
+      const capped = state.visible.length >= MAX_VISIBLE;
       setText('coverageStatus', shown
         ? String(shown) + (capped ? '+ records in current viewport. Zoom in to reduce the result limit.' :
            ' source-backed entries in the current map view; not an exhaustive camera census.')
@@ -276,6 +327,7 @@
     } catch (error) {
       if (error.name === 'AbortError' || requestId !== state.requestNumber) return;
       state.visible = [];
+      state.areas = [];
       updateJurisdictions();
       drawLocations();
       setText('coverageSpinner', 'Source unavailable');
@@ -286,7 +338,8 @@
   function updateJurisdictions() {
     const select=$('jurisdictionFilter');
     const prior=select.value;
-    const jurisdictions=[...new Set(state.visible.map(x=>x.jurisdiction_label)
+    const jurisdictions=[...new Set([...state.visible,...state.areas]
+      .map(x=>x.jurisdiction_label)
       .filter(x=>typeof x==='string'&&x.length<=150))].sort();
     select.replaceChildren();
     const all=document.createElement('option');
@@ -302,9 +355,10 @@
   function recordMatchesFilters(record) {
     const jurisdiction=$('jurisdictionFilter').value;
     const term=$('cameraTextFilter').value.trim().toLocaleLowerCase();
+    const searchable=[record.label,record.area_label,record.jurisdiction_label,
+      record.evidence_summary].filter(Boolean).join(' ');
     return (!jurisdiction || record.jurisdiction_label===jurisdiction) &&
-      (!term || (record.label+' '+record.jurisdiction_label+' '+record.evidence_summary)
-        .toLocaleLowerCase().includes(term));
+      (!term || searchable.toLocaleLowerCase().includes(term));
   }
   function drawLocations() {
     if (!state.map) return;
@@ -325,6 +379,21 @@
         L.circle(p, {radius,color:'#e3ae62',weight:1.5,dashArray:'5 6',
           fillColor:'#e3ae62',fillOpacity:.09})
           .bindPopup(popupFor(record)).addTo(state.areaLayer);
+      }
+    }
+    if ($('showApprox').checked) {
+      for(const area of state.areas){
+        if(!recordMatchesFilters(area))continue;
+        const geometry=area.outline_lonlat.map(([lon,lat])=>[Number(lat),Number(lon)]);
+        const polygon=L.polygon(geometry,{
+          color:'#e3ae62',weight:1.5,dashArray:'5 6',
+          fillColor:'#e3ae62',fillOpacity:.13
+        });
+        // Display the ORIGINAL polygon rather than a fabricated
+        // estimated radius around a city or government agency.
+        polygon.bindPopup(officialAreaPopup(area));
+        polygon.addTo(state.areaLayer);
+        areas++;
       }
     }
     setText('exactCount', exact);

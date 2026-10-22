@@ -40,6 +40,8 @@ class MapPageTests(unittest.TestCase):
         self.assertIn('flock_camera_evidence_history',self.script)
         self.assertTrue({'programSearch','programList','programStatus'}.issubset(self.ids))
         self.assertIn('flock_documented_programs',self.script)
+        self.assertIn('flock_documented_coverage_areas',self.script)
+        self.assertIn('officialAreaPopup',self.script)
         self.assertIn('./config.js',self.src)
         self.assertIn('./map.css',self.html)
 
