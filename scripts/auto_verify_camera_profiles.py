@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 import urllib.parse
+import time
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
@@ -159,10 +160,21 @@ def check_metadata(s,p,service,layer):
                 raise ValueError("Government GIS service vendor description changed")
 
 
+def resilient_government_gis_json(url):
+    """Retry ONE transient timeout; permanent errors still fail closed."""
+    for attempt in range(2):
+        try:
+            return get_official_json(url)
+        except (TimeoutError, ConnectionResetError, ConnectionAbortedError):
+            if attempt:
+                raise
+            time.sleep(0.35)
+
+
 def query_gis(s,p):
     parent=s["gis_layer_url"].rsplit("/",1)[0]
-    check_metadata(s,p,get_official_json(parent+"?f=json"),
-                   get_official_json(s["gis_layer_url"]+"?f=json"))
+    check_metadata(s,p,resilient_government_gis_json(parent+"?f=json"),
+                   resilient_government_gis_json(s["gis_layer_url"]+"?f=json"))
     fields=["OBJECTID"]
     if p["identity_mode"]=="per_feature_vendor":
         fields.append(p["vendor_field"])
@@ -172,7 +184,7 @@ def query_gis(s,p):
     qs=urllib.parse.urlencode({"where":"1=1","outFields":",".join(sorted(set(fields))),
          "returnGeometry":"true","outSR":"4326","orderByFields":"OBJECTID ASC",
          "resultRecordCount":str(LIMIT),"f":"json"})
-    return get_official_json(s["gis_layer_url"]+"/query?"+qs)
+    return resilient_government_gis_json(s["gis_layer_url"]+"/query?"+qs)
 
 
 def verify_points(s,p,data):

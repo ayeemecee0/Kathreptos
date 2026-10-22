@@ -66,6 +66,17 @@ class TestProfiles(unittest.TestCase):
   v.check_metadata(city,policy,service,meta)
   with self.assertRaises(ValueError):
    v.check_metadata(city,policy,{"serviceDescription":"Traffic cameras"},meta)
+ def test_single_transient_original_government_gis_timeout_recovers(self):
+  with (patch.object(v,"get_official_json",side_effect=[TimeoutError("original host slow"),{"features":[]}]) as fetch,
+        patch.object(v.time,"sleep") as nap):
+   data=v.resilient_government_gis_json("https://government.example.gov/MapServer/1?f=json")
+  self.assertEqual(data,{"features":[]})
+  self.assertEqual(fetch.call_count,2)
+  nap.assert_called_once()
+  with (patch.object(v,"get_official_json",side_effect=TimeoutError("source unavailable")),
+        patch.object(v.time,"sleep")):
+   with self.assertRaises(TimeoutError):
+    v.resilient_government_gis_json("https://government.example.gov/MapServer/1?f=json")
  def test_government_endorsed_arcgis_requires_exact_verified_attestation(self):
   external={"source_key":"external_source","parent_source_key":"peoria_az",
     "gis_layer_url":"https://services3.arcgis.com/abcd1234/arcgis/rest/services/Flock_Cameras/FeatureServer/0",
