@@ -44,6 +44,7 @@ on:
       - 'supabase/migrations/039_automatic_first_party_government_gis_sources.sql'
       - 'supabase/migrations/040_withdraw_auto_gov_gis_on_documented_link_loss.sql'
       - 'supabase/migrations/041_index_camera_gis_parent_fks.sql'
+      - 'supabase/migrations/042_original_government_gis_page_recheck_history.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -363,6 +364,14 @@ jobs:
             -f supabase/migrations/040_withdraw_auto_gov_gis_on_documented_link_loss.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/041_index_camera_gis_parent_fks.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/042_original_government_gis_page_recheck_history.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.refresh_unverified_gov_gis_page_digest(text,text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.refresh_unverified_gov_gis_page_digest(text,text,text,text)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.government_gis_page_recheck_history','SELECT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from pg_indexes where schemaname='public' and indexname in ('derived_gov_camera_authorities_parent_fk_idx','external_flock_gis_parent_fk_idx')" | grep -qx 2
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
@@ -448,7 +457,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_camera_evidence_history','INSERT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from pg_indexes where schemaname='public' and indexname like '%_fk_idx'" | grep -qx 8
+            "select count(*) from pg_indexes where schemaname='public' and indexname like '%_fk_idx'" | grep -qx 10
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | grep -qx 4
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
