@@ -94,3 +94,8 @@ The [cross-source evidence matcher](.github/workflows/match_camera_evidence.yml)
 The county expansion adds a [government root binding](./supabase/migrations/023_owner_bound_gis_authority.sql), a [live authority verifier](./scripts/auto_link_gov_gis.py), and [daily GitHub Actions](./.github/workflows/auto_link_gov_gis.yml). Owner-reviewed GIS authority is limited to a particular El Paso County government-operated host and exact Sheriff layer path. The verifier independently re-fetches the county government GIS web page, GIS map-service metadata, Flock_Cameras point layer schema, and nonempty bounded feature inventory. Only if all checks succeed does an auditable database function promote the source. Daily location ingestion then separately verifies current official layer metadata before public publication. Third-party ArcGIS layers still cannot be promoted solely from names or vendor mentions.
 
 The first production run automatically approved the county's source and discovered 16 county Flock-camera points, raising the verified map inventory to 34. This is not a nationwide camera census, proof the devices are active, or evidence of real ALPR detections. To add a different government domain, its original government identity must first be independently established and root-scoped. The current verifier does not crawl every municipality or automatically trust arbitrary government subdomains.
+
+
+## Production readiness
+
+See [Current production readiness audit](./docs/production-readiness-audit-2026-10-22.md), [evidence methodology](./methodology.html), and [privacy](./privacy.html). Live source verification covers two jurisdictions only. Public demo route/geocoder infrastructure is not a production-scale service.

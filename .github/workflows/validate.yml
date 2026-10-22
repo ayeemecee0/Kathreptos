@@ -26,6 +26,10 @@ on:
       - 'supabase/migrations/021_camera_gis_authority_candidates.sql'
       - 'supabase/migrations/022_camera_source_matches.sql'
       - 'supabase/migrations/023_owner_bound_gis_authority.sql'
+      - 'supabase/migrations/024_government_gis_disclosure_leads.sql'
+      - 'supabase/migrations/025_restrict_camera_privileged_rpcs.sql'
+      - 'privacy.html'
+      - 'methodology.html'
       - 'index.html'
       - 'map.js'
       - 'route-geometry.js'
@@ -307,6 +311,18 @@ jobs:
             -f supabase/migrations/022_camera_source_matches.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/023_owner_bound_gis_authority.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/024_government_gis_disclosure_leads.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/025_restrict_camera_privileged_rpcs.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('authenticated','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.government_gis_disclosure_leads','SELECT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.gis_government_host_authorities where verification_status='verified'" | grep -qx 1
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
