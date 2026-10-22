@@ -1,0 +1,40 @@
+name: Verify original-government-endorsed external ArcGIS layers
+
+on:
+  schedule:
+    - cron: '07 19 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/auto_attest_external_arcgis.py'
+      - 'scripts/test_auto_attest_external_arcgis.py'
+      - '.github/workflows/auto_attest_external_arcgis.yml'
+      - 'supabase/migrations/036_external_arcgis_original_government_endorsement.sql'
+      - 'supabase/migrations/037_strict_original_government_arcgis_receipt_attestation.sql'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-original-government-arcgis-endorsement
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test original government hyperlink and Esri organization checks
+        run: python -m unittest discover -s scripts -p 'test_auto_attest_external_arcgis.py' -v
+      - name: Verify ArcGIS layer evidence and safely register endorsed sources
+        run: python scripts/auto_attest_external_arcgis.py
