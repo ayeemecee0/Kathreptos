@@ -14,6 +14,7 @@ on:
       - 'supabase/migrations/023_owner_bound_gis_authority.sql'
       - 'supabase/migrations/026_peoria_city_camera_source.sql'
       - 'supabase/migrations/028_camera_profiles_history.sql'
+      - 'supabase/migrations/031_lawrenceville_webster_flock_gis.sql'
       - 'scripts/auto_verify_camera_profiles.py'
       - 'scripts/test_auto_verify_camera_profiles.py'
       - '.github/workflows/auto_verify_camera_gis.yml'
