@@ -1,0 +1,23 @@
+name: Probe original municipal Flock GIS candidates
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/probe_new_municipal_gis.py'
+      - '.github/workflows/probe_new_municipal_gis.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify publicly hosted GIS camera data without database credentials
+        run: python scripts/probe_new_municipal_gis.py
