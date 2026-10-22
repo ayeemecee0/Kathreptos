@@ -30,6 +30,8 @@ on:
       - 'supabase/migrations/025_restrict_camera_privileged_rpcs.sql'
       - 'supabase/migrations/026_peoria_city_camera_source.sql'
       - 'supabase/migrations/027_index_government_record_fks.sql'
+      - 'supabase/migrations/028_camera_profiles_history.sql'
+      - 'supabase/migrations/029_national_gis_search_queue.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -321,6 +323,18 @@ jobs:
             -f supabase/migrations/026_peoria_city_camera_source.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/027_index_government_record_fks.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/028_camera_profiles_history.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/029_national_gis_search_queue.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.gis_verification_profiles where profile_status='verified'" | grep -qx 3
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.government_gis_search_queue','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_evidence_history','SELECT')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_evidence_history','INSERT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from pg_indexes where schemaname='public' and indexname like '%_fk_idx'" | grep -qx 8
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
