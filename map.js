@@ -592,6 +592,12 @@
       // Extent from the municipality's published Peoria GIS camera inventory.
       state.map?.fitBounds([[33.54,-112.33],[33.81,-112.18]]);
     });
+    $('viewLawrenceville').addEventListener('click',()=>{
+      state.map?.fitBounds([[33.908,-84.054],[34.002,-83.94]]);
+    });
+    $('viewWebster').addEventListener('click',()=>{
+      state.map?.fitBounds([[29.503,-95.16],[29.566,-95.088]]);
+    });
     $('national').addEventListener('click',()=>{
       state.map?.setView(USA_CENTER,4);
     });

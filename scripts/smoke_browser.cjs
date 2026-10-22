@@ -40,6 +40,10 @@ const assert=require('node:assert/strict');
     return res.json();
   });
   assert.ok(audit.length>0 && audit.every(x=>x.event_type==='published'||x.event_type==='source_rechecked'));
+  await page.getByRole('button',{name:/Explore Lawrenceville/}).click();
+  await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=45,{timeout:25000});
+  await page.getByRole('button',{name:/Explore Webster/}).click();
+  await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=53,{timeout:25000});
   const point=await page.evaluate(async()=>{
    const c=window.KATOPTRON_CONFIG;
    const url=c.supabaseUrl+'/rest/v1/flock_camera_locations?select=latitude,longitude&jurisdiction_label=eq.El%20Paso%20County%2C%20CO&verification_status=eq.verified&limit=1';
@@ -71,7 +75,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#play').isDisabled(),true);
   assert.equal((await page.locator('#observationCount').textContent()).trim(),'—');
   assert.deepEqual(errors,[]);
-  console.log('BROWSER SMOKE PASSED: 3 GIS sources, sourced programs, map filters/search, public history, route evidence, replay and reset');
+  console.log('BROWSER SMOKE PASSED: 5 GIS sources, sourced programs, map filters/search, public history, route evidence, replay and reset');
  }catch(e){
   console.error('BROWSER SMOKE FAILED',e.stack||e);
   await page.screenshot({path:'katoptron-smoke-failure.png',fullPage:true}).catch(()=>{});

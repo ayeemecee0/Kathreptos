@@ -54,3 +54,8 @@ The following remain **not production-ready**: authenticated anti-abuse communit
 - Map location search, map-only jurisdiction and text filtering, source-evidence history, and evidence-tier labels are implemented. They do not change planned-route evidence matching.
 - A five-jurisdiction public **government program record directory without camera coordinates** is now implemented with dated original source links; Los Altos Hills is correctly labeled as terminated. Zero unsupported approximate camera regions have been fabricated.
 - **Not yet achieved:** national verified point coverage, production-scale geocoder/routing providers, independent validation of newly found municipal GIS hosting roots at broad scale, documented uncertainty polygons, fully automated candidate corroboration into new approved profiles without unsafe authority promotion.
+
+
+## October 22 additional production milestone
+
+Verified 206 public original-government GIS camera points across five jurisdictions: Peoria AZ 74, Webster TX 53, Lawrenceville GA 45, Monroe WA 18, El Paso County CO 16. The October 22 production verification run explicitly excluded ten Lawrenceville school camera records in the city GIS source; all previously verified points were rechecked without withdrawals. Source approval under migration 031 is government-root reviewed and independent of the discovery-candidate registry. The daily health monitor and Chromium smoke now require the two new municipal datasets. Routine automated discovery remains an incomplete national-data acquisition process and cannot guarantee exhaustive nationwide source coverage.
