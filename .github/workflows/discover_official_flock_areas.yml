@@ -1,0 +1,35 @@
+name: Discover verified government Flock deployment areas
+
+on:
+  schedule:
+    - cron: '24 18 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover_official_flock_areas.py'
+      - 'scripts/test_discover_official_flock_areas.py'
+      - 'supabase/migrations/035_verified_official_camera_deployment_polygons.sql'
+      - '.github/workflows/discover_official_flock_areas.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  areas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check original-government polygon source safeguards
+        run: python -m unittest discover -s scripts -p 'test_discover_official_flock_areas.py' -v
+      - name: Publish only originally sourced municipal Flock polygons
+        run: python scripts/discover_official_flock_areas.py
