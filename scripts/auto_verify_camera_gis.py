@@ -298,4 +298,6 @@ def sync(dry_run=False):
 if __name__=="__main__":
     arg=argparse.ArgumentParser(description=__doc__)
     arg.add_argument("--dry-run",action="store_true")
-    sync(dry_run=arg.parse_args().dry_run)
+    import sys
+    result=sync(dry_run=arg.parse_args().dry_run)
+    if result["errors"]: sys.exit("Official GIS source rechecks failed: "+str(result["errors"]))

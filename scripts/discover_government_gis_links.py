@@ -221,4 +221,6 @@ def scan(dry_run=False):
 if __name__=='__main__':
     args=argparse.ArgumentParser(description=__doc__)
     args.add_argument('--dry-run',action='store_true')
-    scan(dry_run=args.parse_args().dry_run)
+    import sys
+    result=scan(dry_run=args.parse_args().dry_run)
+    if result["pages_checked"]==0: sys.exit("No government source pages could be examined; do not report success")

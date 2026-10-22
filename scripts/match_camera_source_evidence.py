@@ -134,4 +134,6 @@ def run(dry_run=False):
 if __name__=="__main__":
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dry-run",action="store_true")
-    run(dry_run=ap.parse_args().dry_run)
+    import sys
+    result=run(dry_run=ap.parse_args().dry_run)
+    if result["errors"]: sys.exit("Independent source matching unavailable for some verified GIS sources")
