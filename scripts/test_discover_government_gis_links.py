@@ -1,0 +1,46 @@
+"""Government-site GIS link verification must not infer camera authority."""
+import unittest
+from unittest.mock import patch
+import discover_government_gis_links as d
+
+PAGE='https://city.example.gov/police/flock'
+HTML="""<html><h1>Flock Safety ALPR program</h1>
+<a href="https://gis.city.example.gov/arcgis/rest/services/Flock/MapServer/4">Flock camera GIS locations</a>
+<a href="https://evil.example/MapServer/8">Other</a>
+<a href="/police/flock-map">View camera map</a>
+</html>"""
+class GovernmentCrawler(unittest.TestCase):
+ def document(self,markup):
+  p=d.Anchors();p.feed(markup);return p
+ def test_original_disclosure_creates_private_link_with_sha(self):
+  p=self.document(HTML)
+  rows=d.gis_candidate_links(p,PAGE,'city.example.gov',
+    'government_page_direct_anchor_v1','City Example, ST','a'*64)
+  self.assertEqual(len(rows),1)
+  self.assertEqual(rows[0]['government_page_sha256'],'a'*64)
+  self.assertIn('gis.city.example.gov',rows[0]['gis_layer_url'])
+  self.assertEqual(rows[0]['discovery_method'],'government_page_direct_anchor_v1')
+ def test_never_trust_a_search_result_or_vendor_only_map(self):
+  self.assertFalse(d.gis_candidate_links(self.document(
+    '<a href="https://gis.city.example.gov/foo/FeatureServer/0">Flock cameras</a>'),
+    PAGE,'city.example.gov','government_page_direct_anchor_v1','City Example, ST','b'*64))
+ def test_external_and_javascript_pages_not_followed(self):
+  p=self.document(HTML+'<a href="javascript:alert(1)">Flock GIS map</a>')
+  pages=d.same_site_page_links(p,PAGE,'city.example.gov')
+  self.assertEqual(pages,['https://city.example.gov/police/flock-map'])
+ def test_offsite_redirect_is_blocked(self):
+  with patch.object(d,'public_dns',return_value=False):
+   with self.assertRaises(ValueError): d.fetch_government_page(PAGE)
+ def test_queue_never_grants_source_trust(self):
+  row=d.gis_candidate_links(self.document(HTML),PAGE,'city.example.gov',
+    'government_page_direct_anchor_v1','City Example, ST','a'*64)[0]
+  with patch.object(d,'api_request',return_value=None) as api:
+   d.stage([row])
+  self.assertIn('government_gis_disclosure_leads',api.call_args.args[0])
+  self.assertNotIn('trusted_flock_gis_sources',api.call_args.args[0])
+ def test_unverified_custom_domain_not_approved(self):
+  a={'example.com':{'domain':'example.com','allow_www':False}}
+  self.assertIsNone(d.normalized_url('http://example.com/page'))
+  self.assertIsNone(d.normalized_url('https://example.com/page#fragment'))
+  self.assertIsNotNone(d.normalized_url('https://example.com/page'))
+if __name__=='__main__':unittest.main()

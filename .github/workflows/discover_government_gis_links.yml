@@ -1,0 +1,43 @@
+name: Discover government-disclosed camera GIS links
+
+on:
+  schedule:
+    - cron: '19 14 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover_government_gis_links.py'
+      - 'scripts/test_discover_government_gis_links.py'
+      - 'supabase/migrations/024_government_gis_disclosure_leads.sql'
+      - '.github/workflows/discover_government_gis_links.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-gis-link-discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check private Supabase credential
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
+      - name: Test original-government page and GIS link safeguards
+        run: python -m unittest discover -s scripts -p 'test_discover_government_gis_links.py' -v
+      - name: Scan verified Flock disclosure pages for original GIS references
+        run: python scripts/discover_government_gis_links.py
