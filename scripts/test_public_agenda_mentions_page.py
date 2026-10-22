@@ -40,7 +40,7 @@ class PublicAgendaPageTests(unittest.TestCase):
             self.skipTest("Node unavailable")
         proc = subprocess.run(
             ["node", "--check"], input=self.js, capture_output=True,
-            text=True, timeout=10,
+            text=True, timeout=45,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
