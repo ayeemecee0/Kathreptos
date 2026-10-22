@@ -1,0 +1,43 @@
+name: Register independently hosted Flock GIS layers
+
+on:
+  schedule:
+    - cron: '43 16 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/auto_register_derived_gis.py'
+      - 'scripts/test_auto_register_derived_gis.py'
+      - 'supabase/migrations/034_strict_owner_derived_gis_autoregistration.sql'
+      - '.github/workflows/auto_register_derived_gis.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-government-host-inherited-verification
+  cancel-in-progress: false
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify backend credentials exist
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
+      - name: Test source-inherited approval restrictions
+        run: python -m unittest discover -s scripts -p 'test_auto_register_derived_gis.py' -v
+      - name: Verify exact municipal GIS sources and publish only if approved
+        run: python scripts/auto_register_derived_gis.py --publish
