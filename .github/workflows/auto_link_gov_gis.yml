@@ -1,0 +1,43 @@
+name: Auto-link government Flock GIS disclosures
+
+on:
+  schedule:
+    - cron: '03 11 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/auto_link_gov_gis.py'
+      - 'scripts/test_auto_link_gov_gis.py'
+      - 'supabase/migrations/023_owner_bound_gis_authority.sql'
+      - '.github/workflows/auto_link_gov_gis.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-gov-gis-provenance
+  cancel-in-progress: false
+
+jobs:
+  link:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check limited service role credential
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SB_SECRET_KEY"; exit 1; }
+      - name: Test government host authorization and live GIS controls
+        run: python -m unittest discover -s scripts -p 'test_auto_link_gov_gis.py' -v
+      - name: Verify government-hosted Flock layer and register its authority
+        run: python scripts/auto_link_gov_gis.py
