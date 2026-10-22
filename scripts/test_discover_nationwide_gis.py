@@ -30,6 +30,14 @@ class National(unittest.TestCase):
   self.assertIn("government_gis_search_queue",api.call_args.args[0])
   self.assertNotIn("trusted_flock_gis_sources",api.call_args.args[0])
   self.assertNotIn("flock_camera_locations",api.call_args.args[0])
+ def test_paged_discovery_only_fetches_original_government_urls(self):
+  with patch.object(d,"api_request",side_effect=[
+     [{"url":"https://city.example.gov/flock","state_hint":"Colorado"}],
+     [],[]
+  ]) as api:
+   d.upstream_government_source_seeds()
+  self.assertIn("&url=like.*.gov/*",api.call_args_list[0].args[0])
+  self.assertIn("&limit=25",api.call_args_list[0].args[0])
  def test_existing_verified_discovery_queue_expands_search(self):
   with patch.object(d,"api_request",side_effect=[
     [{"url":"https://www.city.example.gov/flock","state_hint":"Colorado"},

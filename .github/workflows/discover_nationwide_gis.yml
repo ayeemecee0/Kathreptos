@@ -10,6 +10,7 @@ on:
       - 'scripts/test_discover_nationwide_gis.py'
       - '.github/workflows/discover_nationwide_gis.yml'
       - 'supabase/migrations/029_national_gis_search_queue.sql'
+      - 'supabase/migrations/032_readonly_backend_government_program_citations.sql'
 permissions:
   contents: read
 concurrency:

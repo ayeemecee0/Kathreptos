@@ -34,6 +34,7 @@ on:
       - 'supabase/migrations/029_national_gis_search_queue.sql'
       - 'supabase/migrations/030_government_programs_without_coordinates.sql'
       - 'supabase/migrations/031_lawrenceville_webster_flock_gis.sql'
+      - 'supabase/migrations/032_readonly_backend_government_program_citations.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -333,6 +334,12 @@ jobs:
             -f supabase/migrations/030_government_programs_without_coordinates.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/031_lawrenceville_webster_flock_gis.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/032_readonly_backend_government_program_citations.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_documented_programs','SELECT')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_documented_programs','INSERT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.gis_verification_profiles where profile_status='verified'" | grep -qx 5
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \

@@ -87,9 +87,21 @@ def upstream_government_source_seeds():
     Original source links are still unverified until the fetched page itself
     clearly documents a Flock camera program; no community claim is trusted.
     """
-    prior=api_request("discovery_queue?select=url,state_hint&limit=900")
-    if not isinstance(prior,list) or len(prior)>=900:
-        raise ValueError("Existing government discovery backlog truncated")
+    # The nationwide news backlog can exceed the 50-KB Supabase API
+    # response limit. Query only .gov-looking URLs and page in bounded
+    # batches; the original URL still undergoes strict hostname validation.
+    prior=[]
+    for offset in range(0,900,25):
+        batch=api_request("discovery_queue?select=url,state_hint"
+                          "&url=like.*.gov/*&order=url.asc&limit=25&offset="
+                          +str(offset))
+        if not isinstance(batch,list) or len(batch)>25:
+            raise ValueError("Existing original-government discovery page malformed")
+        prior.extend(batch)
+        if len(batch)<25:
+            break
+    else:
+        raise ValueError("Existing government discovery source search truncated")
     agendas=api_request("verified_flock_agenda_mentions?select=government_evidence_url&"
                        "status=eq.verified&limit=100")
     programs=api_request("flock_documented_programs?select=official_evidence_url,state_code"
