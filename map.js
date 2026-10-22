@@ -393,6 +393,9 @@
     $('viewPilot').addEventListener('click',()=>{
       state.map?.setView([47.858,-121.973],13);
     });
+    $('viewColorado').addEventListener('click',()=>{
+      state.map?.setView([38.85,-104.75],11);
+    });
     $('national').addEventListener('click',()=>{
       state.map?.setView(USA_CENTER,4);
     });
