@@ -18,6 +18,7 @@ EXPECTED_MIN={'Monroe, WA':18,'El Paso County, CO':16,'Peoria, AZ':74,
               'Lawrenceville, GA':45,'Webster, TX':53}
 MAX_BODY=500_000
 MAX_STALE_HOURS=72
+MIN_DOCUMENTED_GOV_PROGRAMS=10
 
 
 def get(url,headers=None):
@@ -108,6 +109,8 @@ def assess_published_summary(summary,counts):
         'verified_area_polygons','approximate_location_records',
         'documented_government_programs')):
         raise ValueError('Public national evidence metrics invalid')
+    if info['documented_government_programs']<MIN_DOCUMENTED_GOV_PROGRAMS:
+        raise ValueError('Original government program evidence below reviewed baseline')
     return info
 
 

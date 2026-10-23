@@ -50,6 +50,7 @@ on:
       - 'supabase/migrations/044_rls_invoker_public_coverage_summary.sql'
       - 'supabase/migrations/045_fix_public_coverage_polygon_rls_lookup.sql'
       - 'supabase/migrations/046_public_by_state_gis_evidence_footprint.sql'
+      - 'supabase/migrations/047_five_more_original_government_flock_programs.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -383,6 +384,12 @@ jobs:
             -f supabase/migrations/045_fix_public_coverage_polygon_rls_lookup.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/046_public_by_state_gis_evidence_footprint.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/047_five_more_original_government_flock_programs.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.flock_documented_programs where record_status='verified'" | grep -qx 10
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.flock_documented_programs where program_status='terminated_at_source_date' and record_status='verified'" | grep -qx 2
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_public_state_evidence','SELECT')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
@@ -478,7 +485,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('service_role','public.gis_verification_profiles','UPDATE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from public.flock_documented_programs where record_status='verified'" | grep -qx 5
+            "select count(*) from public.flock_documented_programs where record_status='verified'" | grep -qx 10
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_documented_programs','SELECT')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \

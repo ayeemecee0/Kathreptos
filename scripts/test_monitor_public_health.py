@@ -33,7 +33,7 @@ class HealthTests(unittest.TestCase):
  def test_public_summary_and_camera_inventory_must_agree(self):
   metrics=[{'verified_camera_points':206,'verified_point_jurisdictions':5,
             'verified_area_polygons':0,'approximate_location_records':0,
-            'documented_government_programs':5}]
+            'documented_government_programs':10}]
   self.assertEqual(m.assess_published_summary(metrics,{
     'Monroe, WA':18,'El Paso County, CO':16,'Peoria, AZ':74,
     'Lawrenceville, GA':45,'Webster, TX':53

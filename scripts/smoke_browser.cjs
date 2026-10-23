@@ -28,10 +28,16 @@ const assert=require('node:assert/strict');
   await page.locator('#agendaMapSearch').fill('');
   // Public programs are dated records, never synthetic/official GIS camera pins.
   await page.waitForFunction(()=>document.querySelector('#programStatus')?.textContent?.includes('record(s)'),{timeout:18000});
-  assert.ok(Number(await page.locator('#programList > li').count())>=5);
+  assert.ok(Number(await page.locator('#programList > li').count())>=10);
   await page.locator('#programSearch').fill('Los Altos Hills');
   assert.equal(await page.locator('#programList > li').count(),1);
   assert.ok((await page.locator('#programList').textContent()).includes('terminated'));
+  await page.locator('#programSearch').fill('Leander');
+  assert.equal(await page.locator('#programList > li').count(),1);
+  assert.ok((await page.locator('#programList').textContent()).includes('terminated'));
+  await page.locator('#programSearch').fill('Shakopee');
+  assert.equal(await page.locator('#programList > li').count(),1);
+  assert.ok((await page.locator('#programList').textContent()).includes('offline'));
   await page.locator('#programSearch').fill('');
   // Jurisdiction and label filters apply only to map display, not source data.
   await page.locator('#jurisdictionFilter').selectOption('Peoria, AZ');
