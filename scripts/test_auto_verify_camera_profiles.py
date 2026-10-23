@@ -91,6 +91,22 @@ class TestProfiles(unittest.TestCase):
   with self.assertRaises(ValueError):
    v.authorize(linked,{**P,"source_key":"external_source"},None,
                {**external,"gis_layer_url":"https://evil.example/Fake/FeatureServer/1"})
+ def test_transient_network_failure_retries_and_recovers(self):
+  import urllib.error
+  with (patch.object(v,"query_gis",side_effect=[
+    urllib.error.URLError("timeout"),{"features":[f()]}]) as query,
+    patch.object(v,"time") as sleep):
+   rows,held,count=v.source_with_bounded_retries(S,P,attempts=2)
+  self.assertEqual(count,1)
+  self.assertEqual(query.call_count,2)
+ def test_failed_network_retries_do_not_revoke(self):
+  import urllib.error
+  with (patch.object(v,"query_gis",side_effect=urllib.error.URLError("timeout")),
+        patch.object(v,"revoke_stale") as revoke,
+        patch.object(v,"time")):
+   with self.assertRaises(RuntimeError):
+    v.source_with_bounded_retries(S,P,attempts=2)
+  revoke.assert_not_called()
  def test_dryrun_never_writes(self):
   with (patch.object(v,"approved_sources",return_value=[(S,P)]),
         patch.object(v,"query_gis",return_value={"features":[f()]}),

@@ -11,6 +11,8 @@ import json
 import re
 import urllib.parse
 import time
+import urllib.error
+import socket
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
@@ -258,11 +260,39 @@ def verify_points(s,p,data):
     return records,holds,len(data["features"])
 
 
+def source_with_bounded_retries(s,p,attempts=3):
+    """Retry temporary government-host outages without changing evidence rules.
+
+    An empty/malformed response is never interpreted as camera removal.
+    Permanent metadata or schema failures still fail closed and are reported.
+    """
+    last=None
+    for attempt in range(attempts):
+        try:
+            return verify_points(s,p,query_gis(s,p))
+        except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+            last=exc
+            print("Temporary official GIS network failure",s["source_key"],
+                  "attempt",attempt+1, type(exc).__name__)
+        except ValueError as exc:
+            # Empty feature results can be a temporary GIS service fault,
+            # but are not proof that cameras have been removed.
+            if not any(term in str(exc).lower() for term in
+                       ("empty","zero features","truncated","malformed")):
+                raise
+            last=exc
+            print("Official GIS incomplete response held",s["source_key"],
+                  "attempt",attempt+1, str(exc)[:120])
+        if attempt+1<attempts:
+            time.sleep(2*(attempt+1))
+    raise RuntimeError("Source unavailable after bounded retries; previous camera publication held") from last
+
+
 def sync(dry_run=False):
     total=Counter()
     for s,p in approved_sources():
         try:
-            rows,held,n=verify_points(s,p,query_gis(s,p))
+            rows,held,n=source_with_bounded_retries(s,p)
             total["sources_checked"]+=1;total["features_checked"]+=n
             total["eligible"]+=len(rows)
             print("PROFILE GIS SOURCE:",s["source_key"],"features",n,
