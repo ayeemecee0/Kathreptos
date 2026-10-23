@@ -18,7 +18,7 @@ from discover_government_gis_links import fetch_government_page
 def approved_external():
     rows=api_request("official_external_flock_gis_authorities?select=source_key,"
        "parent_source_key,government_disclosure_url,gis_layer_url,"
-       "original_page_sha256,verification_status"
+       "original_page_sha256,government_link_method,verification_status"
        "&verification_status=eq.verified&limit=100")
     if not isinstance(rows,list) or len(rows)>=100:
         raise ValueError("External government Flock endorsement registry malformed")
@@ -31,8 +31,10 @@ def check(endorsement,document,page_sha):
     # The registered government disclosure was already bound to a verified
     # official parent. Never infer another source or domain from a GIS item.
     found=direct_candidate_links(document,disclosure,page_sha,
-        "Officially documented Flock program",{url:{}})
-    return any(x["gis_layer_url"]==url for x in found)
+        "Officially documented Flock program",{url:{"layer_name":"Flock Cameras"}})
+    method=endorsement.get("government_link_method") or "government_page_direct_anchor_v1"
+    return any(x["gis_layer_url"]==url and x["discovery_method"]==method
+               for x in found)
 
 
 def run(dry_run=False):

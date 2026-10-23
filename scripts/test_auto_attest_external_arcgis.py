@@ -64,6 +64,29 @@ class OfficialExternal(unittest.TestCase):
    with self.assertRaises(ValueError):
     v.source_payload(SOURCE,ROOT,LINK,CANDIDATE)
   org.assert_not_called()
+ def test_service_root_government_link_keeps_exact_layer_binding(self):
+  service=URL.rsplit("/",1)[0]
+  p=Anchors()
+  p.feed('<h1>Peoria Flock Safety ALPR camera program</h1>'
+         '<a href="'+service+'">Flock camera GIS service</a>')
+  link={**LINK,"discovery_method":"government_page_direct_service_v1"}
+  with (patch.object(v,"fetch_government_page",return_value=(p,'a'*64)),
+        patch.object(v,"arcgis_original_org",return_value=(ORGID,"City of Peoria GIS")),
+        patch.object(v,"get_official_json",side_effect=[SERVICE,LAYER,POINTS])):
+   result=v.source_payload(SOURCE,ROOT,link,CANDIDATE)
+  self.assertEqual(result["p_gis_layer_url"],URL)
+  self.assertEqual(len(result["p_locations"]),1)
+  with patch.object(v,"api_request",side_effect=[[link],[CANDIDATE],[SOURCE],[ROOT]]):
+   self.assertEqual(len(list(v.source_inputs())),1)
+ def test_unbound_service_link_cannot_approve_layer(self):
+  p=Anchors()
+  p.feed('<h1>Peoria Flock cameras</h1><a href="https://example.com/irrelevant">Maps</a>')
+  link={**LINK,"discovery_method":"government_page_direct_service_v1"}
+  with (patch.object(v,"fetch_government_page",return_value=(p,'a'*64)),
+        patch.object(v,"arcgis_original_org") as org):
+   with self.assertRaises(ValueError):
+    v.source_payload(SOURCE,ROOT,link,CANDIDATE)
+  org.assert_not_called()
  def test_no_unreviewed_promotions_on_dry_run(self):
   with (patch.object(v,"source_inputs",return_value=[(SOURCE,ROOT,LINK,CANDIDATE)]),
         patch.object(v,"source_payload",return_value={"p_locations":[{"id":7}]}),

@@ -33,7 +33,7 @@ MAX_FEATURES=250
 def source_inputs():
     links=api_request("government_gis_disclosure_leads?select=disclosure_url,"
       "gis_layer_url,jurisdiction_label,discovery_method,government_page_sha256,"
-      "layer_metadata_status&discovery_method=eq.government_page_direct_anchor_v1&limit=100")
+      "layer_metadata_status&discovery_method=in.(government_page_direct_anchor_v1,government_page_direct_service_v1)&limit=100")
     candidates=api_request("flock_gis_source_candidates?select=gis_layer_url,"
       "layer_name,geometry_type,object_id_field,trust_status"
       "&trust_status=eq.unverified&limit=130")
@@ -108,7 +108,8 @@ def source_payload(source,root,link,candidate):
     evidence=direct_candidate_links(doc,link["disclosure_url"],digest,
         root["jurisdiction_label"],{url:candidate})
     if (len(evidence)!=1 or digest!=link["government_page_sha256"] or
-        evidence[0]["gis_layer_url"]!=url):
+        evidence[0]["gis_layer_url"]!=url or
+        evidence[0]["discovery_method"]!=link["discovery_method"]):
         raise ValueError("Current original government Flock page no longer directly endorses exact layer")
     service_url=url.rsplit("/",1)[0]
     org_id,org_name=arcgis_original_org(service_url,root["jurisdiction_label"])
