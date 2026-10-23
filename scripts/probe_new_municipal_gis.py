@@ -12,6 +12,8 @@ SOURCES = [
   "bounds":(29.47,-95.2,29.61,-95.05)},
  {"name":"Alachua County FL","url":"https://maps.alachuacounty.us/server/rest/services/Hosted/Flock_Cameras/FeatureServer/0",
   "bounds":(29.2,-82.9,30.15,-82.0)},
+ {"name":"Newport Beach CA public Geocortex Police Layers GIS","url":"https://nbgis.newportbeachca.gov/arcgis/rest/services/EmployeeMasterMap/MapServer/299",
+  "bounds":(33.52,-117.98,33.77,-117.69),"privacy_sensitive":True},
 ]
 def evaluate(s):
     root=s["url"].rsplit("/",1)[0]
@@ -51,7 +53,10 @@ def evaluate(s):
         if (type(geom.get("x")) in (float,int) and type(geom.get("y")) in (float,int)
             and lo<=geom["y"]<=hi and west<=geom["x"]<=east):
             valid+=1
-        if len(examples)<4:
+        # Public GeoCortex references a broad EmployeeMasterMap. Inspect
+        # aggregate schema/counts without logging individual geometry here
+        # until independent disclosure and source-authority review.
+        if not s.get("privacy_sensitive") and len(examples)<4:
             examples.append({"id":oid,"camera_id":str(attrs.get("CameraID") or attrs.get("ID") or "")[:28],
                              "type":typ,"lat":round(geom.get("y",0),5),
                              "lon":round(geom.get("x",0),5)})
