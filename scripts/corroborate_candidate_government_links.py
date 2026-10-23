@@ -76,18 +76,33 @@ def direct_candidate_links(document,page,sha,jurisdiction,known):
             continue
         raw=urllib.parse.urljoin(page,href)
         url=normalized_url(raw)
-        if not url or url not in known or url in seen:
+        if not url:
+            continue
+        method="government_page_direct_anchor_v1"
+        match=url
+        if match not in known:
+            # Original government page links the service directory itself;
+            # map only if EXACTLY ONE known Flock-labelled feature layer is
+            # associated with that service. A multi-layer service is ambiguous.
+            service_matches=[candidate for candidate in known if
+                candidate.rsplit("/",1)[0]==url.rstrip("/") and
+                "flock" in str(known[candidate].get("layer_name","")).lower()]
+            if len(service_matches)!=1:
+                continue
+            match=service_matches[0]
+            method="government_page_direct_service_v1"
+        if match in seen:
             continue
         if not LINK_LABEL.search((label or "")+" "+urllib.parse.urlsplit(url).path):
             continue
         if not (url.startswith("https://") and len(url)<=1500):
             continue
-        seen.add(url)
+        seen.add(match)
         output.append({
           "disclosure_url":page,
-          "gis_layer_url":url,
+          "gis_layer_url":match,
           "jurisdiction_label":jurisdiction,
-          "discovery_method":"government_page_direct_anchor_v1",
+          "discovery_method":method,
           "link_label":(" ".join(label.split()) or "Original government GIS camera layer")[:220],
           "government_page_sha256":sha,
           "source_host_scope":host,

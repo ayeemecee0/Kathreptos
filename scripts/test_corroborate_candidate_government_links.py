@@ -33,6 +33,22 @@ class Links(unittest.TestCase):
    result=c.run(dry_run=True)
   self.assertEqual(result["exact_government_links"],1)
   stage.assert_not_called()
+ def test_government_service_directory_unique_layer_is_private_receipt(self):
+  service=GIS.rsplit("/",1)[0]
+  doc=html('<h1>Flock Safety camera program</h1><a href="'+service+'">Flock camera GIS</a>')
+  rows=c.direct_candidate_links(doc,PAGE,'b'*64,"City Example, ST",
+    {GIS:{"layer_name":"Flock Cameras"}})
+  self.assertEqual(len(rows),1)
+  self.assertEqual(rows[0]["gis_layer_url"],GIS)
+  self.assertEqual(rows[0]["discovery_method"],"government_page_direct_service_v1")
+  self.assertEqual(rows[0]["layer_metadata_status"],"unverified")
+ def test_service_link_with_multiple_candidate_layers_is_not_specific_proof(self):
+  service=GIS.rsplit("/",1)[0]
+  doc=html('<h1>Flock Safety cameras</h1><a href="'+service+'">Flock GIS</a>')
+  self.assertEqual(c.direct_candidate_links(doc,PAGE,'c'*64,"City Example, ST",{
+    GIS:{"layer_name":"Flock Cameras"},
+    service+"/1":{"layer_name":"Flock Cameras"}
+  }),[])
  def test_no_direct_promotion(self):
   with patch.object(c,"api_request",return_value=None) as api:
    c.stage([{"gis_layer_url":GIS}])
