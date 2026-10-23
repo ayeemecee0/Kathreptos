@@ -41,6 +41,17 @@ def evaluate(s):
         raise ValueError("No independently typed original GIS identity")
     exposed=(objectid+",FlockUnitNo,FlockName" if s.get("privacy_sensitive")
              else "*")
+    if s.get("privacy_sensitive"):
+        # The production verifier depends on the ArcGIS returnIdsOnly
+        # contract; check it explicitly before granting any source authority.
+        oid_ids=get_official_json(s["url"]+"/query?"+
+            urllib.parse.urlencode({"where":"1=1","returnIdsOnly":"true","f":"json"}))
+        if (not isinstance(oid_ids,dict) or
+            str(oid_ids.get("objectIdFieldName") or "").lower()!=objectid.lower() or
+            not isinstance(oid_ids.get("objectIds"),list) or
+            len(oid_ids["objectIds"])!=69 or
+            len(set(oid_ids["objectIds"]))!=69):
+            raise ValueError("Newport original GIS cannot confirm stable complete ObjectID inventory")
     query=urllib.parse.urlencode({"where":"1=1","outFields":exposed,
               "outSR":4326,"returnGeometry":"true",
               "resultRecordCount":999,"orderByFields":objectid+" ASC","f":"json"})
