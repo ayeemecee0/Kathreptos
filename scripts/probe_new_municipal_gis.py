@@ -52,6 +52,9 @@ def evaluate(s):
     valid=0
     examples=[]
     ids=set()
+    unit_ids=set()
+    missing_unit_ids=0
+    duplicate_unit_ids=0
     lo,west,hi,east=s["bounds"]
     for f in features:
         attrs=f.get("attributes") or {}
@@ -59,6 +62,14 @@ def evaluate(s):
         oid=attrs.get(objectid)
         if oid in ids or type(oid) is not int:raise ValueError("Duplicate/missing GIS feature IDs")
         ids.add(oid)
+        if s.get("privacy_sensitive"):
+            original_unit=attrs.get("FlockUnitNo")
+            if not isinstance(original_unit,str) or not original_unit.strip():
+                missing_unit_ids+=1
+            elif original_unit.strip() in unit_ids:
+                duplicate_unit_ids+=1
+            else:
+                unit_ids.add(original_unit.strip())
         typ=str(attrs.get("CameraType") or attrs.get("Type") or
                 ("Original city Flock Unit Locations" if s.get("privacy_sensitive")
                  else "NO_TYPE"))[:65]
@@ -75,6 +86,8 @@ def evaluate(s):
                              "lon":round(geom.get("x",0),5)})
     print("GIS PROBE",s["name"],"service",s["url"],"layer",meta.get("name"),
           "geometry",meta.get("geometryType"),"total",len(features),"in-area",valid,
+          "missing_unit_ids",missing_unit_ids,
+          "duplicate_unit_ids",duplicate_unit_ids,
           "type_breakdown",dict(types),"fields",sorted(fields),"examples",examples,
           "government_service_description",str(service.get("serviceDescription") or "")[:210])
     return valid
