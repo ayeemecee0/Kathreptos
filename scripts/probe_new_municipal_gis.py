@@ -18,6 +18,12 @@ def evaluate(s):
     service=get_official_json(root+"?f=json")
     meta=get_official_json(s["url"]+"?f=json")
     if service.get("error") or meta.get("error"):raise ValueError("GIS service metadata error")
+    print("GIS SOURCE METADATA",s["name"],
+          "source layer",meta.get("name"),
+          "geometry",meta.get("geometryType"),
+          "objectIdField",meta.get("objectIdField"),
+          "fields",[(x.get("name"),x.get("type")) for x in meta.get("fields",[]) if isinstance(x,dict)][:45],
+          "service summary",str(service.get("serviceDescription") or service.get("mapName") or "")[:240])
     if meta.get("geometryType")!="esriGeometryPoint" or meta.get("type")!="Feature Layer":
         raise ValueError("Not published point camera features")
     fields={f.get("name") for f in meta.get("fields",[]) if isinstance(f,dict)}
