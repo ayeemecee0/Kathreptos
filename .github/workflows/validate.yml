@@ -51,6 +51,7 @@ on:
       - 'supabase/migrations/045_fix_public_coverage_polygon_rls_lookup.sql'
       - 'supabase/migrations/046_public_by_state_gis_evidence_footprint.sql'
       - 'supabase/migrations/047_five_more_original_government_flock_programs.sql'
+      - 'supabase/migrations/048_state_evidence_index_pins_and_dated_programs.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -386,6 +387,14 @@ jobs:
             -f supabase/migrations/046_public_by_state_gis_evidence_footprint.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/047_five_more_original_government_flock_programs.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/048_state_evidence_index_pins_and_dated_programs.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_public_state_evidence_index','SELECT')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.flock_public_state_evidence_index where verified_camera_points=0 and dated_program_records>0" | grep -qx 6
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.flock_public_state_evidence_index where terminated_program_records>0" | grep -qx 2
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.flock_documented_programs where record_status='verified'" | grep -qx 10
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \

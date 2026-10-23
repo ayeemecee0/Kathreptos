@@ -166,11 +166,11 @@
     }
     try {
       const q=new URLSearchParams({
-        select:'state_code,verified_camera_points,verified_jurisdictions',
-        order:'verified_camera_points.desc',limit:'65'
+        select:'state_code,verified_camera_points,verified_camera_jurisdictions,dated_program_records,terminated_program_records',
+        order:'verified_camera_points.desc,state_code.asc',limit:'65'
       });
       const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
-        '/rest/v1/flock_public_state_evidence?'+q.toString(),
+        '/rest/v1/flock_public_state_evidence_index?'+q.toString(),
         {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
       if(!response.ok)throw new Error('State evidence HTTP '+response.status);
       const rows=await response.json();
@@ -179,22 +179,37 @@
       const list=$('stateEvidenceList');
       list.replaceChildren();
       for(const item of rows){
+        const fields=['verified_camera_points','verified_camera_jurisdictions',
+          'dated_program_records','terminated_program_records'];
         if(!/^[A-Z]{2}$/.test(item.state_code) ||
-          !Number.isInteger(Number(item.verified_camera_points)) ||
-          Number(item.verified_camera_points)<0)
+            fields.some(key=>!Number.isInteger(Number(item[key]))||Number(item[key])<0) ||
+            Number(item.terminated_program_records)>Number(item.dated_program_records))
           throw new Error('Malformed state evidence data');
         const li=document.createElement('li');
         const title=document.createElement('strong');
         title.textContent=item.state_code;
         const count=document.createElement('p');
-        count.textContent=Number(item.verified_camera_points).toLocaleString()+
-          ' verified camera GIS points · '+
-          Number(item.verified_jurisdictions)+' sourced jurisdiction(s)';
+        const pins=Number(item.verified_camera_points);
+        count.textContent=pins
+          ? pins.toLocaleString()+' verified camera GIS points in '+
+            Number(item.verified_camera_jurisdictions)+' sourced jurisdiction(s)'
+          : 'No independently verified GIS camera points published; actual coverage unknown';
         li.append(title,count);
+        const documented=Number(item.dated_program_records);
+        if(documented>0){
+          const history=document.createElement('p');
+          const stopped=Number(item.terminated_program_records);
+          history.textContent=documented+' dated government program record(s)'+
+            (stopped?' · '+stopped+' reported terminated':'')+
+            '. These records do not locate individual cameras.';
+          li.append(history);
+        }
         list.append(li);
       }
+      const withoutGeometry=rows.filter(item=>Number(item.verified_camera_points)===0).length;
       setText('stateEvidenceStatus',rows.length+
-        ' states with published verified GIS coordinates. '+
+        ' states with published GIS points or dated government program evidence; '+
+        withoutGeometry+' state(s) have only non-georeferenced program records. '+
         'No listed records for a state means evidence unknown, not no Flock cameras.');
     }catch(error){
       setText('stateEvidenceStatus','State evidence index unavailable: '+

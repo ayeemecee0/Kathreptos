@@ -103,3 +103,10 @@ All newly implemented trust/camera RPCs deny anonymous execution; independently 
 - Hardened the external ArcGIS city-government service-root approval path: the original ArcGIS service must list **exactly one Flock camera layer**, not merely one Flock-labeled candidate returned by a partial discovery index. Added positive/negative regressions for extra Flock layers, wrong IDs, absent layers, and direct-layer provenance.
 - Updated the production health minimum to 10 independently reviewed government program records and broadened browser smoke to validate terminated Leander and the Shakopee offline caveat. Camera GIS baseline remains 206 across five jurisdictions.
 - National verified camera coverage remains explicitly incomplete: approved exact geometries are published, unverified GIS layers are held, original-government statement-only programs are listed separately, and no unverified 2D deployment boundary is drawn.
+
+
+## October 23: source-separated nationwide footprint
+
+- Added migration 048 and a security-invoker public state evidence index that combines the **counts** of published exact GIS pins with separately dated municipal Flock program reports. The index does not combine their geometries or claim that a program implies operational cameras.
+- Current public evidence spans nine states by at least one category: five with verified GIS points (AZ, CO, GA, TX, WA), and four currently represented only by dated government program records (CA, ME, MN, UT). Two government source records are expressly terminated; no camera locations are inferred from those statements.
+- Updated map state browse UI to distinguish zero published coordinates from a verified absence of cameras, display termination counts, and explicitly label unmapped program-only states. CI and release browser tests check this distinction.
