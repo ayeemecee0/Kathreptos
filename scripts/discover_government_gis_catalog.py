@@ -12,6 +12,7 @@ import urllib.parse
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from auto_verify_camera_gis import get_official_json
 from discover_camera_gis_sources import stage_candidate
 
@@ -26,12 +27,10 @@ PER_DAY=32
 
 
 def verified_roots():
-    rows=api_request("gis_government_host_authorities?select=authority_key,"
+    rows=fetch_all(api_request,"gis_government_host_authorities?select=authority_key,"
        "government_gis_host,official_government_page,allowed_layer_path,"
        "jurisdiction_label,verification_status"
-       "&verification_status=eq.verified&limit=100")
-    if not isinstance(rows,list) or len(rows)>=100:
-        raise ValueError("Government GIS root authority registry truncated")
+       "&verification_status=eq.verified&limit=100","authority_key")
     return rows
 
 
