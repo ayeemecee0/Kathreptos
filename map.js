@@ -42,8 +42,17 @@
     add('small', record.evidence_summary);
     add('small', 'Source last checked: ' + shortDate(record.last_source_recheck_at || record.last_confirmed_on));
     add('small', 'Published evidence: ' + shortDate(record.published_at));
-    add('small', record.verification_method === 'official_georeferenced_camera_record_v1'
-      ? 'Evidence tier: original government GIS point' : 'Evidence tier: corroborated public source');
+    // Distinguish a government's OWN GIS host from an externally hosted
+    // Esri layer that the agency independently endorses. Neither statement
+    // establishes camera uptime or an actual ALPR read.
+    const originalEvidence=safeUrl(record.source_url);
+    const arcgisExternal=originalEvidence && /^services[0-9]*\.arcgis\.com$/i
+      .test(new URL(originalEvidence).hostname);
+    add('small',record.verification_method === 'official_georeferenced_camera_record_v1'
+      ? (arcgisExternal
+          ? 'Evidence tier: government-endorsed EXTERNAL ArcGIS point; government does not host this source'
+          : 'Evidence tier: original government-operated GIS point')
+      : 'Evidence tier: corroborated public source');
     const url = safeUrl(record.source_url);
     if (url) {
       const link = add('a', 'Inspect original evidence ↗');
