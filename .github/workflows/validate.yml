@@ -54,6 +54,7 @@ on:
       - 'supabase/migrations/048_state_evidence_index_pins_and_dated_programs.sql'
       - 'supabase/migrations/049_three_original_government_flock_programs.sql'
       - 'supabase/migrations/050_newport_beach_official_flock_unit_locations.sql'
+      - 'supabase/migrations/051_refresh_original_government_gis_search_links.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -395,6 +396,12 @@ jobs:
             -f supabase/migrations/049_three_original_government_flock_programs.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/050_newport_beach_official_flock_unit_locations.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/051_refresh_original_government_gis_search_links.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.refresh_original_government_gis_search_lead(text,text,text,jsonb)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.refresh_original_government_gis_search_lead(text,text,text,jsonb)','EXECUTE')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.gis_verification_profiles where profile_status='verified'" | grep -qx 6
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
