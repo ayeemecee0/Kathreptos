@@ -155,6 +155,38 @@ class TestProfiles(unittest.TestCase):
   self.assertEqual((len(rows),total),(1,1))
   self.assertEqual(held,{})
   self.assertTrue(rows[0]["record_key"].startswith("gis-original_az-12-"))
+ def test_original_city_police_flock_unit_locations_with_noncanonical_oid(self):
+  approved={**S,"source_key":"newport_beach_ca",
+    "gis_layer_url":"https://nbgis.newportbeachca.gov/arcgis/rest/services/EmployeeMasterMap/MapServer/299",
+    "government_evidence_url":"https://nbgis.newportbeachca.gov/Geocortex/Essentials/REST/sites/NewportGIS/map/mapservices/7",
+    "jurisdiction_label":"Newport Beach, CA",
+    "expected_id_field":"OBJECTID_12",
+    "bounds_south":33.52,"bounds_north":33.77,
+    "bounds_west":-117.98,"bounds_east":-117.69}
+  policy={**P,"source_key":"newport_beach_ca",
+    "camera_id_field":"FlockUnitNo","expected_layer_name":"Flock Unit Locations",
+    "service_evidence_mode":"listed_flock_layer"}
+  root={**R,"authority_key":"newport_beach_ca",
+    "government_gis_host":"nbgis.newportbeachca.gov",
+    "official_government_page":approved["government_evidence_url"],
+    "allowed_layer_path":"/arcgis/rest/services/EmployeeMasterMap/MapServer/299",
+    "jurisdiction_label":"Newport Beach, CA"}
+  self.assertTrue(v.authorize(approved,policy,root))
+  with self.assertRaises(ValueError):
+   v.authorize(approved,policy,None)
+  self.assertEqual(v.original_object_id_field([
+    {"name":"OBJECTID_12","type":"esriFieldTypeOID"}]),"OBJECTID_12")
+  layer={"name":"Flock Unit Locations","type":"Feature Layer",
+         "geometryType":"esriGeometryPoint",
+         "fields":[{"name":"OBJECTID_12","type":"esriFieldTypeOID"},
+                   {"name":"FlockUnitNo","type":"esriFieldTypeString"}]}
+  v.check_metadata(approved,policy,{"layers":[{"id":299,"name":"Flock Unit Locations"}]},layer)
+  rows,held,n=v.verify_points(approved,policy,{"features":[
+   {"attributes":{"OBJECTID_12":901,"FlockUnitNo":"NB-01"},
+    "geometry":{"x":-117.85,"y":33.62}}]})
+  self.assertEqual((len(rows),n,dict(held)),(1,1,{}))
+  self.assertIn("city Police GIS",rows[0]["evidence_summary"])
+  self.assertEqual(rows[0]["location_accuracy"],"exact")
  def test_permit_only_points_are_not_individually_verified_cameras(self):
   permit_fields=[{"name":"objectid","type":"esriFieldTypeOID"},
                  {"name":"permitno","type":"esriFieldTypeString"}]
