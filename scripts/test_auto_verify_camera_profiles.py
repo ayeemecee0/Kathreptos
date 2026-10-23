@@ -224,6 +224,17 @@ class TestProfiles(unittest.TestCase):
    rows=v.fetch_existing("gis-peoria_az-")
   self.assertEqual(len(rows),1101)
   self.assertGreater(req.call_count,20)
+ def test_reconciliation_scopes_literal_underscores_to_exact_source(self):
+  from urllib.parse import urlsplit,parse_qs
+  valid=[{"record_key":"gis-peoria_az-1-deadbeef","verification_status":"verified"}]
+  with patch.object(v,"api_request",side_effect=[valid]) as req:
+   self.assertEqual(v.fetch_existing("gis-peoria_az-"),valid)
+  query=parse_qs(urlsplit(req.call_args.args[0]).query)
+  self.assertIn(r"\_",query["record_key"][0])
+  wrong=[{"record_key":"gis-peoriaXaz-1-deadbeef","verification_status":"verified"}]
+  with patch.object(v,"api_request",side_effect=[wrong]):
+   with self.assertRaisesRegex(ValueError,"source boundary"):
+    v.fetch_existing("gis-peoria_az-")
  def test_sudden_mass_camera_removal_blocks_before_writes(self):
   old=[{"record_key":"gis-test-"+str(i)+"-abc"} for i in range(20)]
   keys={x["record_key"] for x in old[:14]}
