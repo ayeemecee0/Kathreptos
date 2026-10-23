@@ -28,11 +28,22 @@ def evaluate(s):
           "service summary",str(service.get("serviceDescription") or service.get("mapName") or "")[:240])
     if meta.get("geometryType")!="esriGeometryPoint" or meta.get("type")!="Feature Layer":
         raise ValueError("Not published point camera features")
-    fields={f.get("name") for f in meta.get("fields",[]) if isinstance(f,dict)}
-    required={"OBJECTID"}
-    if not required<=fields:raise ValueError("No original GIS identity")
-    query=urllib.parse.urlencode({"where":"1=1","outFields":"*","outSR":4326,"returnGeometry":"true",
-              "resultRecordCount":999,"orderByFields":"OBJECTID ASC","f":"json"})
+    original_fields=[f for f in meta.get("fields",[]) if isinstance(f,dict)]
+    fields={f.get("name") for f in original_fields}
+    objectid=meta.get("objectIdField")
+    if not isinstance(objectid,str) or not objectid:
+        candidates=[f.get("name") for f in original_fields
+                    if f.get("type")=="esriFieldTypeOID"]
+        if len(candidates)==1:objectid=candidates[0]
+    if not objectid or objectid not in fields or not any(
+        f.get("name")==objectid and f.get("type")=="esriFieldTypeOID"
+        for f in original_fields):
+        raise ValueError("No independently typed original GIS identity")
+    exposed=(objectid+",FlockUnitNo,FlockName" if s.get("privacy_sensitive")
+             else "*")
+    query=urllib.parse.urlencode({"where":"1=1","outFields":exposed,
+              "outSR":4326,"returnGeometry":"true",
+              "resultRecordCount":999,"orderByFields":objectid+" ASC","f":"json"})
     data=get_official_json(s["url"]+"/query?"+query)
     features=data.get("features")
     if not isinstance(features,list) or not features or len(features)>=999 or data.get("exceededTransferLimit"):
@@ -45,10 +56,12 @@ def evaluate(s):
     for f in features:
         attrs=f.get("attributes") or {}
         geom=f.get("geometry") or {}
-        oid=attrs.get("OBJECTID")
+        oid=attrs.get(objectid)
         if oid in ids or type(oid) is not int:raise ValueError("Duplicate/missing GIS feature IDs")
         ids.add(oid)
-        typ=str(attrs.get("CameraType") or attrs.get("Type") or "NO_TYPE")[:65]
+        typ=str(attrs.get("CameraType") or attrs.get("Type") or
+                ("Original city Flock Unit Locations" if s.get("privacy_sensitive")
+                 else "NO_TYPE"))[:65]
         types[typ]+=1
         if (type(geom.get("x")) in (float,int) and type(geom.get("y")) in (float,int)
             and lo<=geom["y"]<=hi and west<=geom["x"]<=east):
