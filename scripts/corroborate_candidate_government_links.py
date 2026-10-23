@@ -12,20 +12,20 @@ from collections import Counter
 import urllib.parse
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from discover_government_gis_links import (
     FLOCK, LINK_LABEL, fetch_government_page, normalized_url
 )
 from government_domain_registry import valid_https_url
 
 MAX_CANDIDATES=130
-MAX_SEEDS=100
+MAX_SEEDS=3000
 
 
 def candidates():
-    rows=api_request("flock_gis_source_candidates?select=gis_layer_url,"
-        "layer_name,trust_status&trust_status=eq.unverified&limit=130")
-    if not isinstance(rows,list) or len(rows)>=MAX_CANDIDATES:
-        raise ValueError("GIS source candidate registry missing or truncated")
+    rows=fetch_all(api_request,"flock_gis_source_candidates?select=gis_layer_url,"
+        "layer_name,trust_status&trust_status=eq.unverified&limit=130","gis_layer_url")
+    # The entire private candidate registry is read with bounded pagination.
     result={}
     for row in rows:
         url=normalized_url(row.get("gis_layer_url") or "")
@@ -39,15 +39,14 @@ def candidates():
 
 def authoritative_page_seeds():
     """Only original-government URLs already bound to a reviewed source."""
-    gis=api_request("trusted_flock_gis_sources?select=government_evidence_url,"
-        "jurisdiction_label&source_status=eq.verified&limit=100")
-    programs=api_request("flock_documented_programs?select=official_evidence_url,"
+    gis=fetch_all(api_request,"trusted_flock_gis_sources?select=government_evidence_url,"
+        "jurisdiction_label&source_status=eq.verified&limit=100","government_evidence_url")
+    programs=fetch_all(api_request,"flock_documented_programs?select=official_evidence_url,"
         "jurisdiction_label&record_status=eq.verified"
-        "&program_status=eq.documented_at_source_date&limit=100")
-    agendas=api_request("verified_flock_agenda_mentions?select=government_evidence_url,"
-        "jurisdiction_label&status=eq.verified&limit=100")
-    if not all(isinstance(x,list) and len(x)<100 for x in (gis,programs,agendas)):
-        raise ValueError("Independent original-government citations unavailable or truncated")
+        "&program_status=eq.documented_at_source_date&limit=100","official_evidence_url")
+    agendas=fetch_all(api_request,"verified_flock_agenda_mentions?select=government_evidence_url,"
+        "jurisdiction_label&status=eq.verified&limit=100","government_evidence_url")
+    # Original government citations are still reviewed source records.
     seeds={}
     for rows,col in ((gis,"government_evidence_url"),
                      (programs,"official_evidence_url"),

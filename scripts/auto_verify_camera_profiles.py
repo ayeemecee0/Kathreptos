@@ -16,6 +16,7 @@ import socket
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from auto_verify_camera_gis import (
     get_official_json, classify_camera_type, write_verified,
     mark_rechecked, fetch_existing, revoke_stale
@@ -27,21 +28,20 @@ FLOCK_LAYER=re.compile(r"^flock[_ ]cameras(?: - [A-Za-z][A-Za-z ]{0,60})?$",re.I
 
 
 def approved_sources():
-    src=api_request("trusted_flock_gis_sources?select=source_key,gis_layer_url,"
+    src=fetch_all(api_request,"trusted_flock_gis_sources?select=source_key,gis_layer_url,"
         "government_evidence_url,jurisdiction_label,expected_id_field,"
         "bounds_south,bounds_west,bounds_north,bounds_east,source_status"
-        "&source_status=eq.verified&limit=100")
-    policies=api_request("gis_verification_profiles?select=source_key,"
+        "&source_status=eq.verified&limit=100","source_key")
+    policies=fetch_all(api_request,"gis_verification_profiles?select=source_key,"
         "expected_layer_name,identity_mode,vendor_field,camera_id_field,"
-        "service_evidence_mode,profile_status&profile_status=eq.verified&limit=100")
-    roots=api_request("gis_government_host_authorities?select=authority_key,"
+        "service_evidence_mode,profile_status&profile_status=eq.verified&limit=100","source_key")
+    roots=fetch_all(api_request,"gis_government_host_authorities?select=authority_key,"
         "government_gis_host,official_government_page,allowed_layer_path,"
-        "jurisdiction_label,verification_status&verification_status=eq.verified&limit=100")
-    external=api_request("official_external_flock_gis_authorities?select=source_key,"
+        "jurisdiction_label,verification_status&verification_status=eq.verified&limit=100","authority_key")
+    external=fetch_all(api_request,"official_external_flock_gis_authorities?select=source_key,"
         "parent_source_key,government_disclosure_url,gis_layer_url,"
-        "verification_status&verification_status=eq.verified&limit=100")
-    if not all(isinstance(x,list) and len(x)<100 for x in (src,policies,roots,external)):
-        raise ValueError("Untrusted or truncated GIS authority registry")
+        "verification_status&verification_status=eq.verified&limit=100","source_key")
+    # Every approved registry is now read fully, or fails closed on cap/error.
     ps={x["source_key"]:x for x in policies}
     rs={x["authority_key"]:x for x in roots}
     by_key={x["source_key"]:x for x in src}
