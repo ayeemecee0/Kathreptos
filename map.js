@@ -218,7 +218,7 @@
       for(let offset=0;offset<cap;offset+=size){
         const q=new URLSearchParams({
           select:'tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url,intro_date',
-          status:'eq.verified',order:'matter_id.asc',
+          status:'eq.verified',order:'tenant.asc,matter_id.asc',
           limit:String(size),offset:String(offset)
         });
         const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
