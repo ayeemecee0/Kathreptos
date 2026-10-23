@@ -26,7 +26,7 @@ MAX_LINKS=25
 SEARCHERS=("bing-rss","ddg-html")
 FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\b.{0,35}\balpr\b',re.I)
 CAMERAS=re.compile(r'\b(camera|license plate|alpr|lpr)\b',re.I)
-GIS_SERVICE=re.compile(r'/(?:MapServer|FeatureServer)/?
+GIS_SERVICE=re.compile(r"/(?:MapServer|FeatureServer)/?\Z", re.I)
 
 def query_plan(today=None):
     day=(today or dt.datetime.now(dt.timezone.utc)).timetuple().tm_yday
