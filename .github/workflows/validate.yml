@@ -36,6 +36,7 @@ on:
       - 'supabase/migrations/031_lawrenceville_webster_flock_gis.sql'
       - 'supabase/migrations/032_readonly_backend_government_program_citations.sql'
       - 'supabase/migrations/033_multiple_exact_layers_per_government_host.sql'
+      - 'supabase/migrations/036_government_direct_arcgis_service_link_receipts.sql'
       - 'supabase/migrations/034_strict_owner_derived_gis_autoregistration.sql'
       - 'supabase/migrations/035_verified_official_camera_deployment_polygons.sql'
       - 'supabase/migrations/036_external_arcgis_original_government_endorsement.sql'
@@ -352,6 +353,10 @@ jobs:
             -f supabase/migrations/034_strict_owner_derived_gis_autoregistration.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/035_verified_official_camera_deployment_polygons.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/036_government_direct_arcgis_service_link_receipts.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from pg_constraint where conrelid='public.government_gis_disclosure_leads'::regclass and conname='government_gis_disclosure_leads_discovery_method_check' and pg_get_constraintdef(oid) like '%government_page_direct_service_v1%'" | grep -qx 1
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/036_external_arcgis_original_government_endorsement.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
