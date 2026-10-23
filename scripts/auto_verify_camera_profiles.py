@@ -11,15 +11,17 @@ import json
 import re
 import urllib.parse
 import time
+import math
 import urllib.error
 import socket
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
 from paged_supabase import fetch_all
+from paged_supabase import fetch_all
 from auto_verify_camera_gis import (
     get_official_json, classify_camera_type, write_verified,
-    mark_rechecked, fetch_existing, revoke_stale
+    mark_rechecked, revoke_stale
 )
 
 LIMIT=1000
@@ -329,6 +331,33 @@ def verify_points(s,p,data):
     return records,holds,len(data["features"])
 
 
+def fetch_existing(prefix):
+    """Page the full verified inventory belonging to one reviewed source."""
+    if not isinstance(prefix,str) or not re.fullmatch(r"gis-[a-zA-Z0-9_-]{2,90}-",prefix):
+        raise ValueError("Untrusted existing-camera source prefix")
+    qs=urllib.parse.urlencode({
+      "select":"record_key,verification_status",
+      "record_key":"like."+prefix+"*",
+      "verification_status":"eq.verified"})
+    return fetch_all(api_request,"flock_camera_locations?"+qs,
+      "record_key",page_size=50,max_records=MAX_SOURCE_FEATURES+100)
+
+
+def validate_reconciliation_delta(previous,new_keys):
+    """Withhold sudden large removals before any publication mutations."""
+    if not isinstance(previous,list) or not isinstance(new_keys,set):
+        raise ValueError("Government camera delta inputs malformed")
+    old_keys={item.get("record_key") for item in previous}
+    if len(old_keys)!=len(previous) or None in old_keys:
+        raise ValueError("Existing government camera source record IDs incomplete")
+    removed=old_keys-new_keys
+    if previous and len(removed)>=max(3,math.ceil(len(previous)*0.25)):
+        raise ValueError("Unexpectedly large government camera removal or movement: "+
+                         str(len(removed))+" of "+str(len(previous))+
+                         ". Hold until original data change is independently confirmed")
+    return removed
+
+
 def source_with_bounded_retries(s,p,attempts=3):
     """Retry temporary government-host outages without changing evidence rules.
 
@@ -392,13 +421,13 @@ def sync(dry_run=False,shard=0,shards=1):
             if not rows:raise ValueError("Zero independently qualifying camera records; withholding reconciliation")
             old=fetch_existing("gis-"+s["source_key"]+"-")
             keys={r["record_key"] for r in rows}
+            missing=validate_reconciliation_delta(old,keys)
             for item in rows:
                 if write_verified(item):total["published"]+=1
                 else:
                     mark_rechecked(item["record_key"]);total["rechecked"]+=1
-            for record in old:
-                if record["record_key"] not in keys and revoke_stale(record["record_key"]):
-                    total["withdrawn"]+=1
+            for key in sorted(missing):
+                if revoke_stale(key):total["withdrawn"]+=1
         except Exception as exc:
             total["errors"]+=1
             print("PROFILE GIS HELD:",s["source_key"],type(exc).__name__,str(exc)[:180])
