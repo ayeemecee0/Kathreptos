@@ -91,6 +91,41 @@ class TestProfiles(unittest.TestCase):
   with self.assertRaises(ValueError):
    v.authorize(linked,{**P,"source_key":"external_source"},None,
                {**external,"gis_layer_url":"https://evil.example/Fake/FeatureServer/1"})
+ def test_full_gis_inventory_uses_object_ids_not_silent_page_limit(self):
+  identifiers=list(range(1,156))
+  ids={"objectIdFieldName":"OBJECTID","objectIds":identifiers}
+  def row(i):
+   return {"attributes":{"OBJECTID":i,"CameraID":"P"+str(i)},
+           "geometry":{"x":-112.2,"y":33.65}}
+  with patch.object(v,"resilient_government_gis_json",side_effect=[
+      SERVICE,L,ids,{"features":[row(i) for i in identifiers[:150]]},
+      {"features":[row(i) for i in identifiers[150:]]},ids]) as fetch:
+   data=v.query_gis(S,P)
+  self.assertEqual(len(data["features"]),155)
+  self.assertEqual(fetch.call_count,6)
+  rows,held,total=v.verify_points(S,P,data)
+  self.assertEqual((len(rows),total,sum(held.values())),(155,155,0))
+ def test_gis_id_pagination_holds_missing_record(self):
+  ids={"objectIdFieldName":"OBJECTID","objectIds":[1,2]}
+  with patch.object(v,"resilient_government_gis_json",side_effect=[
+      SERVICE,L,ids,{"features":[f(oid=1)]}]):
+   with self.assertRaisesRegex(ValueError,"omitted/duplicated"):
+    v.query_gis(S,P)
+ def test_gis_id_snapshot_changes_do_not_publish(self):
+  a={"objectIdFieldName":"OBJECTID","objectIds":[1]}
+  b={"objectIdFieldName":"OBJECTID","objectIds":[1,2]}
+  with patch.object(v,"resilient_government_gis_json",side_effect=[
+      SERVICE,L,a,{"features":[f(oid=1)]},b]):
+   with self.assertRaisesRegex(ValueError,"changed during"):
+    v.query_gis(S,P)
+ def test_gis_id_count_over_capacity_fails_before_downloading(self):
+  too_many={"objectIdFieldName":"OBJECTID",
+            "objectIds":list(range(1,v.MAX_SOURCE_FEATURES+2))}
+  with patch.object(v,"resilient_government_gis_json",side_effect=[
+      SERVICE,L,too_many]) as fetch:
+   with self.assertRaisesRegex(ValueError,"oversized"):
+    v.query_gis(S,P)
+  self.assertEqual(fetch.call_count,3)
  def test_transient_network_failure_retries_and_recovers(self):
   import urllib.error
   with (patch.object(v,"query_gis",side_effect=[

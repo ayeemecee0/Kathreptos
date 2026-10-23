@@ -23,6 +23,8 @@ from auto_verify_camera_gis import (
 )
 
 LIMIT=1000
+PAGE_SIZE=150
+MAX_SOURCE_FEATURES=3000
 FIELD=re.compile(r"^[A-Za-z][A-Za-z0-9_]{1,50}$")
 FLOCK_LAYER=re.compile(r"^flock[_ ]cameras(?: - [A-Za-z][A-Za-z ]{0,60})?$",re.I)
 
@@ -187,6 +189,13 @@ def resilient_government_gis_json(url):
 
 
 def query_gis(s,p):
+    """Read a COMPLETE bounded ArcGIS inventory by canonical ObjectIDs.
+
+    ArcGIS may silently enforce smaller service-specific page sizes. First
+    request the authoritative ID list, fetch exactly those IDs in chunks,
+    and re-fetch the ID list afterward. Any missing/duplicate/changed ID
+    prevents reconciliation; a partial response can never revoke cameras.
+    """
     parent=s["gis_layer_url"].rsplit("/",1)[0]
     service=resilient_government_gis_json(parent+"?f=json")
     layer=resilient_government_gis_json(s["gis_layer_url"]+"?f=json")
@@ -198,16 +207,59 @@ def query_gis(s,p):
     else:
         fields.append(p["camera_id_field"])
         if p.get("vendor_field"):fields.append(p["vendor_field"])
-    qs=urllib.parse.urlencode({"where":"1=1","outFields":",".join(sorted(set(fields))),
-         "returnGeometry":"true","outSR":"4326","orderByFields":oid_field+" ASC",
-         "resultRecordCount":str(LIMIT),"f":"json"})
-    return resilient_government_gis_json(s["gis_layer_url"]+"/query?"+qs)
+    url=s["gis_layer_url"]+"/query?"
+    def read_ids():
+        q=urllib.parse.urlencode({"where":"1=1","returnIdsOnly":"true","f":"json"})
+        response=resilient_government_gis_json(url+q)
+        if not isinstance(response,dict) or response.get("error"):
+            raise ValueError("Original GIS full ObjectID inventory unavailable")
+        ids=response.get("objectIds")
+        field=response.get("objectIdFieldName")
+        if (not isinstance(field,str) or field.lower()!=oid_field.lower()
+            or not isinstance(ids,list) or not 1<=len(ids)<=MAX_SOURCE_FEATURES
+            or any(type(x) is not int or x<=0 for x in ids)
+            or len(ids)!=len(set(ids))):
+            raise ValueError("Original GIS identity set empty, oversized or malformed")
+        return sorted(ids)
+    original=read_ids()
+    all_features=[]
+    for offset in range(0,len(original),PAGE_SIZE):
+        group=original[offset:offset+PAGE_SIZE]
+        q=urllib.parse.urlencode({
+          "objectIds":",".join(map(str,group)),
+          "outFields":",".join(sorted(set(fields))),
+          "returnGeometry":"true","outSR":"4326","f":"json"
+        })
+        result=resilient_government_gis_json(url+q)
+        if (not isinstance(result,dict) or result.get("error")
+            or result.get("exceededTransferLimit")
+            or not isinstance(result.get("features"),list)):
+            raise ValueError("Original GIS ObjectID page malformed or truncated")
+        features=result["features"]
+        observed=[]
+        for entry in features:
+            attrs=entry.get("attributes") if isinstance(entry,dict) else None
+            if not isinstance(attrs,dict):
+                raise ValueError("Original GIS ObjectID page contains malformed feature")
+            found=[v for k,v in attrs.items()
+                   if isinstance(k,str) and k.lower()=="objectid"]
+            if len(found)!=1 or type(found[0]) is not int:
+                raise ValueError("Original GIS ObjectID page lacks stable identifiers")
+            observed.append(found[0])
+        if len(observed)!=len(group) or sorted(observed)!=group:
+            raise ValueError("Original GIS ObjectID page omitted/duplicated features")
+        all_features.extend(features)
+    if read_ids()!=original:
+        raise ValueError("Original GIS inventory changed during source verification")
+    if len(all_features)!=len(original):
+        raise ValueError("Original GIS inventory incomplete after pagination")
+    return {"features":all_features}
 
 
 def verify_points(s,p,data):
     if (not isinstance(data,dict) or data.get("error") or
         not isinstance(data.get("features"),list) or
-        not 1<=len(data["features"])<LIMIT or data.get("exceededTransferLimit")):
+        not 1<=len(data["features"])<=MAX_SOURCE_FEATURES or data.get("exceededTransferLimit")):
         raise ValueError("Official GIS data empty, malformed or truncated")
     records=[];holds=Counter();ids=set()
     south,west,north,east=[s[k] for k in ("bounds_south","bounds_west","bounds_north","bounds_east")]
