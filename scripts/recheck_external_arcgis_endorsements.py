@@ -11,17 +11,16 @@ import urllib.parse
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from corroborate_candidate_government_links import direct_candidate_links
 from discover_government_gis_links import fetch_government_page
 
 
 def approved_external():
-    rows=api_request("official_external_flock_gis_authorities?select=source_key,"
+    rows=fetch_all(api_request,"official_external_flock_gis_authorities?select=source_key,"
        "parent_source_key,government_disclosure_url,gis_layer_url,"
        "original_page_sha256,government_link_method,verification_status"
-       "&verification_status=eq.verified&limit=100")
-    if not isinstance(rows,list) or len(rows)>=100:
-        raise ValueError("External government Flock endorsement registry malformed")
+       "&verification_status=eq.verified&limit=100","source_key")
     return rows
 
 
