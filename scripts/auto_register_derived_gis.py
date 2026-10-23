@@ -19,6 +19,7 @@ from collections import Counter
 from urllib.error import HTTPError
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from auto_verify_camera_gis import get_official_json
 from auto_verify_camera_profiles import sync as refresh_verified
 
@@ -28,18 +29,15 @@ MAX_INVENTORY=300
 
 
 def discovery_inputs():
-    parents=api_request("trusted_flock_gis_sources?select=source_key,gis_layer_url,"
+    parents=fetch_all(api_request,"trusted_flock_gis_sources?select=source_key,gis_layer_url,"
       "government_evidence_url,jurisdiction_label,bounds_south,bounds_west,"
-      "bounds_north,bounds_east,source_status&source_status=eq.verified&limit=100")
-    roots=api_request("gis_government_host_authorities?select=authority_key,"
+      "bounds_north,bounds_east,source_status&source_status=eq.verified&limit=100","source_key")
+    roots=fetch_all(api_request("gis_government_host_authorities?select=authority_key,"
       "government_gis_host,official_government_page,allowed_layer_path,"
-      "jurisdiction_label,verification_status&verification_status=eq.verified&limit=100")
-    candidates=api_request("flock_gis_source_candidates?select=gis_layer_url,"
+      "jurisdiction_label,verification_status&verification_status=eq.verified&limit=100","authority_key")
+    candidates=fetch_all(api_request("flock_gis_source_candidates?select=gis_layer_url,"
       "layer_name,geometry_type,object_id_field,trust_status"
-      "&trust_status=eq.unverified&limit=130")
-    if not all(isinstance(x,list) and len(x)<n for x,n in
-               ((parents,100),(roots,100),(candidates,130))):
-        raise ValueError("Approved government registry incomplete")
+      "&trust_status=eq.unverified&limit=130","gis_layer_url")
     root_by={r["authority_key"]:r for r in roots}
     for parent in parents:
         root=root_by.get(parent["source_key"])
