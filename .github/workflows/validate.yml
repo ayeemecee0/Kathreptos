@@ -53,6 +53,7 @@ on:
       - 'supabase/migrations/047_five_more_original_government_flock_programs.sql'
       - 'supabase/migrations/048_state_evidence_index_pins_and_dated_programs.sql'
       - 'supabase/migrations/049_three_original_government_flock_programs.sql'
+      - 'supabase/migrations/050_newport_beach_official_flock_unit_locations.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -392,6 +393,14 @@ jobs:
             -f supabase/migrations/048_state_evidence_index_pins_and_dated_programs.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/049_three_original_government_flock_programs.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/050_newport_beach_official_flock_unit_locations.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.gis_verification_profiles where profile_status='verified'" | grep -qx 6
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.gis_government_host_authorities where verification_status='verified'" | grep -qx 5
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select expected_id_field from public.trusted_flock_gis_sources where source_key='newport_beach_ca'" | grep -qx OBJECTID_12
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_public_state_evidence_index','SELECT')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
