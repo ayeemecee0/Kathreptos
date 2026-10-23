@@ -1,9 +1,6 @@
--- 043: Endorsement via an original government hyperlink to a public ArcGIS
--- feature service ROOT (not just an individually numbered point layer).
--- A service-level link is weaker: only acceptable if exactly one unverified
--- Flock-named point layer exists under that service in the research registry,
--- and the live service metadata and ArcGIS government organization are
--- re-verified before a service-role-only source registration call.
+-- 043: Direct government hyperlink to an ArcGIS service ROOT supports only
+-- a single unambiguous Flock-specific point layer. All original government,
+-- ArcGIS organization, and individual camera verification gates remain.
 alter table public.official_external_flock_gis_authorities
  add column if not exists government_link_method text not null
  default 'government_page_direct_anchor_v1'
@@ -41,7 +38,9 @@ begin
        and (select count(*) from public.flock_gis_source_candidates c
             where c.trust_status='unverified'
               and c.geometry_type='esriGeometryPoint'
-              and c.gis_layer_url like regexp_replace(p_layer_url,'/[0-9]+   or lead.layer_metadata_status not in ('unverified','point_layer_verified')
+              and c.gis_layer_url like regexp_replace(p_layer_url,'/[0-9]+$','') || '/%'
+              and c.layer_name ~* '^flock[_ ]cameras( - [A-Za-z][A-Za-z ]{0,60})?$')<>1)
+   or lead.layer_metadata_status not in ('unverified','point_layer_verified')
    or p_layer_url !~ '^https://services[0-9]*\.arcgis\.com/[A-Za-z0-9]+/arcgis/rest/services/[A-Za-z0-9_-]+/FeatureServer/[0-9]+$'
    or not exists(select 1 from public.flock_gis_source_candidates
        where gis_layer_url=p_layer_url and trust_status='unverified'
@@ -101,9 +100,9 @@ begin
        and (select count(*) from public.flock_gis_source_candidates c
             where c.trust_status='unverified'
               and c.geometry_type='esriGeometryPoint'
-              and c.gis_layer_url like
-                regexp_replace(p_gis_layer_url,'/[0-9]+
-              and c.layer_name ~* '^flock[_ ]cameras( - [A-Za-z][A-Za-z ]{0,60})?   or p_page_sha256 !~ '^[a-f0-9]{64}$'
+              and c.gis_layer_url like regexp_replace(p_gis_layer_url,'/[0-9]+$','') || '/%'
+              and c.layer_name ~* '^flock[_ ]cameras( - [A-Za-z][A-Za-z ]{0,60})?$')<>1)
+   or p_page_sha256 !~ '^[a-f0-9]{64}$'
    or p_layer_sha256 !~ '^[a-f0-9]{64}$'
    or p_source_key !~ '^ext_[a-z0-9_]{8,45}$'
    or p_layer_name<>candidate.layer_name
