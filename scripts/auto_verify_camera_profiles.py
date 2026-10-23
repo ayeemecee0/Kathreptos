@@ -358,6 +358,71 @@ def validate_reconciliation_delta(previous,new_keys):
     return removed
 
 
+PUBLISH_BATCH_SIZE=25
+
+
+def publish_verified_batches(rows,withdrawn):
+    """Publish complete verified-source inventory with auditable small batches.
+
+    Only record_keys from independently verified camera points may be passed.
+    Every API receipt is checked against the exact requested key set.
+    """
+    if (not isinstance(rows,list) or not isinstance(withdrawn,set)
+        or not rows or len(rows)>MAX_SOURCE_FEATURES):
+        raise ValueError("Invalid bounded government camera publication batch")
+    keys=[r.get("record_key") if isinstance(r,dict) else None for r in rows]
+    if (any(not isinstance(key,str) or not re.fullmatch(r"gis-[a-zA-Z0-9_-]+",key)
+            for key in keys) or len(set(keys))!=len(keys) or
+        any(not isinstance(k,str) or not re.fullmatch(r"gis-[a-zA-Z0-9_-]+",k)
+            for k in withdrawn) or set(keys)&withdrawn):
+        raise ValueError("Camera evidence keys are malformed, duplicate or conflicting")
+    from urllib.parse import urlencode
+    counter=Counter()
+    def receipt_keys(payload,expected):
+        if (not isinstance(payload,list) or
+            any(not isinstance(x,dict) or not isinstance(x.get("record_key"),str)
+                for x in payload)):
+            raise ValueError("Camera database returned malformed mutation receipt")
+        seen=[x["record_key"] for x in payload]
+        if len(seen)!=len(set(seen)) or not set(seen).issubset(expected):
+            raise ValueError("Camera database returned unexpected mutation receipt")
+        return set(seen)
+    for offset in range(0,len(rows),PUBLISH_BATCH_SIZE):
+        page=rows[offset:offset+PUBLISH_BATCH_SIZE]
+        group={r["record_key"] for r in page}
+        endpoint="flock_camera_locations?"+urlencode({
+            "select":"record_key","on_conflict":"record_key"})
+        added=api_request(endpoint,method="POST",payload=page,
+            prefer="resolution=ignore-duplicates,return=representation")
+        new=receipt_keys(added,group)
+        counter["published"]+=len(new)
+        old=group-new
+        if old:
+            endpoint="flock_camera_locations?"+urlencode({
+                "select":"record_key","record_key":"in.("+",".join(sorted(old))+")",
+                "verification_status":"eq.verified"})
+            updated=api_request(endpoint,method="PATCH",
+                payload={"last_source_recheck_at":dt.datetime.now(dt.timezone.utc).isoformat()},
+                prefer="return=representation")
+            actual=receipt_keys(updated,old)
+            if actual!=old:
+                raise ValueError("Existing camera recheck skipped a verified record")
+            counter["rechecked"]+=len(actual)
+    for offset in range(0,len(withdrawn),PUBLISH_BATCH_SIZE):
+        group=set(sorted(withdrawn)[offset:offset+PUBLISH_BATCH_SIZE])
+        endpoint="flock_camera_locations?"+urlencode({
+            "select":"record_key","record_key":"in.("+",".join(sorted(group))+")",
+            "verification_status":"eq.verified"})
+        revoked=api_request(endpoint,method="PATCH",
+            payload={"verification_status":"revoked"},
+            prefer="return=representation")
+        actual=receipt_keys(revoked,group)
+        if actual!=group:
+            raise ValueError("Camera source withdrawal receipt incomplete")
+        counter["withdrawn"]+=len(actual)
+    return counter
+
+
 def source_with_bounded_retries(s,p,attempts=3):
     """Retry temporary government-host outages without changing evidence rules.
 
@@ -422,12 +487,7 @@ def sync(dry_run=False,shard=0,shards=1):
             old=fetch_existing("gis-"+s["source_key"]+"-")
             keys={r["record_key"] for r in rows}
             missing=validate_reconciliation_delta(old,keys)
-            for item in rows:
-                if write_verified(item):total["published"]+=1
-                else:
-                    mark_rechecked(item["record_key"]);total["rechecked"]+=1
-            for key in sorted(missing):
-                if revoke_stale(key):total["withdrawn"]+=1
+            total.update(publish_verified_batches(rows,missing))
         except Exception as exc:
             total["errors"]+=1
             print("PROFILE GIS HELD:",s["source_key"],type(exc).__name__,str(exc)[:180])
