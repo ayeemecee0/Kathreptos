@@ -110,3 +110,11 @@ All newly implemented trust/camera RPCs deny anonymous execution; independently 
 - Added migration 048 and a security-invoker public state evidence index that combines the **counts** of published exact GIS pins with separately dated municipal Flock program reports. The index does not combine their geometries or claim that a program implies operational cameras.
 - Current public evidence spans nine states by at least one category: five with verified GIS points (AZ, CO, GA, TX, WA), and four currently represented only by dated government program records (CA, ME, MN, UT). Two government source records are expressly terminated; no camera locations are inferred from those statements.
 - Updated map state browse UI to distinguish zero published coordinates from a verified absence of cameras, display termination counts, and explicitly label unmapped program-only states. CI and release browser tests check this distinction.
+
+
+## Additional original-government source expansion, October 23
+
+- Migration 049 adds Asheville NC (5–2 adopted Resolution 26-180 directing contract termination, previously 11 city devices), Seabrook TX (eight reported fixed Flock LPR locations described textually), and Newport Beach CA (city Legistar **proposal** for Flock contract amendment; not automatically assumed adopted). The original-government directory now has 13 dated records and three dated termination decisions, with zero new inferred camera coordinates.
+- All records have individually linked primary sources and distinguish contract approval/termination statements from physical installations, current operation, and surveyed camera coordinates.
+- CI, public health baseline, state evidence index and browser smoke now test 13 government programs and the new NC terminated disclosure.
+- A publicly indexed Newport Beach government GeoCortex GIS layer named Flock Unit Locations is being probed **read-only**. It is part of a broader EmployeeMasterMap and is not automatically approved for public camera publication from layer naming alone.
