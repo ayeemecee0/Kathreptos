@@ -114,6 +114,44 @@ def assess_published_summary(summary,counts):
     return info
 
 
+def assess_state_evidence_index(rows,counts,program_total):
+    """Ensure browser-facing state footprint is RLS-consistent and complete.
+
+    Unmapped government program disclosures must not count as camera pins.
+    Government GIS source labels lacking a confirmed state suffix are omitted
+    from state totals, not assigned an invented state.
+    """
+    if not isinstance(rows,list) or len(rows)>=65 or not rows:
+        raise ValueError("Public state evidence footprint missing or truncated")
+    expected={}
+    for jurisdiction,count in counts.items():
+        match=re.search(r", ([A-Z]{2})$",jurisdiction)
+        if match:
+            expected[match.group(1)]=expected.get(match.group(1),0)+count
+    actual={};documented=0
+    for row in rows:
+        if not isinstance(row,dict) or not re.fullmatch(r"[A-Z]{2}",
+                                                      str(row.get("state_code") or "")):
+            raise ValueError("Public state evidence label invalid")
+        state=row["state_code"]
+        if state in actual:
+            raise ValueError("Duplicate state evidence row")
+        fields=("verified_camera_points","verified_camera_jurisdictions",
+                "dated_program_records","terminated_program_records")
+        if not all(type(row.get(field)) is int and row[field]>=0 for field in fields):
+            raise ValueError("Public state evidence count malformed")
+        if (row["terminated_program_records"]>row["dated_program_records"]
+            or (row["verified_camera_points"]==0 and row["dated_program_records"]==0)):
+            raise ValueError("Public state disclosure without evidence")
+        actual[state]=row["verified_camera_points"]
+        documented+=row["dated_program_records"]
+    if {k:v for k,v in actual.items() if v}!=expected:
+        raise ValueError("State GIS camera totals differ from original-source inventory")
+    if documented!=program_total:
+        raise ValueError("State program disclosures differ from original-government directory")
+    return len(rows)
+
+
 def run(site=SITE):
     if not site.startswith('https://'):
         raise ValueError('Health checks must use live HTTPS website')
@@ -135,12 +173,20 @@ def run(site=SITE):
     summary_url=PUBLIC_API.replace('/flock_camera_locations','/flock_public_coverage_stats')
     summary=json.loads(get(summary_url+'?select=*',{'apikey':key}))
     totals=assess_published_summary(summary,counts)
+    footprint_url=PUBLIC_API.replace('/flock_camera_locations',
+                                    '/flock_public_state_evidence_index')
+    footprint=json.loads(get(footprint_url+'?select=state_code,verified_camera_points,'
+        'verified_camera_jurisdictions,dated_program_records,terminated_program_records'
+        '&limit=65',{'apikey':key}))
+    states=assess_state_evidence_index(footprint,counts,
+       totals['documented_government_programs'])
     areas_url=PUBLIC_API.replace('/flock_camera_locations','/flock_documented_coverage_areas')
     area_probe=json.loads(get(areas_url+'?select=area_key&limit=1',{'apikey':key}))
     if not isinstance(area_probe,list):
         raise ValueError('Anonymous public official deployment polygon API unavailable')
     print('Verified nationwide published camera points:',totals['verified_camera_points'])
     print('Verified deployment polygons:',totals['verified_area_polygons'])
+    print('States with independently documented government evidence:',states)
     for j in sorted(counts):
         print('HEALTHY',j,counts[j],'last source verification',last[j].isoformat())
     print('PUBLIC HEALTH PASS: website, disclosures, source data, active GIS freshness and baseline coverage')

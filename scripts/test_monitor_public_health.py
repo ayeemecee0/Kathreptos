@@ -40,6 +40,24 @@ class HealthTests(unittest.TestCase):
   })['verified_camera_points'],206)
   with self.assertRaisesRegex(ValueError,'differs'):
    m.assess_published_summary(metrics,{'Peoria, AZ':74})
+ def test_state_index_separates_original_gis_pins_from_programs(self):
+  rows=[
+    {'state_code':'AZ','verified_camera_points':74,
+     'verified_camera_jurisdictions':1,'dated_program_records':0,
+     'terminated_program_records':0},
+    {'state_code':'CA','verified_camera_points':0,
+     'verified_camera_jurisdictions':0,'dated_program_records':3,
+     'terminated_program_records':1}
+  ]
+  self.assertEqual(m.assess_state_evidence_index(rows,{'Peoria, AZ':74},3),2)
+  with self.assertRaisesRegex(ValueError,'disclosures differ'):
+   m.assess_state_evidence_index(rows,{'Peoria, AZ':74},4)
+  with self.assertRaisesRegex(ValueError,'GIS camera totals differ'):
+   m.assess_state_evidence_index(rows,{'Peoria, AZ':73},3)
+  with self.assertRaisesRegex(ValueError,'without evidence'):
+   m.assess_state_evidence_index([rows[0],
+       {**rows[1],'dated_program_records':0,'terminated_program_records':0}],
+       {'Peoria, AZ':74},0)
  def test_health_monitor_pages_before_claiming_complete(self):
   from unittest.mock import patch
   import json
