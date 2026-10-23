@@ -12,6 +12,7 @@ on:
       - 'supabase/migrations/029_national_gis_search_queue.sql'
       - 'supabase/migrations/032_readonly_backend_government_program_citations.sql'
       - 'supabase/migrations/047_five_more_original_government_flock_programs.sql'
+      - 'supabase/migrations/051_refresh_original_government_gis_search_links.sql'
 permissions:
   contents: read
 concurrency:
