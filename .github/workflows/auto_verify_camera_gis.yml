@@ -15,6 +15,7 @@ on:
       - 'supabase/migrations/026_peoria_city_camera_source.sql'
       - 'supabase/migrations/028_camera_profiles_history.sql'
       - 'supabase/migrations/031_lawrenceville_webster_flock_gis.sql'
+      - 'supabase/migrations/050_newport_beach_official_flock_unit_locations.sql'
       - 'scripts/auto_verify_camera_profiles.py'
       - 'scripts/test_auto_verify_camera_profiles.py'
       - '.github/workflows/auto_verify_camera_gis.yml'
