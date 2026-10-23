@@ -10,18 +10,16 @@ import argparse
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from corroborate_candidate_government_links import direct_candidate_links
 from discover_government_gis_links import fetch_government_page
 
 
 def source_records():
-    origins=api_request("auto_discovered_government_flock_gis?select=source_key,"
-        "government_page_url,original_page_sha256&limit=100")
-    sources=api_request("trusted_flock_gis_sources?select=source_key,gis_layer_url,"
-        "source_status&source_status=eq.verified&limit=100")
-    if not isinstance(origins,list) or not isinstance(sources,list) or (
-        len(origins)>=100 or len(sources)>=100):
-        raise ValueError("Verified original-government source records truncated")
+    origins=fetch_all(api_request,"auto_discovered_government_flock_gis?select=source_key,"
+        "government_page_url,original_page_sha256&limit=100","source_key")
+    sources=fetch_all(api_request,"trusted_flock_gis_sources?select=source_key,gis_layer_url,"
+        "source_status&source_status=eq.verified&limit=100","source_key")
     by_source={s["source_key"]:s for s in sources}
     return [(o,by_source[o["source_key"]]) for o in origins
             if o["source_key"] in by_source]
