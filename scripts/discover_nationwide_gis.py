@@ -127,6 +127,35 @@ def upstream_government_source_seeds():
     return found
 
 
+def prioritize_new_government_pages(hits,already_staged,day=None):
+    """Rotate the discovery queue rather than reopening only first search hits.
+
+    Unstaged original .gov URLs are visited first, and then older staged pages
+    are rechecked to detect new links. Every candidate still requires a live
+    original-government page fetch and separate Flock evidence checks.
+    """
+    day=day or dt.datetime.now(dt.timezone.utc).date()
+    if not isinstance(already_staged,set):
+        raise ValueError("Existing source registry must be a complete set")
+    def order(item):
+        url=item[0]
+        bucket=(url in already_staged)
+        # Daily deterministic hash diversifies page samples even if a search
+        # provider always returns sources in exactly the same order.
+        digest=hashlib.sha256((day.isoformat()+"|"+url).encode()).hexdigest()
+        return (bucket,digest)
+    return sorted(hits.items(),key=order)
+
+
+def previously_checked_original_pages():
+    from paged_supabase import fetch_all
+    rows=fetch_all(api_request,
+      "government_gis_search_queue?select=page_url","page_url")
+    if not all(isinstance(x,dict) and isinstance(x.get("page_url"),str) for x in rows):
+        raise ValueError("Previously discovered government page registry malformed")
+    return {x["page_url"] for x in rows}
+
+
 def scan(dry_run=False,plan=None):
     counts=Counter();hits={}
     for label,query in (plan or query_plan()):
@@ -158,8 +187,14 @@ def scan(dry_run=False,plan=None):
     if not counts["searches_completed"] and not hits:
         raise ValueError("All national source search and original-government registries unavailable")
     counts["gov_search_urls"]=len(hits)
+    try:
+        observed=previously_checked_original_pages()
+    except Exception as exc:
+        counts["registry_errors"]+=1
+        raise RuntimeError("Cannot select unvisited government URLs without full source registry") from exc
+    counts["gov_sources_previously_staged"]=len(observed)
     checked_hosts=set()
-    for url,(label,query) in list(hits.items())[:MAX_VISITS]:
+    for url,(label,query) in prioritize_new_government_pages(hits,observed)[:MAX_VISITS]:
         host=urllib.parse.urlsplit(url).hostname
         # Avoid private/internal resolved IPs and DNS rebinding as far as the
         # stdlib's pre-request checks allow. Never reuse unapproved redirects.
@@ -179,7 +214,7 @@ def scan(dry_run=False,plan=None):
             counts["pages_held"]+=1
             print("Original .gov page inaccessible:",host,type(exc).__name__,str(exc)[:100])
     for k in ("searches_completed","search_errors","source_registry_gov_urls","registry_errors",
-              "gov_search_urls","pages_checked",
+              "gov_search_urls","gov_sources_previously_staged","pages_checked",
               "flock_pages","direct_gis_links","submitted","pages_held","unsafe_hosts"):
         print("National GIS candidate",k+":",counts[k])
     print("Newly approved government GIS authorities from search: 0")

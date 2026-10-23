@@ -48,10 +48,30 @@ class National(unittest.TestCase):
    found=d.upstream_government_source_seeds()
   self.assertEqual(len(found),3)
   self.assertNotIn("https://bad.example/alpr",found)
+ def test_unvisited_government_pages_are_sampled_before_old_sources(self):
+  import datetime as dt
+  hits={f"https://city{i}.example.gov/flock":("State","original source")
+        for i in range(80)}
+  old=set(list(hits)[:65])
+  ordered=d.prioritize_new_government_pages(hits,old,
+    dt.date(2026,10,23))
+  self.assertEqual(len(ordered),80)
+  self.assertTrue(all(item[0] not in old for item in ordered[:15]))
+  self.assertTrue(all(item[0] in old for item in ordered[15:]))
+ def test_page_priority_rotates_daily_deterministically(self):
+  import datetime as dt
+  hits={f"https://city{i}.example.gov/flock":("State","source")
+        for i in range(75)}
+  today=d.prioritize_new_government_pages(hits,set(),dt.date(2026,10,23))
+  tomorrow=d.prioritize_new_government_pages(hits,set(),dt.date(2026,10,24))
+  self.assertNotEqual([x[0] for x in today],[x[0] for x in tomorrow])
+  self.assertEqual(today,
+    d.prioritize_new_government_pages(hits,set(),dt.date(2026,10,23)))
  def test_no_mutation_dryrun(self):
   h=html('<h2>Flock Safety ALPR cameras</h2>')
   with (patch.object(d,"search_provider",return_value=("bing-rss",["https://city.example.gov/flock"])),
         patch.object(d,"upstream_government_source_seeds",return_value={}),
+        patch.object(d,"previously_checked_original_pages",return_value=set()),
         patch.object(d,"public_dns",return_value=True),
         patch.object(d,"fetch_government_page",return_value=(h,'a'*64)),
         patch.object(d,"stage") as stage):
