@@ -17,11 +17,13 @@ def fetch_all(request, endpoint, sort_key, page_size=25, max_records=3000):
            if k not in ("limit","offset","order")]
     if not path or not any(k=="select" for k,_ in pairs):
         raise ValueError("Only explicitly selected source columns may be paged")
-    if not sort_key.replace("_","").isalnum():
+    columns=sort_key.split(",")
+    if not columns or any(not key.replace("_","").isalnum() for key in columns):
         raise ValueError("Unsafe stable sort column")
+    order=",".join(key+".asc" for key in columns)
     result=[]
     for offset in range(0,max_records,page_size):
-        params=pairs+[("order",sort_key+".asc"),
+        params=pairs+[("order",order),
                       ("limit",str(page_size)),("offset",str(offset))]
         response=request(path+"?"+urlencode(params))
         if not isinstance(response,list) or len(response)>page_size:

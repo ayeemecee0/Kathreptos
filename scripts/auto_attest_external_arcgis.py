@@ -34,7 +34,7 @@ MAX_FEATURES=250
 def source_inputs():
     links=fetch_all(api_request,"government_gis_disclosure_leads?select=disclosure_url,"
       "gis_layer_url,jurisdiction_label,discovery_method,government_page_sha256,"
-      "layer_metadata_status&discovery_method=in.(government_page_direct_anchor_v1,government_page_direct_service_v1)&limit=100","gis_layer_url")
+      "layer_metadata_status&discovery_method=in.(government_page_direct_anchor_v1,government_page_direct_service_v1)&limit=100","disclosure_url,gis_layer_url")
     candidates=fetch_all(api_request,"flock_gis_source_candidates?select=gis_layer_url,"
       "layer_name,geometry_type,object_id_field,trust_status"
       "&trust_status=eq.unverified&limit=130","gis_layer_url")

@@ -15,6 +15,12 @@ class PaginatedSourceRegistry(unittest.TestCase):
   provider=Mock(return_value=[{"source_key":str(i)} for i in range(25)])
   with self.assertRaisesRegex(ValueError,"exceeds"):
    fetch_all(provider,"x?select=source_key","source_key",25,50)
+ def test_composite_sort_identity(self):
+  provider=Mock(return_value=[{"source_key":"x"}])
+  fetch_all(provider,"x?select=disclosure_url,gis_layer_url",
+    "disclosure_url,gis_layer_url")
+  self.assertIn("order=disclosure_url.asc%2Cgis_layer_url.asc",
+    provider.call_args.args[0])
  def test_malformed_page_never_returns_partial_success(self):
   provider=Mock(side_effect=[[{}]*25,{"error":"timeout"}])
   with self.assertRaisesRegex(ValueError,"invalid"):

@@ -39,13 +39,13 @@ def candidates():
 
 def authoritative_page_seeds():
     """Only original-government URLs already bound to a reviewed source."""
-    gis=fetch_all(api_request,"trusted_flock_gis_sources?select=government_evidence_url,"
-        "jurisdiction_label&source_status=eq.verified&limit=100","government_evidence_url")
-    programs=fetch_all(api_request,"flock_documented_programs?select=official_evidence_url,"
+    gis=fetch_all(api_request,"trusted_flock_gis_sources?select=source_key,government_evidence_url,"
+        "jurisdiction_label&source_status=eq.verified&limit=100","source_key")
+    programs=fetch_all(api_request,"flock_documented_programs?select=program_key,official_evidence_url,"
         "jurisdiction_label&record_status=eq.verified"
-        "&program_status=eq.documented_at_source_date&limit=100","official_evidence_url")
-    agendas=fetch_all(api_request,"verified_flock_agenda_mentions?select=government_evidence_url,"
-        "jurisdiction_label&status=eq.verified&limit=100","government_evidence_url")
+        "&program_status=eq.documented_at_source_date&limit=100","program_key")
+    agendas=fetch_all(api_request,"verified_flock_agenda_mentions?select=tenant,matter_id,government_evidence_url,"
+        "jurisdiction_label&status=eq.verified&limit=100","tenant,matter_id")
     # Original government citations are still reviewed source records.
     seeds={}
     for rows,col in ((gis,"government_evidence_url"),
