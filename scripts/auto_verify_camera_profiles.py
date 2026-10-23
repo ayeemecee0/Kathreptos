@@ -28,7 +28,8 @@ LIMIT=1000
 PAGE_SIZE=150
 MAX_SOURCE_FEATURES=3000
 FIELD=re.compile(r"^[A-Za-z][A-Za-z0-9_]{1,50}$")
-FLOCK_LAYER=re.compile(r"^flock[_ ]cameras(?: - [A-Za-z][A-Za-z ]{0,60})?$",re.I)
+FLOCK_LAYER=re.compile(r"^(?:flock[_ ]cameras(?: - [A-Za-z][A-Za-z ]{0,60})?|flock unit locations)$",re.I)
+ORIGINAL_OBJECT_ID=re.compile(r"^objectid(?:_[0-9]+)?$",re.I)
 
 
 def approved_sources():
@@ -78,7 +79,8 @@ def approved_sources():
 
 def authorize(s,p,r,external=None):
     if (s.get("source_status")!="verified" or p.get("profile_status")!="verified"
-        or p.get("source_key")!=s.get("source_key") or s.get("expected_id_field")!="OBJECTID"):
+        or p.get("source_key")!=s.get("source_key") or
+        not ORIGINAL_OBJECT_ID.fullmatch(s.get("expected_id_field") or "")):
         raise ValueError("GIS authority not independently verified")
     a=urllib.parse.urlsplit(s.get("gis_layer_url") or "")
     b=urllib.parse.urlsplit(s.get("government_evidence_url") or "")
@@ -124,6 +126,9 @@ def authorize(s,p,r,external=None):
             p.get("service_evidence_mode") not in
               ("listed_flock_layer","explicit_flock_service_text")):
             raise ValueError("Unapproved government layer-name Flock attribution")
+        if (p.get("expected_layer_name","").lower()=="flock unit locations" and
+            (not r or p.get("service_evidence_mode")!="listed_flock_layer")):
+            raise ValueError("Flock unit-list attribution requires exact reviewed government GIS root")
     else:
         raise ValueError("Unsupported GIS identity policy")
     return True
@@ -138,7 +143,7 @@ def original_object_id_field(fields):
     if not isinstance(fields,list):
         return None
     candidates=[f.get("name") for f in fields if isinstance(f,dict)
-       and str(f.get("name") or "").lower()=="objectid"
+       and ORIGINAL_OBJECT_ID.fullmatch(str(f.get("name") or ""))
        and f.get("type")=="esriFieldTypeOID"]
     return candidates[0] if len(candidates)==1 else None
 
@@ -153,7 +158,7 @@ def check_metadata(s,p,service,layer):
         raise ValueError("Malformed government GIS fields")
     names={f.get("name") for f in fields if isinstance(f,dict)}
     actual_oid=original_object_id_field(fields)
-    if s["expected_id_field"]!="OBJECTID" or not actual_oid:
+    if not actual_oid or actual_oid.lower()!=s["expected_id_field"].lower():
         raise ValueError("Government object ID schema is unsupported")
     if p["identity_mode"]=="per_feature_vendor":
         if p["vendor_field"] not in names:
@@ -244,7 +249,7 @@ def query_gis(s,p):
             if not isinstance(attrs,dict):
                 raise ValueError("Original GIS ObjectID page contains malformed feature")
             found=[v for k,v in attrs.items()
-                   if isinstance(k,str) and k.lower()=="objectid"]
+                   if isinstance(k,str) and k.lower()==oid_field.lower()]
             if len(found)!=1 or type(found[0]) is not int:
                 raise ValueError("Original GIS ObjectID page lacks stable identifiers")
             observed.append(found[0])
@@ -271,7 +276,7 @@ def verify_points(s,p,data):
         if not isinstance(a,dict) or not isinstance(g,dict):
             holds["missing GIS fields or geometry"]+=1;continue
         oid_values=[v for k,v in a.items() if isinstance(k,str)
-                    and k.lower()=="objectid"]
+                    and k.lower()==s["expected_id_field"].lower()]
         oid=oid_values[0] if len(oid_values)==1 else None
         if type(oid) is not int or oid<=0 or oid in ids:
             raise ValueError("Government GIS has malformed or duplicate object identifier")
@@ -294,6 +299,8 @@ def verify_points(s,p,data):
             # sources, avoiding fictitious withdrawal/republication history.
             if s["source_key"].startswith("autogov_"):
                 camera_type="Flock (original government-hosted GIS camera layer)"
+            elif p.get("expected_layer_name","").lower()=="flock unit locations":
+                camera_type="Flock (original city Police GIS unit layer)"
             elif s.get("government_endorsed_external"):
                 camera_type="Flock (original government-endorsed external GIS layer)"
             else:
