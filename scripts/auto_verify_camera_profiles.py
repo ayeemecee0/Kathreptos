@@ -342,12 +342,21 @@ def fetch_existing(prefix):
     """Page the full verified inventory belonging to one reviewed source."""
     if not isinstance(prefix,str) or not re.fullmatch(r"gis-[a-zA-Z0-9_-]{2,90}-",prefix):
         raise ValueError("Untrusted existing-camera source prefix")
+    # SQL LIKE treats '_' as a one-character wildcard; never allow
+    # one municipality's source key to match another verified source.
+    escaped=prefix.replace("_",r"\_")
     qs=urllib.parse.urlencode({
       "select":"record_key,verification_status",
-      "record_key":"like."+prefix+"*",
+      "record_key":"like."+escaped+"*",
       "verification_status":"eq.verified"})
-    return fetch_all(api_request,"flock_camera_locations?"+qs,
+    rows=fetch_all(api_request,"flock_camera_locations?"+qs,
       "record_key",page_size=50,max_records=MAX_SOURCE_FEATURES+100)
+    if any(not isinstance(r,dict) or
+           not isinstance(r.get("record_key"),str) or
+           not r["record_key"].startswith(prefix) or
+           r.get("verification_status")!="verified" for r in rows):
+        raise ValueError("Existing camera query crossed a reviewed source boundary")
+    return rows
 
 
 def validate_reconciliation_delta(previous,new_keys):
