@@ -99,6 +99,37 @@ def arcgis_original_org(service_url,jurisdiction):
     return org_id,name
 
 
+def verify_service_directory_endorsement(service,layer_url,layer_name,method):
+    """A government service-root hyperlink must identify ONE Flock camera layer.
+
+    Discovery can see only known candidates, not all layers in an ArcGIS
+    service. Recheck the complete original service catalog so an omitted
+    sibling layer cannot make an ambiguous government hyperlink appear
+    uniquely attributable to an individual camera dataset.
+    """
+    if method=="government_page_direct_anchor_v1":
+        return
+    if method!="government_page_direct_service_v1":
+        raise ValueError("Unsupported government GIS link provenance")
+    layers=service.get("layers") if isinstance(service,dict) else None
+    if not isinstance(layers,list) or len(layers)>300:
+        raise ValueError("Original ArcGIS service catalog incomplete")
+    choices=[]
+    for item in layers:
+        if not isinstance(item,dict):
+            continue
+        name,identity=item.get("name"),item.get("id")
+        if (isinstance(name,str) and type(identity) is int and
+            re.fullmatch(r"flock[_ ]cameras(?: - [A-Za-z][A-Za-z ]{0,60})?",
+                         name,re.I)):
+            choices.append((identity,name))
+    expected_id=int(layer_url.rsplit("/",1)[1])
+    if choices!=[(expected_id,layer_name)]:
+        raise ValueError(
+            "Original government service link is ambiguous: not exactly one Flock camera layer"
+        )
+
+
 def source_payload(source,root,link,candidate):
     url=link["gis_layer_url"]
     if not LAYER_URL.fullmatch(url):
@@ -113,6 +144,8 @@ def source_payload(source,root,link,candidate):
     service_url=url.rsplit("/",1)[0]
     org_id,org_name=arcgis_original_org(service_url,root["jurisdiction_label"])
     service=get_official_json(service_url+"?f=json")
+    verify_service_directory_endorsement(
+      service,url,candidate["layer_name"],link["discovery_method"])
     layer=get_official_json(url+"?f=json")
     cols={f.get("name") for f in layer.get("fields",[]) if isinstance(f,dict)}
     identity=next((c for c in IDENTIFIERS if c in cols),None)

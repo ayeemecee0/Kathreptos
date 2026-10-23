@@ -78,6 +78,26 @@ class OfficialExternal(unittest.TestCase):
   self.assertEqual(len(result["p_locations"]),1)
   with patch.object(v,"api_request",side_effect=[[link],[CANDIDATE],[SOURCE],[ROOT]]):
    self.assertEqual(len(list(v.source_inputs())),1)
+ def test_service_directory_only_qualifies_when_entire_catalog_has_one_flock_layer(self):
+  service=URL.rsplit("/",1)[0]
+  v.verify_service_directory_endorsement(
+    {"layers":[{"id":0,"name":"Flock Cameras"}]},URL,"Flock Cameras",
+    "government_page_direct_service_v1")
+  for listing in (
+    {"layers":[{"id":0,"name":"Flock Cameras"},{"id":1,"name":"Flock Cameras - Annex"}]},
+    {"layers":[{"id":1,"name":"Flock Cameras"}]},
+    {"layers":[]},
+    {"layers":[{"id":0,"name":"Traffic Cameras"}]},
+  ):
+   with self.assertRaises(ValueError):
+    v.verify_service_directory_endorsement(
+      listing,URL,"Flock Cameras","government_page_direct_service_v1")
+ def test_direct_exact_layer_does_not_infer_government_ownership(self):
+  # Exact direct-layer endorsement has different provenance from service
+  # root matching, and still requires all remaining parent, schema, org
+  # and duplicate-camera gates.
+  v.verify_service_directory_endorsement({},URL,"Flock Cameras",
+     "government_page_direct_anchor_v1")
  def test_unbound_service_link_cannot_approve_layer(self):
   p=Anchors()
   p.feed('<h1>Peoria Flock cameras</h1><a href="https://example.com/irrelevant">Maps</a>')
