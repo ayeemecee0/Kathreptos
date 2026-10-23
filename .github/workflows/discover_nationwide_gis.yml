@@ -11,6 +11,7 @@ on:
       - '.github/workflows/discover_nationwide_gis.yml'
       - 'supabase/migrations/029_national_gis_search_queue.sql'
       - 'supabase/migrations/032_readonly_backend_government_program_citations.sql'
+      - 'supabase/migrations/047_five_more_original_government_flock_programs.sql'
 permissions:
   contents: read
 concurrency:
