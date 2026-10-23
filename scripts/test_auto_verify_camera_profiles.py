@@ -184,6 +184,27 @@ class TestProfiles(unittest.TestCase):
        sum(v.assigned_to_verification_shard(k,shard,4) for k in keys))
   self.assertEqual(read.call_count,outcome["sources_checked"])
   write.assert_not_called()
+ def test_existing_verification_inventory_is_paged_beyond_1000(self):
+  original=[{"record_key":"gis-peoria_az-"+str(i)+"-abc",
+             "verification_status":"verified"} for i in range(1101)]
+  pages=[original[i:i+50] for i in range(0,len(original),50)]
+  with patch.object(v,"api_request",side_effect=pages) as req:
+   rows=v.fetch_existing("gis-peoria_az-")
+  self.assertEqual(len(rows),1101)
+  self.assertGreater(req.call_count,20)
+ def test_sudden_mass_camera_removal_blocks_before_writes(self):
+  old=[{"record_key":"gis-test-"+str(i)+"-abc"} for i in range(20)]
+  keys={x["record_key"] for x in old[:14]}
+  with self.assertRaisesRegex(ValueError,"Unexpectedly large"):
+   v.validate_reconciliation_delta(old,keys)
+  missing=v.validate_reconciliation_delta(old,{x["record_key"] for x in old[:18]})
+  self.assertEqual(missing,{x["record_key"] for x in old[18:]})
+ def test_paged_existing_source_query_is_restricted(self):
+  for prefix in ("anything*","gis-../other-"):
+   with self.assertRaises(ValueError):v.fetch_existing(prefix)
+ def test_duplicate_existing_record_ids_fail_before_writes(self):
+  with self.assertRaises(ValueError):
+   v.validate_reconciliation_delta([{"record_key":"a"},{"record_key":"a"}],{"a"})
  def test_dryrun_never_writes(self):
   with (patch.object(v,"approved_sources",return_value=[(S,P)]),
         patch.object(v,"query_gis",return_value={"features":[f()]}),
