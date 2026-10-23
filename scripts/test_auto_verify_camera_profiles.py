@@ -205,6 +205,43 @@ class TestProfiles(unittest.TestCase):
  def test_duplicate_existing_record_ids_fail_before_writes(self):
   with self.assertRaises(ValueError):
    v.validate_reconciliation_delta([{"record_key":"a"},{"record_key":"a"}],{"a"})
+ def test_batched_camera_publish_verifies_exact_receipts(self):
+  new={"record_key":"gis-peoria_az-1-a","source_type":"official_government"}
+  old={"record_key":"gis-peoria_az-2-b","source_type":"official_government"}
+  lost={"gis-peoria_az-3-c"}
+  seen=[]
+  def db(path,method="GET",payload=None,prefer=None):
+   seen.append((path,method,payload,prefer))
+   if method=="POST": return [{"record_key":new["record_key"]}]
+   if payload.get("verification_status")=="revoked":
+    return [{"record_key":"gis-peoria_az-3-c"}]
+   return [{"record_key":old["record_key"]}]
+  with patch.object(v,"api_request",side_effect=db):
+   result=v.publish_verified_batches([new,old],lost)
+  self.assertEqual((result["published"],result["rechecked"],result["withdrawn"]),(1,1,1))
+  self.assertEqual([x[1] for x in seen],["POST","PATCH","PATCH"])
+  self.assertTrue(all("select=record_key" in x[0] for x in seen))
+ def test_batch_fails_if_existing_verified_camera_not_updated(self):
+  rows=[{"record_key":"gis-peoria_az-1-a"}]
+  with patch.object(v,"api_request",side_effect=[[],[]]):
+   with self.assertRaisesRegex(ValueError,"skipped"):
+    v.publish_verified_batches(rows,set())
+ def test_batch_fails_on_conflicting_evidence_keys(self):
+  with patch.object(v,"api_request") as write:
+   for rows,revoked in (
+       ([{"record_key":"gis-peoria_az-1-a"}]*2,set()),
+       ([{"record_key":"gis-peoria_az-1-a"}],{"gis-peoria_az-1-a"}),
+       ([{"record_key":"not-official"}],set())
+   ):
+    with self.assertRaises(ValueError):
+     v.publish_verified_batches(rows,revoked)
+   write.assert_not_called()
+ def test_batch_withdrawal_requires_exact_receipt(self):
+  rows=[{"record_key":"gis-peoria_az-1-a"}]
+  with patch.object(v,"api_request",side_effect=[
+      [{"record_key":"gis-peoria_az-1-a"}],[]]):
+   with self.assertRaisesRegex(ValueError,"withdrawal receipt"):
+    v.publish_verified_batches(rows,{"gis-peoria_az-2-b"})
  def test_dryrun_never_writes(self):
   with (patch.object(v,"approved_sources",return_value=[(S,P)]),
         patch.object(v,"query_gis",return_value={"features":[f()]}),
