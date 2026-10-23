@@ -30,6 +30,24 @@ class HealthTests(unittest.TestCase):
  def test_unverified_records_must_not_leak(self):
   with self.assertRaisesRegex(ValueError,'leaked'):
    m.assess([row('Peoria, AZ',status='revoked')],now=NOW,minimum={})
+ def test_public_summary_and_camera_inventory_must_agree(self):
+  metrics=[{'verified_camera_points':206,'verified_point_jurisdictions':5,
+            'verified_area_polygons':0,'approximate_location_records':0,
+            'documented_government_programs':5}]
+  self.assertEqual(m.assess_published_summary(metrics,{
+    'Monroe, WA':18,'El Paso County, CO':16,'Peoria, AZ':74,
+    'Lawrenceville, GA':45,'Webster, TX':53
+  })['verified_camera_points'],206)
+  with self.assertRaisesRegex(ValueError,'differs'):
+   m.assess_published_summary(metrics,{'Peoria, AZ':74})
+ def test_health_monitor_pages_before_claiming_complete(self):
+  from unittest.mock import patch
+  import json
+  first=[{'record_key':str(i)} for i in range(80)]
+  with patch.object(m,'get',side_effect=[json.dumps(first),json.dumps([{'record_key':'80'}])]) as fake:
+   rows=m.fetch_public_camera_evidence('sb_publishable_testing')
+  self.assertEqual(len(rows),81)
+  self.assertIn('offset=80',fake.call_args_list[1].args[0])
  def test_unsafe_browser_key_rejected(self):
   self.assertEqual(m.public_key("supabasePublishableKey: 'sb_publishable_public'"),
    'sb_publishable_public')

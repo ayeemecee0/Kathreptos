@@ -44,7 +44,7 @@ def public_key(config):
 
 def assess(records,now=None,minimum=EXPECTED_MIN):
     if now is None:now=dt.datetime.now(dt.timezone.utc)
-    if not isinstance(records,list) or len(records)>=1200:
+    if not isinstance(records,list) or len(records)>=5000:
         raise ValueError('Public camera list missing or truncated')
     counts={}
     last={}
@@ -79,6 +79,38 @@ def assess(records,now=None,minimum=EXPECTED_MIN):
     return counts,last
 
 
+def fetch_public_camera_evidence(key):
+    rows=[]
+    page_size,max_records=80,5000
+    for offset in range(0,max_records,page_size):
+        query=urllib.parse.urlencode({
+            'select':'record_key,jurisdiction_label,verification_status,location_accuracy,source_url,last_source_recheck_at',
+            'verification_status':'eq.verified','order':'record_key.asc',
+            'limit':page_size,'offset':offset
+        })
+        page=json.loads(get(PUBLIC_API+'?'+query,{'apikey':key}))
+        if not isinstance(page,list) or len(page)>page_size:
+            raise ValueError('Public camera API returned an invalid or truncated page')
+        rows.extend(page)
+        if len(page)<page_size:
+            return rows
+    raise ValueError('Verified camera evidence exceeds public health scan capacity')
+
+
+def assess_published_summary(summary,counts):
+    if not isinstance(summary,list) or len(summary)!=1:
+        raise ValueError('Public national evidence summary unavailable')
+    info=summary[0]
+    if (info.get('verified_camera_points')!=sum(counts.values()) or
+        info.get('verified_point_jurisdictions')!=len(counts)):
+        raise ValueError('National evidence summary differs from public camera source inventory')
+    if not all(type(info.get(k)) is int and info[k]>=0 for k in (
+        'verified_area_polygons','approximate_location_records',
+        'documented_government_programs')):
+        raise ValueError('Public national evidence metrics invalid')
+    return info
+
+
 def run(site=SITE):
     if not site.startswith('https://'):
         raise ValueError('Health checks must use live HTTPS website')
@@ -95,11 +127,17 @@ def run(site=SITE):
             raise ValueError('Deployed public page or route runtime missing: '+path)
     config=get(urllib.parse.urljoin(site,'config.js'))
     key=public_key(config)
-    url=PUBLIC_API+'?'+urllib.parse.urlencode({
-       'select':'jurisdiction_label,verification_status,location_accuracy,source_url,last_source_recheck_at',
-       'verification_status':'eq.verified','limit':'1200'})
-    rows=json.loads(get(url,{'apikey':key}))
+    rows=fetch_public_camera_evidence(key)
     counts,last=assess(rows)
+    summary_url=PUBLIC_API.replace('/flock_camera_locations','/flock_public_coverage_stats')
+    summary=json.loads(get(summary_url+'?select=*',{'apikey':key}))
+    totals=assess_published_summary(summary,counts)
+    areas_url=PUBLIC_API.replace('/flock_camera_locations','/flock_documented_coverage_areas')
+    area_probe=json.loads(get(areas_url+'?select=area_key&limit=1',{'apikey':key}))
+    if not isinstance(area_probe,list):
+        raise ValueError('Anonymous public official deployment polygon API unavailable')
+    print('Verified nationwide published camera points:',totals['verified_camera_points'])
+    print('Verified deployment polygons:',totals['verified_area_polygons'])
     for j in sorted(counts):
         print('HEALTHY',j,counts[j],'last source verification',last[j].isoformat())
     print('PUBLIC HEALTH PASS: website, disclosures, source data, active GIS freshness and baseline coverage')
