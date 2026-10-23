@@ -10,7 +10,7 @@
   const USA_CENTER = [39, -98];
   const state = {
     map: null, pointLayer: null, areaLayer: null, routeLayer: null, simLayer: null,
-    visible: [], areas: [], programs: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
+    visible: [], areas: [], programs: [], agendaMentions: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
     observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null
   };
@@ -115,6 +115,7 @@
     loadVisibleLocations();
     loadDocumentedPrograms();
     loadNationalSummary();
+    loadVerifiedAgendaMentions();
   }
   function renderPrograms() {
     const list=$('programList');
@@ -178,6 +179,69 @@
         error.message+'. Missing counts do not mean no cameras.');
     }
   }
+  function renderVerifiedAgendaMentions() {
+    const list=$('agendaMapList');
+    list.replaceChildren();
+    const term=$('agendaMapSearch').value.trim().toLowerCase();
+    const matches=state.agendaMentions.filter(m=>
+      (m.jurisdiction_label+' '+m.matter_title).toLowerCase().includes(term));
+    for(const mention of matches.slice(0,60)) {
+      const item=document.createElement('li');
+      const title=document.createElement('strong');
+      title.textContent=mention.jurisdiction_label;
+      const when=document.createElement('span');
+      when.className='program-documented';
+      when.textContent='Original government agenda · '+shortDate(mention.intro_date);
+      const description=document.createElement('p');
+      description.textContent=mention.matter_title;
+      item.append(title,when,description);
+      const url=safeUrl(mention.government_evidence_url);
+      if(url) {
+        const link=document.createElement('a');
+        link.href=url;link.target='_blank';link.rel='noopener noreferrer';
+        link.textContent='Original government proceedings ↗';
+        item.append(link);
+      }
+      list.append(item);
+    }
+    setText('agendaMapStatus',(matches.length>60?'Showing first 60 of ':'')+
+      matches.length+' verified government agenda mention(s). '+
+      'A mention is not proof of deployment, equipment, or approval.');
+  }
+  async function loadVerifiedAgendaMentions() {
+    if(!CFG?.supabaseUrl || !CFG?.supabasePublishableKey) {
+      setText('agendaMapStatus','Original government agenda source unavailable.');
+      return;
+    }
+    const all=[],size=25,cap=2000;
+    try {
+      for(let offset=0;offset<cap;offset+=size){
+        const q=new URLSearchParams({
+          select:'tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url,intro_date',
+          status:'eq.verified',order:'matter_id.asc',
+          limit:String(size),offset:String(offset)
+        });
+        const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+          '/rest/v1/verified_flock_agenda_mentions?'+q.toString(),
+          {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
+        if(!response.ok)throw new Error('Agenda API HTTP '+response.status);
+        const rows=await response.json();
+        if(!Array.isArray(rows)||rows.length>size)
+          throw new Error('Original government agenda response incomplete');
+        all.push(...rows);
+        if(rows.length<size){
+          state.agendaMentions=all;
+          renderVerifiedAgendaMentions();
+          return;
+        }
+      }
+      throw new Error('Verified government agenda results exceed scan capacity');
+    }catch(error){
+      setText('agendaMapStatus','Government proceedings unavailable: '+error.message+
+        '. Missing records do not establish absence of proceedings.');
+    }
+  }
+
   async function loadDocumentedPrograms() {
     if(!CFG?.supabaseUrl || !CFG?.supabasePublishableKey) {
       setText('programStatus','Source configuration unavailable.');
@@ -698,6 +762,7 @@
   }
   function bind() {
     $('programSearch').addEventListener('input',renderPrograms);
+    $('agendaMapSearch').addEventListener('input',renderVerifiedAgendaMentions);
     $('mapSearchForm').addEventListener('submit',async event=>{
       event.preventDefault();
       const input=$('mapSearch').value.trim();

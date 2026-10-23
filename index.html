@@ -51,6 +51,16 @@
     <ul id="programList" class="program-list" aria-live="polite"></ul>
     <p id="programStatus" class="micro" role="status">Loading original government documentation…</p>
   </section>
+  <section class="sidebar-section" aria-labelledby="agenda-map-heading">
+    <details>
+      <summary id="agenda-map-heading">Official Flock government proceedings</summary>
+      <p class="micro">Original council agenda mentions and proposed actions. These do NOT verify installation, camera coordinates, approval, or operation.</p>
+      <label for="agendaMapSearch" class="field-label">SEARCH VERIFIED PUBLIC PROCEEDINGS</label>
+      <input id="agendaMapSearch" type="search" maxlength="100" autocomplete="off" placeholder="Jurisdiction or agenda title">
+      <ul id="agendaMapList" class="program-list" aria-live="polite"></ul>
+      <p id="agendaMapStatus" class="micro" role="status">Loading public original-government proceedings…</p>
+    </details>
+  </section>
   <section class="sidebar-section" aria-labelledby="route-heading">
    <div class="section-heading"><h2 id="route-heading">Plan a route</h2><span class="stage">01 / SIMULATE</span></div>
    <form id="routeForm">

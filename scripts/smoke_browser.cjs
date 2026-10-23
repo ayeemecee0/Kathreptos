@@ -16,6 +16,13 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=16,{timeout:25000});
   await page.getByRole('button',{name:/Explore Peoria/}).click();
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=74,{timeout:25000});
+  // Independently verified council agenda mentions are NOT camera installations.
+  await page.waitForFunction(()=>document.querySelector('#agendaMapStatus')?.textContent?.includes('agenda mention'),{timeout:20000});
+  await page.locator('#agenda-map-heading').click();
+  assert.ok(await page.locator('#agendaMapList > li').count()>=1);
+  await page.locator('#agendaMapSearch').fill('Oakland');
+  assert.ok((await page.locator('#agendaMapList').textContent()).includes('Oakland'));
+  await page.locator('#agendaMapSearch').fill('');
   // Public programs are dated records, never synthetic/official GIS camera pins.
   await page.waitForFunction(()=>document.querySelector('#programStatus')?.textContent?.includes('record(s)'),{timeout:18000});
   assert.ok(Number(await page.locator('#programList > li').count())>=5);
