@@ -32,10 +32,10 @@ def discovery_inputs():
     parents=fetch_all(api_request,"trusted_flock_gis_sources?select=source_key,gis_layer_url,"
       "government_evidence_url,jurisdiction_label,bounds_south,bounds_west,"
       "bounds_north,bounds_east,source_status&source_status=eq.verified&limit=100","source_key")
-    roots=fetch_all(api_request("gis_government_host_authorities?select=authority_key,"
+    roots=fetch_all(api_request,"gis_government_host_authorities?select=authority_key,"
       "government_gis_host,official_government_page,allowed_layer_path,"
       "jurisdiction_label,verification_status&verification_status=eq.verified&limit=100","authority_key")
-    candidates=fetch_all(api_request("flock_gis_source_candidates?select=gis_layer_url,"
+    candidates=fetch_all(api_request,"flock_gis_source_candidates?select=gis_layer_url,"
       "layer_name,geometry_type,object_id_field,trust_status"
       "&trust_status=eq.unverified&limit=130","gis_layer_url")
     root_by={r["authority_key"]:r for r in roots}
