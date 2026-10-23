@@ -8,6 +8,8 @@ const assert=require('node:assert/strict');
  try{
   await page.goto(process.env.KATOPTRON_SMOKE_BASE||'https://ayeemecee0.github.io/Katoptron/',{waitUntil:'domcontentloaded',timeout:45000});
   await page.waitForFunction(()=>document.querySelector('#coverageSpinner')?.textContent==='Live data',{timeout:30000});
+  await page.waitForFunction(()=>document.querySelector('#nationalStats')?.textContent?.includes('verified camera points in'),{timeout:20000});
+  assert.ok((await page.locator('#nationalStats').textContent()).includes('Coverage is incomplete'));
   await page.getByRole('button',{name:/Explore Monroe/}).click();
   await page.waitForFunction(()=>Number(document.querySelector('#exactCount')?.textContent)>=18,{timeout:25000});
   await page.getByRole('button',{name:/Explore El Paso County/}).click();

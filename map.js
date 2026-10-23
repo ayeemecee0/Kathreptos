@@ -114,6 +114,7 @@
     });
     loadVisibleLocations();
     loadDocumentedPrograms();
+    loadNationalSummary();
   }
   function renderPrograms() {
     const list=$('programList');
@@ -121,7 +122,8 @@
     const term=$('programSearch').value.trim().toLowerCase();
     const found=state.programs.filter(p=>
       (p.jurisdiction_label+' '+p.official_claim_summary).toLowerCase().includes(term));
-    for(const program of found) {
+    // Limit initial DOM work while preserving the full searchable source list.
+    for(const program of found.slice(0,60)) {
       const item=document.createElement('li');
       const title=document.createElement('strong');
       title.textContent=program.jurisdiction_label;
@@ -142,29 +144,74 @@
       if(original)item.append(evidence);
       list.append(item);
     }
-    setText('programStatus',found.length+' dated original-government program record(s). '+
-      'These are not verified camera coordinates.');
+    setText('programStatus',(found.length>60 ? 'Showing first 60 of ' : '')+
+      found.length+' dated original-government program record(s). '+
+      'These are not verified camera coordinates. Narrow the search for more results.');
+  }
+  async function loadNationalSummary() {
+    if(!CFG?.supabaseUrl || !CFG?.supabasePublishableKey){
+      setText('nationalStats','National published evidence counts unavailable.');
+      return;
+    }
+    try {
+      const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+        '/rest/v1/flock_public_coverage_stats?select=*',
+        {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const rows=await response.json();
+      if(!Array.isArray(rows)||rows.length!==1)
+        throw new Error('National evidence response incomplete');
+      const metrics=rows[0];
+      const keys=['verified_camera_points','verified_point_jurisdictions',
+        'verified_area_polygons','documented_government_programs'];
+      if(keys.some(key=>!Number.isInteger(Number(metrics[key]))||Number(metrics[key])<0))
+        throw new Error('National source counts invalid');
+      setText('nationalStats',
+        Number(metrics.verified_camera_points).toLocaleString()+
+        ' verified camera points in '+Number(metrics.verified_point_jurisdictions)+
+        ' sourced jurisdictions nationwide · '+
+        Number(metrics.verified_area_polygons)+' documented deployment polygons · '+
+        Number(metrics.documented_government_programs)+
+        ' government program records. Coverage is incomplete, not zero elsewhere.');
+    }catch(error) {
+      setText('nationalStats','National published evidence totals unavailable: '+
+        error.message+'. Missing counts do not mean no cameras.');
+    }
   }
   async function loadDocumentedPrograms() {
     if(!CFG?.supabaseUrl || !CFG?.supabasePublishableKey) {
       setText('programStatus','Source configuration unavailable.');
       return;
     }
-    const query=new URLSearchParams({
-      select:'program_key,jurisdiction_label,state_code,program_status,official_evidence_url,official_claim_summary,source_date,reported_camera_count',
-      record_status:'eq.verified',order:'jurisdiction_label.asc',limit:'100'
-    });
+    // All pages are read with a stable unique key. Do not quietly discard
+    // jurisdictions when the published government directory grows beyond 100.
+    const pageSize=25,capacity=2000;
+    const all=[];
     try {
-      const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
-        '/rest/v1/flock_documented_programs?'+query.toString(),
-        {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
-      if(!response.ok)throw new Error('API HTTP '+response.status);
-      const records=await response.json();
-      if(!Array.isArray(records) || records.length>=100)
-        throw new Error('Program source list incomplete');
-      state.programs=records;
-      renderPrograms();
+      for(let offset=0;offset<capacity;offset+=pageSize){
+        const query=new URLSearchParams({
+          select:'program_key,jurisdiction_label,state_code,program_status,official_evidence_url,official_claim_summary,source_date,reported_camera_count',
+          record_status:'eq.verified',order:'program_key.asc',
+          limit:String(pageSize),offset:String(offset)
+        });
+        const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+          '/rest/v1/flock_documented_programs?'+query.toString(),
+          {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
+        if(!response.ok)throw new Error('Program evidence API HTTP '+response.status);
+        const records=await response.json();
+        if(!Array.isArray(records)||records.length>pageSize)
+          throw new Error('Government program source page invalid');
+        all.push(...records);
+        if(records.length<pageSize) {
+          state.programs=all;
+          renderPrograms();
+          return;
+        }
+      }
+      throw new Error('Government directory exceeds the verified scan limit');
     }catch(error){
+      // An incomplete paged response is UNKNOWN, not evidence of absent
+      // programs. Do not replace previous complete evidence with a partial set.
       setText('programStatus','Documented-program directory unavailable: '+error.message);
     }
   }
