@@ -24,8 +24,33 @@ class National(unittest.TestCase):
   item=d.page_candidate(page,"CA","Flock camera government",h,'a'*64)
   self.assertEqual(item["gis_links"],["https://gis.example.gov/MapServer/0"])
   self.assertEqual(item["state_search_hint"],"CA")
+ def test_gov_page_stages_direct_gis_service_root_without_inventing_layer(self):
+  page="https://city.example.gov/flock"
+  service="https://gis.city.example.gov/arcgis/rest/services/PublicSafety/MapServer"
+  doc=html('<h2>Flock Safety ALPR cameras</h2>'
+           '<a href="'+service+'">Flock GIS camera map</a>')
+  record=d.page_candidate(page,"CA","city Flock cameras",doc,'a'*64)
+  self.assertEqual(record["gis_links"],[service])
+ def test_generic_traffic_service_root_not_staged_as_flock_source(self):
+  page="https://city.example.gov/flock"
+  service="https://gis.city.example.gov/arcgis/rest/services/Traffic/MapServer"
+  doc=html('<h2>Flock Safety ALPR cameras</h2>'
+           '<a href="'+service+'">General data</a>')
+  self.assertEqual(d.page_candidate(page,"CA","city Flock cameras",doc,'a'*64)["gis_links"],[])
+ def test_revisited_original_government_links_update_not_ignore(self):
+  page="https://city.example.gov/flock"
+  item={"page_url":page,"page_sha256":'b'*64,
+        "gis_links":["https://gis.city.example.gov/x/MapServer/3"]}
+  with patch.object(d,"api_request",side_effect=[
+      [{"page_sha256":'a'*64,"gis_links":[]}],True
+  ]) as api:
+   d.stage(item)
+  self.assertEqual(api.call_count,2)
+  self.assertIn("rpc/refresh_original_government_gis_search_lead",api.call_args.args[0])
+  self.assertEqual(api.call_args.kwargs["payload"]["p_expected_previous_sha"],'a'*64)
+  self.assertEqual(api.call_args.kwargs["payload"]["p_gis_links"],item["gis_links"])
  def test_unverified_only_and_no_public_write(self):
-  with patch.object(d,"api_request",return_value=None) as api:
+  with patch.object(d,"api_request",side_effect=[[],None]) as api:
    d.stage({"page_url":"https://city.example.gov/flock"})
   self.assertIn("government_gis_search_queue",api.call_args.args[0])
   self.assertNotIn("trusted_flock_gis_sources",api.call_args.args[0])
