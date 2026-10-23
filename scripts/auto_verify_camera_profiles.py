@@ -125,6 +125,20 @@ def authorize(s,p,r,external=None):
     return True
 
 
+def original_object_id_field(fields):
+    """Canonical OID must be an ArcGIS OID, not an arbitrary permit number.
+
+    Preserve a consistent internal OBJECTID while accepting common original
+    ArcGIS capitalization differences (OBJECTID / objectid / ObjectID).
+    """
+    if not isinstance(fields,list):
+        return None
+    candidates=[f.get("name") for f in fields if isinstance(f,dict)
+       and str(f.get("name") or "").lower()=="objectid"
+       and f.get("type")=="esriFieldTypeOID"]
+    return candidates[0] if len(candidates)==1 else None
+
+
 def check_metadata(s,p,service,layer):
     if (not isinstance(service,dict) or not isinstance(layer,dict) or
         service.get("error") or layer.get("error") or
@@ -134,9 +148,8 @@ def check_metadata(s,p,service,layer):
     if not isinstance(fields,list) or not 1<=len(fields)<=140:
         raise ValueError("Malformed government GIS fields")
     names={f.get("name") for f in fields if isinstance(f,dict)}
-    if (s["expected_id_field"] not in names or
-        not any(f.get("name")=="OBJECTID" and f.get("type")=="esriFieldTypeOID"
-        for f in fields if isinstance(f,dict))):
+    actual_oid=original_object_id_field(fields)
+    if s["expected_id_field"]!="OBJECTID" or not actual_oid:
         raise ValueError("Government object ID schema is unsupported")
     if p["identity_mode"]=="per_feature_vendor":
         if p["vendor_field"] not in names:
@@ -175,16 +188,18 @@ def resilient_government_gis_json(url):
 
 def query_gis(s,p):
     parent=s["gis_layer_url"].rsplit("/",1)[0]
-    check_metadata(s,p,resilient_government_gis_json(parent+"?f=json"),
-                   resilient_government_gis_json(s["gis_layer_url"]+"?f=json"))
-    fields=["OBJECTID"]
+    service=resilient_government_gis_json(parent+"?f=json")
+    layer=resilient_government_gis_json(s["gis_layer_url"]+"?f=json")
+    check_metadata(s,p,service,layer)
+    oid_field=original_object_id_field(layer["fields"])
+    fields=[oid_field]
     if p["identity_mode"]=="per_feature_vendor":
         fields.append(p["vendor_field"])
     else:
         fields.append(p["camera_id_field"])
         if p.get("vendor_field"):fields.append(p["vendor_field"])
     qs=urllib.parse.urlencode({"where":"1=1","outFields":",".join(sorted(set(fields))),
-         "returnGeometry":"true","outSR":"4326","orderByFields":"OBJECTID ASC",
+         "returnGeometry":"true","outSR":"4326","orderByFields":oid_field+" ASC",
          "resultRecordCount":str(LIMIT),"f":"json"})
     return resilient_government_gis_json(s["gis_layer_url"]+"/query?"+qs)
 
@@ -201,7 +216,9 @@ def verify_points(s,p,data):
         g=f.get("geometry") if isinstance(f,dict) else None
         if not isinstance(a,dict) or not isinstance(g,dict):
             holds["missing GIS fields or geometry"]+=1;continue
-        oid=a.get("OBJECTID")
+        oid_values=[v for k,v in a.items() if isinstance(k,str)
+                    and k.lower()=="objectid"]
+        oid=oid_values[0] if len(oid_values)==1 else None
         if type(oid) is not int or oid<=0 or oid in ids:
             raise ValueError("Government GIS has malformed or duplicate object identifier")
         ids.add(oid)

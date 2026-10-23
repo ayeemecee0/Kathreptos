@@ -107,6 +107,24 @@ class TestProfiles(unittest.TestCase):
    with self.assertRaises(RuntimeError):
     v.source_with_bounded_retries(S,P,attempts=2)
   revoke.assert_not_called()
+ def test_lowercase_original_object_id_but_stable_canonical_record(self):
+  city={**S,"source_key":"original_az"}
+  fields=[{"name":"objectid","type":"esriFieldTypeOID"},
+          {"name":"CameraID","type":"esriFieldTypeString"}]
+  original={**L,"fields":fields}
+  v.check_metadata(city,P,SERVICE,original)
+  self.assertEqual(v.original_object_id_field(fields),"objectid")
+  rows,held,total=v.verify_points(city,P,{"features":[{
+    "attributes":{"objectid":12,"CameraID":"P012"},
+    "geometry":{"x":-112.25,"y":33.67}}]})
+  self.assertEqual((len(rows),total),(1,1))
+  self.assertEqual(held,{})
+  self.assertTrue(rows[0]["record_key"].startswith("gis-original_az-12-"))
+ def test_permit_only_points_are_not_individually_verified_cameras(self):
+  permit_fields=[{"name":"objectid","type":"esriFieldTypeOID"},
+                 {"name":"permitno","type":"esriFieldTypeString"}]
+  with self.assertRaisesRegex(ValueError,"identifier"):
+   v.check_metadata(S,P,SERVICE,{**L,"fields":permit_fields})
  def test_dryrun_never_writes(self):
   with (patch.object(v,"approved_sources",return_value=[(S,P)]),
         patch.object(v,"query_gis",return_value={"features":[f()]}),
