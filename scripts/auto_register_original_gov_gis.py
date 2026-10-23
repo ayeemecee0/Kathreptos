@@ -18,6 +18,7 @@ from collections import Counter
 from urllib.error import HTTPError
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from auto_verify_camera_gis import get_official_json
 from auto_verify_camera_profiles import check_metadata, verify_points, sync
 from corroborate_candidate_government_links import direct_candidate_links
@@ -47,11 +48,9 @@ def same_gov_apex(page,layer):
 
 
 def private_government_pages():
-    pages=api_request("government_gis_search_queue?select=page_url,page_sha256,"
+    pages=fetch_all(api_request,"government_gis_search_queue?select=page_url,page_sha256,"
        "gis_links,candidate_status&candidate_status=eq.unverified"
-       "&limit=100")
-    if not isinstance(pages,list) or len(pages)>=100:
-        raise ValueError("Original government Flock GIS discovery queue truncated")
+       "&limit=100","page_url")
     return [p for p in pages if isinstance(p.get("gis_links"),list)
             and p["gis_links"]]
 
