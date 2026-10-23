@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/recheck_external_arcgis_endorsements.py'
+      - 'supabase/migrations/043_strict_external_arcgis_service_root_attestation.sql'
       - 'scripts/test_recheck_external_arcgis_endorsements.py'
       - 'supabase/migrations/038_withdraw_external_gis_endorsement_on_source_change.sql'
       - '.github/workflows/recheck_external_arcgis_endorsements.yml'

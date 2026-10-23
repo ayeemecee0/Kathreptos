@@ -12,6 +12,7 @@ on:
       - '.github/workflows/auto_attest_external_arcgis.yml'
       - 'supabase/migrations/036_external_arcgis_original_government_endorsement.sql'
       - 'supabase/migrations/037_strict_original_government_arcgis_receipt_attestation.sql'
+      - 'supabase/migrations/043_strict_external_arcgis_service_root_attestation.sql'
 
 permissions:
   contents: read

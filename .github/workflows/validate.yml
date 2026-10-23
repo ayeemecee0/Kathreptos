@@ -46,6 +46,7 @@ on:
       - 'supabase/migrations/040_withdraw_auto_gov_gis_on_documented_link_loss.sql'
       - 'supabase/migrations/041_index_camera_gis_parent_fks.sql'
       - 'supabase/migrations/042_original_government_gis_page_recheck_history.sql'
+      - 'supabase/migrations/043_strict_external_arcgis_service_root_attestation.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -371,6 +372,14 @@ jobs:
             -f supabase/migrations/041_index_camera_gis_parent_fks.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/042_original_government_gis_page_recheck_history.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/043_strict_external_arcgis_service_root_attestation.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from information_schema.columns where table_schema='public' and table_name='official_external_flock_gis_authorities' and column_name='government_link_method'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.confirm_original_government_linked_point_layer(text,text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.confirm_original_government_linked_point_layer(text,text,text,text)','EXECUTE')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.refresh_unverified_gov_gis_page_digest(text,text,text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \

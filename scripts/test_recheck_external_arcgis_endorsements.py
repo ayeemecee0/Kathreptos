@@ -16,6 +16,16 @@ class EndorsementRecheck(unittest.TestCase):
  def test_original_direct_link_survives(self):
   self.assertTrue(m.check(R,page(), "b"*64))
   self.assertFalse(m.check(R,page(False),"b"*64))
+ def test_original_government_service_root_link_survives(self):
+  direct_root=URL.rsplit("/",1)[0]
+  a=Anchors()
+  a.feed('<h1>Official Flock Safety ALPR cameras</h1>'
+         '<a href="'+direct_root+'">Flock GIS map</a>')
+  service_record={**R,"government_link_method":"government_page_direct_service_v1"}
+  self.assertTrue(m.check(service_record,a,"c"*64))
+  self.assertFalse(m.check({**service_record,
+        "government_link_method":"government_page_direct_anchor_v1"},a,"c"*64))
+  self.assertFalse(m.check(service_record,page(),"c"*64))
  def test_removed_official_link_revokes_exact_source_only(self):
   with (patch.object(m,"approved_external",return_value=[R]),
         patch.object(m,"fetch_government_page",
