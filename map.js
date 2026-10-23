@@ -287,27 +287,48 @@
     }
   }
 
-  async function loadOfficialAreas(signal) {
-    const query=new URLSearchParams({
-      select:'area_key,jurisdiction_label,area_label,outline_lonlat,evidence_url,evidence_summary,evidence_verified_at',
-      geometry_status:'eq.verified',limit:'200'
-    });
-    const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
-      '/rest/v1/flock_documented_coverage_areas?'+query.toString(),
-      {headers:{apikey:CFG.supabasePublishableKey},signal,cache:'no-store'});
-    if(!response.ok)throw new Error('Area evidence API HTTP '+response.status);
-    const rows=await response.json();
-    if(!Array.isArray(rows)||rows.length>=200)
-      throw new Error('Official deployment-area source query incomplete');
-    return rows.filter(area=>(
-      area && Array.isArray(area.outline_lonlat) &&
-      area.outline_lonlat.length>=4 && area.outline_lonlat.length<=250 &&
-      area.outline_lonlat.every(vertex=>
-        Array.isArray(vertex)&&vertex.length===2&&
-        validCoord(Number(vertex[1]),Number(vertex[0]))) &&
-      JSON.stringify(area.outline_lonlat[0])===
-        JSON.stringify(area.outline_lonlat[area.outline_lonlat.length-1])
-    ));
+  async function loadOfficialAreas(signal,viewport) {
+    // Original government polygons may eventually number in the thousands.
+    // Read each page to completion, but render only geographic footprints
+    // whose bounding rectangles intersect the visible map. Never interpret
+    // a truncated list as proof that there are no other deployment areas.
+    const pageSize=20,maxRecords=2000;
+    const result=[];
+    for(let offset=0;offset<maxRecords;offset+=pageSize) {
+      const query=new URLSearchParams({
+        select:'area_key,jurisdiction_label,area_label,outline_lonlat,evidence_url,evidence_summary,evidence_verified_at',
+        geometry_status:'eq.verified',order:'area_key.asc',
+        limit:String(pageSize),offset:String(offset)
+      });
+      const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+        '/rest/v1/flock_documented_coverage_areas?'+query.toString(),
+        {headers:{apikey:CFG.supabasePublishableKey},signal,cache:'no-store'});
+      if(!response.ok)throw new Error('Area evidence API HTTP '+response.status);
+      const records=await response.json();
+      if(!Array.isArray(records)||records.length>pageSize)
+        throw new Error('Original government area page incomplete');
+      for(const area of records) {
+        if(!(area && Array.isArray(area.outline_lonlat) &&
+          area.outline_lonlat.length>=4 && area.outline_lonlat.length<=250 &&
+          area.outline_lonlat.every(vertex=>
+            Array.isArray(vertex)&&vertex.length===2&&
+            validCoord(Number(vertex[1]),Number(vertex[0]))) &&
+          JSON.stringify(area.outline_lonlat[0])===
+            JSON.stringify(area.outline_lonlat[area.outline_lonlat.length-1]))) {
+          throw new Error('Source-backed deployment polygon malformed');
+        }
+        const latitudes=area.outline_lonlat.map(pt=>Number(pt[1]));
+        const longitudes=area.outline_lonlat.map(pt=>Number(pt[0]));
+        if (Math.max(...latitudes)>=viewport.south &&
+            Math.min(...latitudes)<=viewport.north &&
+            Math.max(...longitudes)>=viewport.west &&
+            Math.min(...longitudes)<=viewport.east) {
+          result.push(area);
+        }
+      }
+      if(records.length<pageSize)return result;
+    }
+    throw new Error('Government coverage polygon source scan reached capacity');
   }
   function officialAreaPopup(area) {
     const root=document.createElement('div');
@@ -361,7 +382,7 @@
       // converting an unknown area status into a verified zero.
       const [rows,areasResult]=await Promise.all([
         cameraRows({south,north,west,east},state.abort.signal),
-        loadOfficialAreas(state.abort.signal).then(
+        loadOfficialAreas(state.abort.signal,{south,north,west,east}).then(
           value=>({value}),error=>({error}))
       ]);
       if (requestId !== state.requestNumber) return;
