@@ -16,9 +16,9 @@ class HealthTests(unittest.TestCase):
  def test_new_verified_sources_part_of_baseline(self):
   rows=([row('Monroe, WA')]*18+[row('El Paso County, CO')]*16+
         [row('Peoria, AZ')]*74+[row('Lawrenceville, GA')]*45+
-        [row('Webster, TX')]*53)
+        [row('Webster, TX')]*53+[row('Newport Beach, CA')]*69)
   counts,_=m.assess(rows,now=NOW)
-  self.assertEqual(sum(counts.values()),206)
+  self.assertEqual(sum(counts.values()),275)
   self.assertEqual(counts['Webster, TX'],53)
  def test_withdrawn_gis_source_triggers_alert(self):
   with self.assertRaisesRegex(ValueError,'below baseline'):
@@ -31,13 +31,14 @@ class HealthTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'leaked'):
    m.assess([row('Peoria, AZ',status='revoked')],now=NOW,minimum={})
  def test_public_summary_and_camera_inventory_must_agree(self):
-  metrics=[{'verified_camera_points':206,'verified_point_jurisdictions':5,
+  metrics=[{'verified_camera_points':275,'verified_point_jurisdictions':6,
             'verified_area_polygons':0,'approximate_location_records':0,
             'documented_government_programs':13}]
   self.assertEqual(m.assess_published_summary(metrics,{
     'Monroe, WA':18,'El Paso County, CO':16,'Peoria, AZ':74,
-    'Lawrenceville, GA':45,'Webster, TX':53
-  })['verified_camera_points'],206)
+    'Lawrenceville, GA':45,'Webster, TX':53,
+    'Newport Beach, CA':69
+  })['verified_camera_points'],275)
   with self.assertRaisesRegex(ValueError,'differs'):
    m.assess_published_summary(metrics,{'Peoria, AZ':74})
  def test_state_index_separates_original_gis_pins_from_programs(self):

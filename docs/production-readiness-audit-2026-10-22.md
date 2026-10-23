@@ -118,3 +118,11 @@ All newly implemented trust/camera RPCs deny anonymous execution; independently 
 - All records have individually linked primary sources and distinguish contract approval/termination statements from physical installations, current operation, and surveyed camera coordinates.
 - CI, public health baseline, state evidence index and browser smoke now test 13 government programs and the new NC terminated disclosure.
 - A publicly indexed Newport Beach government GeoCortex GIS layer named Flock Unit Locations is being probed **read-only**. It is part of a broader EmployeeMasterMap and is not automatically approved for public camera publication from layer naming alone.
+
+
+## October 23 source-authenticated expansion: Newport Beach
+
+- Independently verified the City's public NewportGIS directory (city-owned nbgis.newportbeachca.gov), which explicitly lists Flock Unit Locations layer 299 of EmployeeMasterMap. City Legistar council records provide independent program corroboration. Read-only city GIS service returned 69 valid geographically bounded point features, with 69 unique nonblank FlockUnitNo identifiers and stable original OBJECTID_12 ArcGIS IDs; none was sourced from crowdsourced sources.
+- Implemented generic reviewer-bound Flock Unit Locations source profile support with typed alternative OBJECTID field; no third-party Esri layer may acquire this alternate type without a matching reviewed first-party source root. Source review authorized exactly the original City GIS layer, not unrestricted EmployeeMasterMap access.
+- After the production sharded verifier successfully published those 69 and held no camera points, **275** verified GIS camera locations across **six** jurisdictions are currently published. The update copied no staff metadata, private vehicle data or police notes. This is not proof of cameras being operational or of a comprehensive city inventory.
+- Browser smoke, public health monitoring and source verification regression tests now require all six official city/county camera datasets. The separately source-dated government program directory remains 13 entries with three documented termination decisions.

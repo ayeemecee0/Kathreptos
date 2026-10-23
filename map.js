@@ -876,6 +876,11 @@
     $('viewWebster').addEventListener('click',()=>{
       state.map?.fitBounds([[29.503,-95.16],[29.566,-95.088]]);
     });
+    $('viewNewportBeach').addEventListener('click',()=>{
+      // Only the City GIS original point inventory, not a city-wide
+      // assertion of operational plate-reader coverage.
+      state.map?.fitBounds([[33.554,-117.97],[33.679,-117.81]]);
+    });
     $('national').addEventListener('click',()=>{
       state.map?.setView(USA_CENTER,4);
     });
