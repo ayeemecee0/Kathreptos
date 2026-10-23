@@ -125,6 +125,30 @@ class TestProfiles(unittest.TestCase):
                  {"name":"permitno","type":"esriFieldTypeString"}]
   with self.assertRaisesRegex(ValueError,"identifier"):
    v.check_metadata(S,P,SERVICE,{**L,"fields":permit_fields})
+ def test_shard_partition_is_exhaustive_and_disjoint(self):
+  keys=["elpaso_co","monroe_wa","peoria_az","lawrenceville_ga","webster_tx",
+        "ext_government_city_1","autogov_georgiatown2","gis_county_lpar_1"]
+  for key in keys:
+   self.assertEqual(sum(v.assigned_to_verification_shard(key,i,4)
+                        for i in range(4)),1)
+   self.assertTrue(v.assigned_to_verification_shard(key,0,1))
+  for bad in ((-1,4),(4,4),(0,0),(0,17)):
+   with self.assertRaises(ValueError):
+    v.assigned_to_verification_shard("peoria_az",*bad)
+ def test_sharded_worker_processes_only_its_sources(self):
+  keys=["elpaso_co","monroe_wa","peoria_az","lawrenceville_ga","webster_tx"]
+  shard=next(i for i in range(4)
+             if 0<sum(v.assigned_to_verification_shard(k,i,4) for k in keys)<len(keys))
+  items=[({**S,"source_key":key},P) for key in keys]
+  with (patch.object(v,"approved_sources",return_value=items),
+        patch.object(v,"source_with_bounded_retries",
+                     return_value=([{"record_key":"gis-test-1"}],{},1)) as read,
+        patch.object(v,"write_verified") as write):
+   outcome=v.sync(dry_run=True,shard=shard,shards=4)
+  self.assertEqual(outcome["sources_checked"],
+       sum(v.assigned_to_verification_shard(k,shard,4) for k in keys))
+  self.assertEqual(read.call_count,outcome["sources_checked"])
+  write.assert_not_called()
  def test_dryrun_never_writes(self):
   with (patch.object(v,"approved_sources",return_value=[(S,P)]),
         patch.object(v,"query_gis",return_value={"features":[f()]}),

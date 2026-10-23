@@ -305,9 +305,31 @@ def source_with_bounded_retries(s,p,attempts=3):
     raise RuntimeError("Source unavailable after bounded retries; previous camera publication held") from last
 
 
-def sync(dry_run=False):
+def assigned_to_verification_shard(source_key,shard=0,shards=1):
+    """Deterministically partition exact government sources, never cameras.
+
+    Every source belongs to exactly one worker for the selected shard count.
+    Every worker still independently reads the complete approved registry;
+    no source can fall through a missing pagination page unnoticed.
+    """
+    if (type(shard) is not int or type(shards) is not int
+        or not 1<=shards<=16 or not 0<=shard<shards):
+        raise ValueError("Invalid GIS source verification shard")
+    if not isinstance(source_key,str) or not source_key:
+        raise ValueError("Missing approved GIS source identity")
+    ordinal=int.from_bytes(hashlib.sha256(
+        source_key.encode("utf8")).digest()[:8],"big")
+    return ordinal%shards==shard
+
+
+def sync(dry_run=False,shard=0,shards=1):
+    # Validate shard bounds even if no approved sources exist.
+    assigned_to_verification_shard("_source_partition_probe",shard,shards)
     total=Counter()
     for s,p in approved_sources():
+        if not assigned_to_verification_shard(s["source_key"],shard,shards):
+            continue
+        total["sources_assigned"]+=1
         try:
             rows,held,n=source_with_bounded_retries(s,p)
             total["sources_checked"]+=1;total["features_checked"]+=n
@@ -328,6 +350,8 @@ def sync(dry_run=False):
         except Exception as exc:
             total["errors"]+=1
             print("PROFILE GIS HELD:",s["source_key"],type(exc).__name__,str(exc)[:180])
+    print("PROFILE GIS shard",str(shard)+"/"+str(shards),
+          "sources assigned:",total["sources_assigned"])
     for k in ("sources_checked","features_checked","eligible","published",
               "rechecked","withdrawn","errors"):
         print("PROFILE GIS",k+":",total[k])
@@ -337,5 +361,8 @@ def sync(dry_run=False):
 if __name__=="__main__":
     a=argparse.ArgumentParser(description=__doc__)
     a.add_argument("--dry-run",action="store_true")
-    result=sync(a.parse_args().dry_run)
+    a.add_argument("--shard",type=int,default=0)
+    a.add_argument("--shards",type=int,default=1)
+    options=a.parse_args()
+    result=sync(options.dry_run,options.shard,options.shards)
     if result["errors"]:raise SystemExit("Source-profile GIS verification failed")

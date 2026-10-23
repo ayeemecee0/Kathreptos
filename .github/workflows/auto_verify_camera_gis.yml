@@ -28,6 +28,11 @@ concurrency:
 
 jobs:
   verify:
+    name: Government GIS shard ${{ matrix.shard }} / 4
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -49,4 +54,4 @@ jobs:
           python -m unittest discover -s scripts -p 'test_auto_verify_camera_gis.py' -v
           python -m unittest discover -s scripts -p 'test_auto_verify_camera_profiles.py' -v
       - name: Publish independently corroborated official GIS camera coordinates
-        run: python scripts/auto_verify_camera_profiles.py
+        run: python scripts/auto_verify_camera_profiles.py --shard ${{ matrix.shard }} --shards 4
