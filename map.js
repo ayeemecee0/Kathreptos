@@ -124,6 +124,7 @@
     loadVisibleLocations();
     loadDocumentedPrograms();
     loadNationalSummary();
+    loadStateEvidenceIndex();
     loadVerifiedAgendaMentions();
   }
   function renderPrograms() {
@@ -157,6 +158,48 @@
     setText('programStatus',(found.length>60 ? 'Showing first 60 of ' : '')+
       found.length+' dated original-government program record(s). '+
       'These are not verified camera coordinates. Narrow the search for more results.');
+  }
+  async function loadStateEvidenceIndex() {
+    if(!CFG?.supabaseUrl || !CFG?.supabasePublishableKey){
+      setText('stateEvidenceStatus','State evidence index unavailable.');
+      return;
+    }
+    try {
+      const q=new URLSearchParams({
+        select:'state_code,verified_camera_points,verified_jurisdictions',
+        order:'verified_camera_points.desc',limit:'65'
+      });
+      const response=await fetch(CFG.supabaseUrl.replace(/\/$/,'')+
+        '/rest/v1/flock_public_state_evidence?'+q.toString(),
+        {headers:{apikey:CFG.supabasePublishableKey},cache:'no-store'});
+      if(!response.ok)throw new Error('State evidence HTTP '+response.status);
+      const rows=await response.json();
+      if(!Array.isArray(rows) || rows.length>=65)
+        throw new Error('State evidence index truncated');
+      const list=$('stateEvidenceList');
+      list.replaceChildren();
+      for(const item of rows){
+        if(!/^[A-Z]{2}$/.test(item.state_code) ||
+          !Number.isInteger(Number(item.verified_camera_points)) ||
+          Number(item.verified_camera_points)<0)
+          throw new Error('Malformed state evidence data');
+        const li=document.createElement('li');
+        const title=document.createElement('strong');
+        title.textContent=item.state_code;
+        const count=document.createElement('p');
+        count.textContent=Number(item.verified_camera_points).toLocaleString()+
+          ' verified camera GIS points · '+
+          Number(item.verified_jurisdictions)+' sourced jurisdiction(s)';
+        li.append(title,count);
+        list.append(li);
+      }
+      setText('stateEvidenceStatus',rows.length+
+        ' states with published verified GIS coordinates. '+
+        'No listed records for a state means evidence unknown, not no Flock cameras.');
+    }catch(error){
+      setText('stateEvidenceStatus','State evidence index unavailable: '+
+        error.message+'. Missing data does not establish camera absence.');
+    }
   }
   async function loadNationalSummary() {
     if(!CFG?.supabaseUrl || !CFG?.supabasePublishableKey){

@@ -41,6 +41,8 @@ class MapPageTests(unittest.TestCase):
         self.assertTrue({'programSearch','programList','programStatus'}.issubset(self.ids))
         self.assertIn('flock_documented_programs',self.script)
         self.assertIn('flock_public_coverage_stats',self.script)
+        self.assertIn('flock_public_state_evidence',self.script)
+        self.assertTrue({'stateEvidenceList','stateEvidenceStatus'}.issubset(self.ids))
         self.assertIn('verified_flock_agenda_mentions',self.script)
         self.assertTrue({'agendaMapSearch','agendaMapList','agendaMapStatus'}.issubset(self.ids))
         self.assertIn('nationalStats',self.ids)

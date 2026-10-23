@@ -49,6 +49,7 @@ on:
       - 'supabase/migrations/043_strict_external_arcgis_service_root_attestation.sql'
       - 'supabase/migrations/044_rls_invoker_public_coverage_summary.sql'
       - 'supabase/migrations/045_fix_public_coverage_polygon_rls_lookup.sql'
+      - 'supabase/migrations/046_public_by_state_gis_evidence_footprint.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -380,6 +381,12 @@ jobs:
             -f supabase/migrations/044_rls_invoker_public_coverage_summary.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/045_fix_public_coverage_polygon_rls_lookup.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/046_public_by_state_gis_evidence_footprint.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_public_state_evidence','SELECT')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "begin; set local role anon; select count(*) from public.flock_public_state_evidence; rollback;" | grep -qx 0
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_public_coverage_stats','SELECT')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
