@@ -13,6 +13,7 @@ import urllib.parse
 from collections import Counter
 
 from auto_verify_flock_agenda import api_request
+from paged_supabase import fetch_all
 from auto_verify_camera_gis import get_official_json
 
 POLYGON=re.compile(
@@ -22,11 +23,9 @@ LIMIT=51
 
 
 def approved_hosts():
-    roots=api_request("gis_government_host_authorities?select=authority_key,"
+    roots=fetch_all(api_request,"gis_government_host_authorities?select=authority_key,"
        "government_gis_host,allowed_layer_path,verification_status"
-       "&verification_status=eq.verified&limit=100")
-    if not isinstance(roots,list) or len(roots)>=100:
-        raise ValueError("Approved original government GIS host list incomplete")
+       "&verification_status=eq.verified&limit=100","authority_key")
     return roots
 
 
