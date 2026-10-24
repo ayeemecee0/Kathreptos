@@ -212,14 +212,15 @@ def assess_state_evidence_index(rows,counts,program_total):
 
 
 
-def assess_public_accountability(events,roles,minimum_events=30,minimum_roles=3):
+def assess_public_accountability(events,roles,minimum_events=30,minimum_roles=3,positions=None):
     """Check RLS-filtered government disclosures and separately sourced staff roles.
 
     This guard verifies publication labeling and loss of baseline evidence only.
     It never reclassifies an agenda title as an adopted measure, or an unverified
     agreement form as a signed contract.
     """
-    if not isinstance(events,list) or not isinstance(roles,list):
+    if positions is None:positions=[]
+    if not isinstance(events,list) or not isinstance(roles,list) or not isinstance(positions,list):
         raise ValueError('Accountability feeds malformed')
     if not minimum_events<=len(events)<5000 or not minimum_roles<=len(roles)<500:
         raise ValueError('Accountability evidence below baseline or truncated')
@@ -248,6 +249,12 @@ def assess_public_accountability(events,roles,minimum_events=30,minimum_roles=3)
         if r.get('role_category')=='flock_vendor_leadership' and (
           r.get('source_type')!='official_vendor_announcement'):
             raise ValueError('Vendor-reported professional role misattributed')
+    for p in positions:
+        if not isinstance(p,dict) or not str(p.get('original_government_url') or '').startswith('https://'):
+            raise ValueError('Named government record missing original official source')
+        if (p.get('record_kind')=='individual_roll_call_vote' and
+            p.get('source_kind') not in ('original_roll_call','official_government_minutes')):
+            raise ValueError('Individual vote did not originate with government roll-call evidence')
     return len(events),len(roles)
 
 
@@ -256,7 +263,8 @@ def fetch_public_accountability(key):
     events=json.loads(get(base+'/flock_accountability_directory?select=*&limit=5000',{'apikey':key}))
     roles=json.loads(get(base+'/flock_accountability_roles?select=role_key,person_name,role_title,organization_name,'
                          'role_category,source_type,source_url,source_date&limit=500',{'apikey':key}))
-    return events,roles
+    positions=json.loads(get(base+'/flock_individual_public_positions?select=position_key,person_name,record_kind,source_kind,original_government_url&limit=500',{'apikey':key}))
+    return events,roles,positions
 
 def run(site=SITE):
     if not site.startswith('https://'):
@@ -275,8 +283,9 @@ def run(site=SITE):
             raise ValueError('Deployed public page or route runtime missing: '+path)
     config=get(urllib.parse.urljoin(site,'config.js'))
     key=public_key(config)
-    events,roles=fetch_public_accountability(key)
-    accountability_counts=assess_public_accountability(events,roles)
+    events,roles,positions=fetch_public_accountability(key)
+    accountability_counts=assess_public_accountability(events,roles,positions=positions)
+    print('Named government positions backed by original government records:',len(positions))
     print('Accountability records and professional roles:',accountability_counts)
     rows=fetch_public_camera_evidence(key)
     counts,last=assess(rows)
