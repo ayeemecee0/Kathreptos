@@ -14,3 +14,9 @@ Static repository checks confirm all eight relevant pages have matching skip lin
 
 ## Independent acceptance gates
 Static checks and browser smoke tests cannot establish full WCAG 2.2 AA conformance. Before calling the complete public experience accessible: conduct voice navigation and screen-reader reviews (NVDA/JAWS/VoiceOver), 200% zoom, touch interaction, color contrast checks, external Leaflet/map keyboard use, form error flows and actual mobile-browser observations. Fix any confirmed defects. Do not claim these tests passed without observation.
+
+## October 23 release extension
+
+- `scripts/smoke_zoom_accessibility.cjs` checks keyboard bypass, labeled community forms, and zoom-equivalent reflow at a 640 CSS-pixel viewport. The failed initial attempt used a CSS zoom property that does **not** reproduce a real browser zoom's responsive breakpoints; the corrected test passed in [Browser smoke #106](https://github.com/ayeemecee0/Katoptron/actions/runs/40066397323).
+- Exact-version browser Supabase SDK pinning and public-asset credential checks run in [Validation #436](https://github.com/ayeemecee0/Katoptron/actions/runs/40066347410).
+- Manual NVDA/VoiceOver, 200% browser zoom using a real browser, high-contrast modes and touch devices remain independent signoff requirements.
