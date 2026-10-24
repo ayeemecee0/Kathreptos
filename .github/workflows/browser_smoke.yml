@@ -13,6 +13,7 @@ on:
       - 'scripts/smoke_browser.cjs'
       - 'scripts/smoke_mobile.cjs'
       - 'scripts/smoke_geoapify.cjs'
+      - 'scripts/smoke_geoapify_live.cjs'
       - 'map.js'
       - 'index.html'
       - 'route-geometry.js'
@@ -56,6 +57,11 @@ jobs:
           node scripts/smoke_browser.cjs
           node scripts/smoke_mobile.cjs
           node scripts/smoke_geoapify.cjs
+      - name: Verify live free Geoapify from the authorized GitHub Pages origin
+        if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        env:
+          KATOPTRON_SMOKE_BASE: https://ayeemecee0.github.io/Katoptron/
+        run: node scripts/smoke_geoapify_live.cjs
       - name: Upload failing browser screenshot
         if: failure()
         uses: actions/upload-artifact@v4
