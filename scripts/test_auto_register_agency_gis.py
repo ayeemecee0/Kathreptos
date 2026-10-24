@@ -61,7 +61,7 @@ class Register(unittest.TestCase):
    stage.assert_not_called()
  def test_automatic_refresh_only_after_new_authority_registration(self):
   with (patch.object(a,'inspect',return_value=dict(proof)),
-        patch.object(a,'api_request',side_effect=[[],True]),
+        patch.object(a,'api_request',side_effect=[[APPROVED],[],True]),
         patch.object(a,'stage_candidate'),
         patch.object(a,'refresh_verified',return_value={'published':2,'rechecked':0,'errors':0}) as sync):
    r=a.run(publish=True)
