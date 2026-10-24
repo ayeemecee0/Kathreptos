@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Report a possible Flock camera | Katoptron</title>
+<link rel="stylesheet" href="./map.css">
+<style>
+.report-wrap{max-width:720px;margin:3rem auto;padding:0 1.2rem 3rem;color:#dce9ef}
+.report-wrap h1{font-size:clamp(1.6rem,4vw,2.4rem)}
+.report-panel{padding:1.5rem;border:1px solid #355266;border-radius:14px;background:#10202c;margin:1.2rem 0}
+.report-panel label{display:block;margin:1rem 0;font-weight:650}
+.report-panel input:not([type=checkbox]),.report-panel textarea{width:100%;box-sizing:border-box;background:#091722;color:#fff;border:1px solid #597084;border-radius:7px;padding:.7rem;margin-top:.4rem;font:inherit}
+.report-panel textarea{min-height:130px}
+.report-panel button{background:#8ad6df;color:#10202c;border:none;padding:.8rem 1.1rem;border-radius:7px;font-weight:750;cursor:pointer;margin:.4rem .4rem .4rem 0}
+.report-panel button:disabled{opacity:.55}
+.report-panel small,.report-note{color:#b9cbd7;line-height:1.6}
+.report-panel .check{display:flex;align-items:flex-start;gap:.6rem;font-weight:400}
+.report-panel .check input{margin-top:.35rem}
+#notice{min-height:1.8rem} :focus-visible{outline:3px solid #9fe9ff;outline-offset:3px}
+[hidden]{display:none!important}
+</style></head><body>
+<header class="masthead"><a class="brand" href="./index.html"><span class="logo-mark">◈</span><span><strong>KATOPTRON</strong><small>Community evidence</small></span></a>
+<nav aria-label="Main navigation"><a href="./index.html">CAMERA MAP</a><a href="./records.html">GOVERNMENT RECORDS</a></nav></header>
+<main class="report-wrap">
+<h1>Report a possible Flock Safety camera</h1>
+<p class="report-note">Send a firsthand sighting or original public evidence for private investigation. Reports are not published automatically and are never treated as confirmed cameras. Do not include license plates, faces, people’s movements, personal addresses or private information.</p>
+<section class="report-panel" id="authPanel"><h2>Sign in to contribute</h2>
+<p>Sign-in helps prevent automated spam. Email confirmation may be required. No editorial privileges are granted to contributors.</p>
+<form id="authForm">
+<label>Email<input type="email" id="email" autocomplete="username" required maxlength="254"></label>
+<label>Password<input type="password" id="password" autocomplete="current-password" required minlength="8"></label>
+<button type="submit">Sign in</button><button type="button" id="register">Create account</button>
+</form></section>
+<section class="report-panel" id="reportPanel" hidden><h2>Private evidence report</h2>
+<p id="sessionLabel"></p><button type="button" id="signout">Sign out</button>
+<form id="reportForm">
+<label>Latitude (approximate camera position)<input id="lat" type="number" step="any" min="17" max="72" required placeholder="38.58"></label>
+<label>Longitude<input id="lon" type="number" step="any" min="-180" max="-64" required placeholder="-121.49"></label>
+<label>When observed (optional)<input id="observed" type="date"></label>
+<label>Original supporting source URL (optional)<input id="source" type="url" maxlength="1600" placeholder="https://..."></label>
+<label>What did you observe? (40–1500 characters)<textarea id="description" minlength="40" maxlength="1500" required placeholder="Describe why you believe this is a Flock Safety camera, the original source, and what remains uncertain."></textarea></label>
+<label class="check"><input type="checkbox" id="consent" required><span>I confirm this is a good-faith report and consent to its private review. I have excluded personal information and understand it will not automatically appear on the public map.</span></label>
+<button id="send" type="submit">Submit private report</button>
+<p><small>Limit: 3 submissions per account per 24 hours. Coordinates and account ID are retained privately for review. You can see your own submission status, but other contributors cannot see it.</small></p>
+</form></section>
+<div id="notice" role="status" aria-live="polite"></div>
+<p><a href="./privacy.html">Privacy policy</a> · <a href="./methodology.html">Evidence methodology</a></p>
+</main>
+<script src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+const cfg=window.KATOPTRON_CONFIG;
+const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey);
+const $=id=>document.getElementById(id);
+function status(message){$('notice').textContent=message;}
+async function syncSession(){
+  const {data:{session},error}=await client.auth.getSession();
+  if(error){status('Session check failed: '+error.message);return;}
+  $('authPanel').hidden=!!session;
+  $('reportPanel').hidden=!session;
+  $('sessionLabel').textContent=session?'Signed in as '+(session.user.email||'contributor'):'';
+}
+$('authForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const {error}=await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+  status(error?'Sign-in failed: '+error.message:'Signed in.');
+  if(!error)await syncSession();
+});
+$('register').addEventListener('click',async()=>{
+  if(!$('authForm').reportValidity())return;
+  const {error}=await client.auth.signUp({email:$('email').value.trim(),password:$('password').value,
+    options:{emailRedirectTo:new URL('./submit.html',location.href).href}});
+  status(error?'Registration failed: '+error.message:'Registration requested. Check your email if confirmation is required, then sign in.');
+});
+$('signout').addEventListener('click',async()=>{const {error}=await client.auth.signOut();status(error?error.message:'Signed out.');await syncSession();});
+$('reportForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const lat=Number($('lat').value),lon=Number($('lon').value);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<17||lat>72||lon< -180||lon> -64){status('Please enter valid U.S. coordinates.');return;}
+  const description=$('description').value.trim(),source=$('source').value.trim();
+  if(description.length<40||description.length>1500){status('Description must contain 40–1500 characters.');return;}
+  if(source&&!/^https:\/\/[a-z0-9.-]+(?:\/|$)/i.test(source)){status('Only an HTTPS source URL is accepted.');return;}
+  if(!$('consent').checked){status('Consent is required.');return;}
+  $('send').disabled=true;
+  try{
+    const {error}=await client.from('flock_community_submissions').insert({
+      latitude:lat,longitude:lon,description,original_source_url:source||null,
+      observed_on:$('observed').value||null,consent_to_review:true
+    });
+    if(error)throw error;
+    $('reportForm').reset();
+    status('Your report was received into the private research queue. It is not published or verified.');
+  }catch(error){status('Submission not accepted: '+error.message);}
+  finally{$('send').disabled=false;}
+});
+client.auth.onAuthStateChange(()=>{queueMicrotask(syncSession);});
+syncSession();
+</script></body></html>
