@@ -16,13 +16,15 @@ def safe_fetch(method,url,key):
     assert 'select=' in url
     # Exact count is a header, not a download of any candidate row.
     return ('0-0/293' if '/flock_camera_locations?' in url else
-            '0-0/1' if '/first_party_agency_gis_receipts?' in url else '*/0')
+            '0-0/1' if ('/first_party_agency_gis_receipts?' in url or
+                         '/reviewed_first_party_gis_roots?' in url) else '*/0')
 
 class LaunchGates(unittest.TestCase):
  def test_private_bucket_and_aggregate_counts_pass(self):
     totals=m.tally(KEY,safe_fetch)
     self.assertEqual(totals['verified_exact_camera_points'],293)
     self.assertEqual(totals['first_party_agency_source_receipts'],1)
+    self.assertEqual(totals['reviewed_first_party_source_approvals'],1)
     self.assertEqual(totals['direct_government_gis_receipts'],0)
     self.assertEqual(set(totals),{x[0] for x in m.STAGES})
  def test_bucket_must_remain_private(self):
@@ -69,6 +71,13 @@ class LaunchGates(unittest.TestCase):
         return safe_fetch(method,url,key)
     with self.assertRaisesRegex(ValueError,'publicly exposed'):
         m.tally(KEY,public_bucket)
+ def test_revoked_agency_approval_fails_private_health(self):
+    def missing(method,url,key):
+        if '/reviewed_first_party_gis_roots?' in url:
+            return '*/0'
+        return safe_fetch(method,url,key)
+    with self.assertRaisesRegex(ValueError,'reviewer approval lost'):
+        m.tally(KEY,missing)
  def test_transport_refuses_private_data_get(self):
     with self.assertRaisesRegex(ValueError,'Only the fixed private bucket'):
         m.transport('GET',m.PROJECT+'/rest/v1/flock_community_submissions',KEY)
