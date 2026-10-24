@@ -5,7 +5,7 @@ private records, signs in, edits data, or requests storage objects.
 Private report/reviewer endpoints must be denied even when their tables are empty.
 """
 from pathlib import Path
-import argparse
+import json
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,14 +23,17 @@ PRIVATE_TABLES=(
     'editorial_reviewers',
     'agenda_evidence_reviews',
 )
-PRIVATE_RPC=(
-    'editorial_decide',
-    'editorial_session',
-    'list_community_review_queue',
-    'set_community_review_status',
-    'withdraw_own_community_report',
-    'community_report_attachment_paths',
-)
+# Probe only non-mutating RPCs, with their full valid argument signatures.
+# PostgreSQL marks these VOLATILE, so GET would be rejected by PostgREST even
+# if anonymous EXECUTE had accidentally been granted (a dangerous false pass).
+# Write RPC grants remain tested by the separate SQL release-invariant gate.
+PRIVATE_RPC={
+    'editorial_session': {},
+    'list_community_review_queue': {'p_limit':1},
+    'community_report_attachment_paths': {
+        'p_report':'00000000-0000-0000-0000-000000000000',
+    },
+}
 DENIED=(401,403)
 MAX_CHECKS=20
 
@@ -38,15 +41,24 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):
         raise ValueError('Unexpected redirect from private API')
 
-def status_only(url,key,method='GET'):
+def status_only(url,key,method='GET',payload=None):
     """Return status without reading or exposing any private payload."""
     if not url.startswith(BASE+'/'):
         raise ValueError('Private endpoint must use the exact production API')
-    request=urllib.request.Request(url,method=method,headers={
+    if method=='POST':
+        if not url.startswith(BASE+'/rpc/') or not isinstance(payload,dict):
+            raise ValueError('POST is restricted to approved read-only RPC probes')
+    elif method!='GET' or payload is not None:
+        raise ValueError('Unapproved private boundary probe method')
+    headers={
         'apikey':key,
         'Accept':'application/json',
         'User-Agent':'Katoptron-private-public-boundary/1.0',
-    })
+    }
+    if method=='POST':
+        headers['Content-Type']='application/json'
+    request=urllib.request.Request(url,method=method,headers=headers,
+        data=json.dumps(payload).encode('utf8') if method=='POST' else None)
     try:
         with urllib.request.build_opener(NoRedirect()).open(request,timeout=18) as response:
             return response.status   # Intentionally do not read the body.
@@ -72,9 +84,9 @@ def check_boundaries(key,fetch=status_only):
     # PostgREST responds with 404 for unexposed functions on some versions;
     # inaccessible functions are safe too. But any successful invocation,
     # even one returning false or an empty queue, is an auth boundary defect.
-    for rpc in PRIVATE_RPC:
+    for rpc,payload in PRIVATE_RPC.items():
         url=BASE+'/rpc/'+rpc
-        status=fetch(url,key)
+        status=fetch(url,key,method='POST',payload=payload)
         if status not in (401,403,404):
             raise ValueError('Anonymous sensitive RPC unexpectedly callable: '+rpc+
                              ' (HTTP '+str(status)+')')
