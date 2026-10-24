@@ -164,6 +164,30 @@ const assert=require('node:assert/strict');
   assert.equal((await page.locator('#observationCount').textContent()).trim(),'—');
   assert.equal(await page.locator('#routeComparisonList li').count(),0);
   assert.ok((await page.locator('#comparisonStatus').textContent()).includes('Plan a route'));
+  // Ambiguous city names never silently select Photon result #1.
+  await page.route('https://photon.komoot.io/api/**',async route=>{
+    await route.fulfill({status:200,contentType:'application/json',
+      headers:{'access-control-allow-origin':'*'},
+      body:JSON.stringify({features:[
+        {geometry:{type:'Point',coordinates:[-89.64,39.78]},
+         properties:{name:'Springfield',state:'Illinois',countrycode:'US'}},
+        {geometry:{type:'Point',coordinates:[-93.29,37.21]},
+         properties:{name:'Springfield',state:'Missouri',countrycode:'US'}}
+      ]})});
+  });
+  await page.locator('#from').fill('Springfield');
+  await page.locator('#to').fill('37.21,-93.28');
+  await page.locator('#planRoute').click();
+  await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.includes('No location was guessed'),
+    {timeout:14000});
+  assert.equal(await page.locator('#fromMatch').isVisible(),true);
+  assert.equal(await page.locator('#fromMatch option').count(),3);
+  assert.equal(await page.locator('#routeComparisonList li').count(),0);
+  assert.equal(await page.locator('#play').isDisabled(),true);
+  await page.locator('#fromMatch').selectOption('1');
+  assert.ok((await page.locator('#fromMatch option:checked').textContent()).includes('Missouri'));
+  await page.locator('#from').fill('Springfield, Illinois');
+  assert.equal(await page.locator('#fromMatch').isVisible(),false);
   assert.deepEqual(errors,[]);
   console.log('BROWSER SMOKE PASSED: 6 GIS sources, sourced programs, map filters/search, public history, route evidence, replay and reset');
  }catch(e){
