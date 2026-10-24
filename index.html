@@ -119,7 +119,8 @@
       <div><strong>UNITED STATES · CAMERA INTELLIGENCE</strong><small id="mapLabel">Nationwide view · Camera inventory incomplete</small></div>
       <div class="map-actions"><button id="national" type="button">⌖ Nationwide</button><a href="./records.html">View source records ↗</a></div>
    </div>
-   <div id="map" tabindex="-1" role="application" aria-label="Interactive United States road map with evidence-based ALPR information"></div>
+   <p id="mapKeyboardHelp" class="micro">Map keyboard controls: Tab to focus, arrow keys to pan, and + / − to zoom. Camera evidence and source records are also available in the accessible list and government records page.</p>
+   <div id="map" tabindex="0" role="application" aria-label="Interactive United States road map with evidence-based ALPR information" aria-describedby="mapKeyboardHelp"></div>
    <div class="legend" aria-label="Map legend">
       <span><i class="legend-dot exact"></i> Verified location</span>
       <span><i class="legend-dot approx"></i> Approximate area</span>
@@ -133,7 +134,7 @@
    </div>
  </section>
 </main>
-<footer><span>Katoptron · Flock Safety only · No actual plate lookups or tracking</span><span>Road map data © OpenStreetMap contributors · Route geometry: OSRM demo where available · Search: Photon</span><a href="./methodology.html">Evidence methodology</a> · <a href="./privacy.html">Privacy</a> · <a href="https://github.com/ayeemecee0/Katoptron/issues/new/choose" target="_blank" rel="noopener noreferrer">Request a public evidence correction</a></footer>
+<footer><span>Katoptron · Flock Safety only · No actual plate lookups or tracking</span><span>Map data © OpenStreetMap contributors · Routing and search: Geoapify when configured; OSRM and Photon demos otherwise</span><a href="./methodology.html">Evidence methodology</a> · <a href="./privacy.html">Privacy</a> · <a href="https://github.com/ayeemecee0/Katoptron/issues/new/choose" target="_blank" rel="noopener noreferrer">Request a public evidence correction</a></footer>
 <script src="./config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./route-geometry.js"></script>
