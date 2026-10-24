@@ -1,0 +1,19 @@
+# Optional Render Blueprint. This deploys ONLY the privacy-gated reverse proxy,
+# never OSRM/Photon indexes or a nationwide road/geocode dataset.
+# Do not activate until two independently approved dedicated upstreams exist.
+services:
+  - type: web
+    name: katoptron-routing-gateway
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./infra/routing-gateway/Dockerfile
+    dockerContext: ./infra/routing-gateway
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: ROUTING_UPSTREAM
+        sync: false
+      - key: GEOCODING_UPSTREAM
+        sync: false
