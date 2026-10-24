@@ -1,4 +1,6 @@
 import unittest
+import contextlib
+import io
 from unittest.mock import patch
 import auto_register_original_gov_gis as x
 from discover_government_gis_links import Anchors
@@ -120,6 +122,16 @@ class NewOriginalGov(unittest.TestCase):
   self.assertEqual(result["qualified_live_layers"],1)
   stage.assert_not_called()
   backend.assert_not_called()
+ def test_private_candidate_link_not_printed_on_failed_source(self):
+  output=io.StringIO()
+  with (patch.object(x,"private_government_pages",return_value=[
+           {"page_url":PAGE,"page_sha256":"a"*64,"gis_links":[URL]}]),
+        patch.object(x,"resolve_exact_original_camera_layer",side_effect=ValueError("No original owner")),
+        contextlib.redirect_stdout(output)):
+   result=x.run(dry_run=True)
+  self.assertEqual(result['held'],1)
+  self.assertNotIn(URL,output.getvalue())
+  self.assertIn('source_hash',output.getvalue())
  def test_dryrun_no_mutations(self):
   candidate={"gis_layer_url":URL,"layer_name":"Flock Cameras"}
   with (patch.object(x,"private_government_pages",return_value=[
