@@ -15,7 +15,8 @@
     visible: [], tiered: [], tieredUnavailable: false, areas: [], programs: [], agendaMentions: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
     observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null,
-    routeChoices: [], routeComparisons: [], routeRequest: 0, evidenceAbort: null
+    routeChoices: [], routeComparisons: [], routeRequest: 0, evidenceAbort: null,
+    routeGeocodeCache: {}
   };
 
   function setText(id, value) { $(id).textContent = String(value); }
@@ -840,27 +841,79 @@
       return JSON.parse(payload);
     } finally { clearTimeout(timer); }
   }
-  async function geocode(input) {
-    const coord = coordinateInput(input);
-    if (coord) return {point:coord,label:input + ' (coordinates)'};
-    const q = input.trim();
-    if (q.length < 3 || q.length > 160) throw new Error('Enter a more specific location.');
-    // The Photon shared demo is rate-limited and is for a low-volume beta only.
-    const wait = Math.max(0,1100-(Date.now()-state.lastGeocodeAt));
-    if (wait) await sleep(wait);
-    state.lastGeocodeAt = Date.now();
-    const url = providerBase(CFG.geocodingServiceBase,
+  async function geocodeCandidates(input) {
+    const coord=coordinateInput(input);
+    if(coord)return [{point:coord,label:input+' (coordinates)'}];
+    const q=input.trim();
+    if(q.length<3||q.length>160)throw new Error('Enter a more specific location.');
+    // Rate-limit shared Photon requests and do not store the query remotely.
+    const wait=Math.max(0,1100-(Date.now()-state.lastGeocodeAt));
+    if(wait)await sleep(wait);
+    state.lastGeocodeAt=Date.now();
+    const url=providerBase(CFG.geocodingServiceBase,
       'https://photon.komoot.io')+'/api/?limit=5&lang=en&q='+encodeURIComponent(q);
-    const data = await getJson(url,13000);
-    const features = (data.features || []).filter(feature => {
-      const coords = feature.geometry?.coordinates;
-      return Array.isArray(coords) && validCoord(Number(coords[1]),Number(coords[0])) &&
-        String(feature.properties?.countrycode||'').toUpperCase() === 'US';
-    });
-    if (!features.length) throw new Error('No US location found for "' + q + '". Try a street address or lat,lon.');
-    const f = features[0], p = f.properties || {};
-    return {point:[Number(f.geometry.coordinates[1]),Number(f.geometry.coordinates[0])],
-      label:[p.name,p.city,p.state].filter(Boolean).filter((s,i,arr)=>arr.indexOf(s)===i).join(', ')||q};
+    const data=await getJson(url,13000);
+    if(!Array.isArray(data?.features))
+      throw new Error('Geocoding service returned malformed results.');
+    const results=[];
+    for(const feature of data.features) {
+      const coords=feature?.geometry?.coordinates;
+      const props=feature?.properties||{};
+      if(!Array.isArray(coords)||coords.length<2||
+        !validCoord(Number(coords[1]),Number(coords[0])) ||
+        String(props.countrycode||'').toUpperCase()!=='US')continue;
+      const label=[props.name,props.city,props.state,props.postcode]
+        .filter(x=>typeof x==='string'&&x.trim())
+        .filter((x,i,a)=>a.indexOf(x)===i).join(', ').slice(0,180)||q;
+      const candidate={point:[Number(coords[1]),Number(coords[0])],label};
+      if(!results.some(existing=>existing.label===candidate.label &&
+          meters(existing.point,candidate.point)<300))results.push(candidate);
+    }
+    if(!results.length)throw new Error('No US location found for "'+q+'". Try an address or lat,lon.');
+    return results;
+  }
+  async function geocode(input) {
+    return (await geocodeCandidates(input))[0]; // Map search, not route routing.
+  }
+  function clearRouteCandidate(slot) {
+    const select=$(slot+'Match');
+    select.replaceChildren();
+    select.hidden=true;
+    select.disabled=true;
+    delete state.routeGeocodeCache[slot];
+  }
+  async function resolveRoutePlace(slot,query) {
+    const raw=coordinateInput(query);
+    if(raw){
+      clearRouteCandidate(slot);
+      return {point:raw,label:query+' (coordinates)'};
+    }
+    const select=$(slot+'Match');
+    let cached=state.routeGeocodeCache[slot];
+    if(!cached||cached.query!==query) {
+      clearRouteCandidate(slot);
+      const candidates=await geocodeCandidates(query);
+      cached={query,candidates};
+      state.routeGeocodeCache[slot]=cached;
+      if(candidates.length>1) {
+        const prompt=document.createElement('option');
+        prompt.value='';
+        prompt.textContent='Select the intended US location';
+        select.append(prompt);
+        candidates.forEach((candidate,index)=>{
+          const option=document.createElement('option');
+          option.value=String(index);
+          option.textContent=candidate.label;
+          select.append(option);
+        });
+        select.hidden=false;
+        select.disabled=false;
+      }
+    }
+    if(cached.candidates.length===1)return cached.candidates[0];
+    if(!/^\\d+$/.test(select.value))return null;
+    const index=Number(select.value);
+    return cached.candidates[index]||null;
   }
   async function routing(from,to) {
     const a = from.point, b = to.point;
@@ -1021,10 +1074,14 @@
     stopReplay();
     setText('routeStatus','Resolving US destinations; contacting routing service…');
     try {
-      const a=await geocode(from);
+      const a=await resolveRoutePlace('from',from);
       if(request!==state.routeRequest)return;
-      const b=await geocode(to);
+      const b=await resolveRoutePlace('to',to);
       if(request!==state.routeRequest)return;
+      if(!a||!b){
+        setText('routeStatus','Choose the intended US start and destination matches above, then calculate again. No location was guessed.');
+        return;
+      }
       const trips=await routing(a,b);
       if(request!==state.routeRequest)return;
       state.evidenceAbort?.abort();
@@ -1059,6 +1116,8 @@
     state.evidenceAbort=null;
     state.routeChoices=[];
     state.routeComparisons=[];
+    clearRouteCandidate('from');
+    clearRouteCandidate('to');
     renderRouteComparisons();
     $('routeChoice').replaceChildren();
     $('routeChoice').disabled=true;
@@ -1106,6 +1165,9 @@
       if (state.routeCoverage==='complete') computeObservations();
     });
     $('routeForm').addEventListener('submit',planRoute);
+    for(const slot of ['from','to']) {
+      $(slot).addEventListener('input',()=>clearRouteCandidate(slot));
+    }
     $('routeChoice').addEventListener('change',()=>selectRoute(Number($('routeChoice').value)));
     $('sampleRoute').addEventListener('click',()=>{
       $('from').value='Sacramento, California';
