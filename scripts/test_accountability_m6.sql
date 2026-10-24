@@ -5,6 +5,7 @@ begin
  if not exists(select 1 from pg_class where oid='public.flock_accountability_events'::regclass
    and reloptions @> array['security_invoker=true']::text[]) then
    raise exception 'Accountability feed must enforce caller row security'; end if;
+ if not exists(select 1 from pg_class where oid='public.flock_accountability_directory'::regclass and reloptions @> array['security_invoker=true']::text[]) then raise exception 'Public index does not honor RLS'; end if;
  if has_table_privilege('anon','public.flock_accountability_roles','INSERT')
    or has_table_privilege('authenticated','public.flock_accountability_roles','UPDATE')
    or has_table_privilege('service_role','public.flock_accountability_roles','INSERT') then
@@ -31,11 +32,13 @@ begin;
 set local role anon;
 do $$
 begin
- if not has_table_privilege('anon','public.flock_accountability_events','SELECT')
+ if not has_table_privilege('anon','public.flock_accountability_directory','SELECT')
+    or not has_table_privilege('anon','public.flock_accountability_events','SELECT')
     or not has_column_privilege('anon','public.flock_accountability_roles','person_name','SELECT') then
    raise exception 'Public accountability feeds inaccessible';end if;
  if has_table_privilege('anon','public.flock_accountability_roles','UPDATE') then
    raise exception 'Public personnel edits possible';end if;
+ if (select count(*) from public.flock_accountability_directory) > (select count(*) from public.flock_accountability_events) then raise exception 'Directory duplicates source rows';end if;
  if (select count(*) from public.flock_accountability_roles)<>3 then
    raise exception 'Public role filtering failed';end if;
 end $$;
