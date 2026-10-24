@@ -112,12 +112,15 @@ async function loadOwnReports(){
      sourceButton.type='button';sourceButton.textContent='Add missing source link';
      sourceButton.addEventListener('click',async()=>{
        const raw=sourceField.value.trim();
-       if(!/^https:\\/\\/[a-z0-9.-]+(?:\\/|$)/i.test(raw)){
-         status('An original HTTPS source URL is required.');return;
-       }
+       let url;
+       try{
+         const parsed=new URL(raw);
+         if(parsed.protocol!=='https:'||!/^[a-z0-9.-]+$/i.test(parsed.hostname)||
+            parsed.username||parsed.password)throw Error('Not a direct HTTPS URL');
+         url=parsed.href;
+       }catch{status('An original HTTPS source URL is required.');return;}
        sourceButton.disabled=true;
        try{
-         const url=new URL(raw).href;
          const {data,error}=await client.from('flock_community_submissions')
            .update({original_source_url:url})
            .eq('submission_id',report.submission_id)
