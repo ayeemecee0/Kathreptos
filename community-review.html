@@ -45,11 +45,13 @@ async function load(){
       const a=document.createElement('a');a.href=signed.data.signedUrl;a.textContent='Open evidence photo';a.target='_blank';a.rel='noopener noreferrer';article.append(a);
     }
   });article.append(evidenceButton);
+  const reason=document.createElement('textarea');reason.placeholder='Required: evidence assessment / reason for action (15+ characters)';reason.maxLength=1500;reason.rows=3;reason.style.width='100%';article.append(reason);
   for(const [label,value] of [['Needs evidence','needs_evidence'],['Reject','rejected'],['Incorporate into research','incorporated']]){
     const button=document.createElement('button');button.type='button';button.textContent=label;
     button.addEventListener('click',async()=>{
+      if(reason.value.trim().length<15){say('Provide a review rationale of at least 15 characters.');return;}
       button.disabled=true;
-      const {error}=await api.rpc('set_community_review_status',{p_id:r.submission_id,p_status:value});
+      const {error}=await api.rpc('set_community_review_status',{p_id:r.submission_id,p_status:value,p_note:reason.value.trim()});
       if(error){say('Review failed: '+error.message);button.disabled=false;return;}
       say('Updated report status. No camera publication occurred.');await load();
     });article.append(button);
