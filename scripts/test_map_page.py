@@ -88,6 +88,16 @@ class MapPageTests(unittest.TestCase):
         self.assertIn('Synthetic',old)
         self.assertIn('ORIGINAL SIMULATOR',self.html)
 
+    def test_route_alternatives_accessible_and_explicitly_modeled(self):
+        self.assertIn('id="routeChoice"',self.html)
+        self.assertIn('id="routeChoiceStatus"',self.html)
+        self.assertIn('routing-routes.js',self.html)
+        self.assertIn('alternatives=true',self.script)
+        self.assertIn('Routing.readAlternatives',self.script)
+        self.assertIn('state.evidenceAbort?.abort()',self.script)
+        self.assertIn('cameraRows(box,controller.signal)',self.script)
+        self.assertIn('state.route!==route',self.script)
+
 
 if __name__=='__main__':
     unittest.main()
