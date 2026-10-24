@@ -17,6 +17,12 @@ class ReviewRegistry(unittest.TestCase):
                       r.original_domain('gis.othercity.wa.us'))
   self.assertNotEqual(r.original_domain('maps.county1.co.us'),
                       r.original_domain('maps.county2.co.us'))
+  self.assertEqual(r.original_domain('gis.districta.k12.wa.us'),
+                   'districta.k12.wa.us')
+  self.assertNotEqual(r.original_domain('gis.districta.k12.wa.us'),
+                      r.original_domain('gis.districtb.k12.wa.us'))
+  self.assertNotEqual(r.original_domain('gis.citya.co.wa.us'),
+                      r.original_domain('gis.cityb.co.wa.us'))
   self.assertEqual(r.original_domain('maps.alachuacounty.us'),'alachuacounty.us')
   candidate={**GOOD,
     'original_gis_page':'https://gis.springfield.wa.us/GIS',
