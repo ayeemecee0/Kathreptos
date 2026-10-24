@@ -15,6 +15,7 @@ on:
       - 'scripts/smoke_geoapify.cjs'
       - 'scripts/smoke_geoapify_live.cjs'
       - 'scripts/smoke_community.cjs'
+      - 'scripts/smoke_community_authenticated_mock.cjs'
       - 'scripts/smoke_accountability.cjs'
       - 'scripts/smoke_analytics.cjs'
       - 'scripts/smoke_accessibility.cjs'
@@ -68,6 +69,7 @@ jobs:
           node scripts/smoke_mobile.cjs
           node scripts/smoke_geoapify.cjs
           node scripts/smoke_community.cjs
+          node scripts/smoke_community_authenticated_mock.cjs
           node scripts/smoke_accountability.cjs
           node scripts/smoke_analytics.cjs
           node scripts/smoke_accessibility.cjs
