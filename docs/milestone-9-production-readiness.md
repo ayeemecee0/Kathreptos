@@ -54,6 +54,14 @@ No paid infrastructure added for this milestone. Free-tier limits and unbounded 
 
 Use maintenance/analytics telemetry to improve national official-source coverage and evidence correctness. New sources must follow the independent verification architecture and cannot be promoted merely from community reports, news, or vendor-advertised material. A fully nationwide inventory is not a realistic sign-off requirement while official camera data remain unavailable; missing records are labeled unknown.
 
+## October 24 owner backup checkpoint and production boundary monitoring
+
+The owner completed the manual Supabase CLI `db dump` export locally on an encrypted Windows computer: `roles.sql`, `schema.sql`, `data.sql` were all nonempty and passed simple keyword/content presence checks. **These private files were not uploaded, opened by Katoptron maintainers, or restore-tested.** They are application-schema/data exports, not a complete Auth or Storage-blob backup; the private recovery gate remains open.
+
+The scheduled production health workflow now probes anonymous requests to private reports, evidence, reviewer registries and sensitive RPCs with only the public browser key. [Health #25](https://github.com/ayeemecee0/Katoptron/actions/runs/40108278198) passed with 13 private boundaries denied, without reading private response bodies. This complements, but does not replace, production SQL grants/RLS tests.
+
+Other production blockers remain: actual credentialed email/Storage acceptance, an authorized restore drill, full Auth/Storage backup, real-device assistive-technology tests, and Geoapify account-side origin/referrer key restrictions and quota monitoring. Supabase dashboard-only controls cannot be validated by a frontend mock.
+
 ## October 23 production-hardening acceptance
 
 - [Validation #440](https://github.com/ayeemecee0/Katoptron/actions/runs/40066618103) passed the required release boundary checks. These deny anonymous reads/writes on private community data, preserve editor-only writes, catch unaudited editor RPC grants, reconcile camera evidence totals, and alert if new unreviewed anonymous privileged functions appear.
