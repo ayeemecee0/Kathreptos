@@ -89,6 +89,8 @@ on:
       - 'analytics.html'
       - 'a11y.css'
       - 'scripts/test_public_accessibility.py'
+      - 'scripts/test_static_release_security.py'
+      - 'review.html'
       - 'scripts/test_accountability_individual.sql'
       - 'scripts/test_accountability_m6.sql'
       - 'accountability.html'
@@ -906,6 +908,7 @@ jobs:
           node scripts/test_routing_provider.js
           python scripts/test_community_frontend_syntax.py
           python scripts/test_public_accessibility.py
+          python scripts/test_static_release_security.py
           node --check route-comparison.js
           node scripts/test_route_comparison.js
           node scripts/test_routing_routes.js
