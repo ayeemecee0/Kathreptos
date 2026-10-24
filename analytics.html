@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>Katoptron | Public evidence analytics</title>
+<meta name="description" content="Open source-backed Flock Safety evidence statistics, dated government record frequencies and state-level documented coverage with uncertainty clearly labeled.">
+<link rel="stylesheet" href="./map.css">
+<style>
+main{max-width:1180px;margin:0 auto;padding:2rem clamp(1rem,3vw,2.5rem) 5rem}
+h1{font-size:clamp(1.6rem,3vw,2.3rem)}h2{font-size:1.25rem;margin-top:2rem}
+p{line-height:1.6;color:#bdcdd9}.notice{padding:1rem;border-left:3px solid #91bed0;background:#152736}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.8rem;margin:1.6rem 0}
+.metric{border:1px solid #385363;border-radius:10px;background:#122431;padding:1rem}
+.metric strong{font-size:clamp(1.35rem,2.5vw,2rem);display:block;font-variant-numeric:tabular-nums;color:#dff6fb}
+.metric span{font-size:.77rem;color:#a8c0cd;line-height:1.5;display:block}
+section{margin-top:2rem}label{display:flex;flex-direction:column;gap:.45rem;font-size:.83rem;color:#c9d7e1;font-weight:600}
+select,button{font:inherit;border:1px solid #597587;background:#142938;color:#e9f2f8;padding:.65rem .75rem;border-radius:7px}
+button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
+.filters{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;margin:1rem 0}
+table{width:100%;border-collapse:collapse;font-size:.86rem}th{text-align:left;font-weight:700;color:#b6cede}
+th,td{border-bottom:1px solid #3b5364;padding:.7rem .5rem}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:#192d3a}.scroller{overflow-x:auto}
+.barwrap{display:flex;align-items:center;gap:.5rem;min-width:150px}
+.bar{display:block;height:10px;background:#6fc9d0;border-radius:4px;max-width:100%;flex:none}
+code{color:#c7edf3}#status{min-height:1.5rem}#timeChart{display:grid;gap:.55rem}
+.timeitem{display:grid;grid-template-columns:90px minmax(60px,1fr) 50px;gap:.8rem;align-items:center}
+.timeitem .bar{height:13px;background:#92b9e5} .footnote{font-size:.82rem;color:#adc0cf}
+a{color:#9cdeee}:focus-visible{outline:3px solid #93d9ed;outline-offset:3px}
+@media(max-width:950px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}th,td{font-size:.77rem}.timeitem{grid-template-columns:85px minmax(30px,1fr) 40px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+</style></head><body>
+<header class="masthead"><a class="brand" href="./index.html"><span class="logo-mark" aria-hidden="true">◈</span><span><strong>KATOPTRON</strong><small>Evidence analytics</small></span></a>
+<nav aria-label="Main navigation"><a href="./index.html">MAP</a><a href="./accountability.html">ACCOUNTABILITY</a><a href="./methodology.html">EVIDENCE METHODS</a></nav></header>
+<main id="main">
+<h1>Public evidence analytics</h1>
+<p>Live counts of independently documented Flock Safety evidence in Katoptron. These are <strong>database coverage metrics</strong>, not nationwide estimates of installed, operational, or currently active cameras.</p>
+<p class="notice" role="note"><strong>Do not interpret a zero as absence of surveillance.</strong> States without published evidence are not listed; their actual camera counts remain unknown. Government program records and approximate areas cannot be added to exact camera totals. Monthly bars count the dates of public records, not deployment activity.</p>
+<p id="status" role="status" aria-live="polite">Loading published evidence…</p>
+<section aria-labelledby="overviewHeading"><h2 id="overviewHeading">Verified evidence snapshot</h2>
+<div class="metrics">
+<div class="metric"><strong id="exact">—</strong><span>Government-sourced exact camera points</span></div>
+<div class="metric"><strong id="corroborated">—</strong><span>Separately corroborated points, not government-verified</span></div>
+<div class="metric"><strong id="programs">—</strong><span>Dated government program disclosures</span></div>
+<div class="metric"><strong id="states">—</strong><span>States with some documented Flock evidence</span></div>
+<div class="metric"><strong id="accountability">—</strong><span>Source-linked government-accountability records</span></div>
+</div>
+<p id="overviewDetail" class="footnote"></p></section>
+<section aria-labelledby="stateHeading"><h2 id="stateHeading">Documented evidence by state</h2>
+<p>Point counts represent published exact coordinates. States with documented programs but zero verified exact pins are shown as <em>location unknown</em>, not camera-free.</p>
+<div class="filters">
+<label>Sort state table
+<select id="sort"><option value="points">Verified exact points</option><option value="programs">Government program records</option><option value="name">State A–Z</option></select></label>
+<button type="button" id="download" disabled>Export state summary CSV</button>
+</div>
+<div class="scroller"><table aria-label="Source-documented government evidence by state">
+<thead><tr><th scope="col">State</th><th scope="col" class="num">Exact points</th><th scope="col">Relative count</th><th scope="col" class="num">Dated programs</th><th scope="col" class="num">Terminated at source date</th><th scope="col" class="num">Accountability records</th></tr></thead>
+<tbody id="stateRows"></tbody></table></div>
+</section>
+<section aria-labelledby="timelineHeading"><h2 id="timelineHeading">Source-dated government records</h2>
+<p>Only records with an explicit evidence date are included. Missing dates are excluded rather than estimated. Spikes indicate available records, not necessarily changes in real deployments or spending.</p>
+<div class="filters"><label>Evidence category
+<select id="category"><option value="">All source-dated records</option><option value="government_program">Government program disclosures</option><option value="agenda_mention">Official agenda mentions</option><option value="editorially_reviewed_action">Editorially reviewed actions</option><option value="recorded_legislative_decision">Recorded legislative decisions</option><option value="executed_contract">Signed agreements</option><option value="agency_reported_deployment">Reported deployments</option><option value="contract_form_document">Agreement-form PDFs</option></select></label></div>
+<div id="timeChart" role="list" aria-label="Counts of published records by source evidence month"></div>
+</section>
+<p class="footnote">Public, read-only statistics. No user routes, plate numbers, identifiable traveler data, or private community reports are gathered by this dashboard. Records change when sources are independently verified or revoked. <a href="./accountability.html">Inspect original government sources</a> · <a href="./privacy.html">Privacy</a>.</p>
+</main>
+<script src="./config.js"></script><script>
+'use strict';
+const cfg=window.KATOPTRON_CONFIG;
+const $=id=>document.getElementById(id);
+let stateData=[],timeData=[];
+function count(n){return Number(n??0).toLocaleString('en-US');}
+async function read(table){
+ if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey)throw Error('Public connection unavailable');
+ const response=await fetch(cfg.supabaseUrl+'/rest/v1/'+table+'?select=*&limit=500',
+   {headers:{apikey:cfg.supabasePublishableKey},cache:'no-store',referrerPolicy:'no-referrer'});
+ if(!response.ok)throw Error(table+' HTTP '+response.status);
+ const rows=await response.json();
+ if(!Array.isArray(rows)||rows.length>=500)throw Error(table+' invalid or truncated');
+ return rows;
+}
+function element(tag,value,cls){const e=document.createElement(tag);if(value!=null)e.textContent=String(value);if(cls)e.className=cls;return e;}
+function put(id,value){$(id).textContent=value;}
+function bar(percent){
+ const wrap=element('div',null,'barwrap');
+ const visual=element('span',null,'bar');visual.style.width=(Math.max(0,Math.min(100,percent)))+'%';visual.setAttribute('aria-hidden','true');
+ wrap.append(visual);return wrap;
+}
+function renderStates(){
+ const sorted=[...stateData],s=$('sort').value;
+ sorted.sort((a,b)=>s==='name'?a.state_code.localeCompare(b.state_code):
+  s==='programs'?Number(b.source_dated_program_records)-Number(a.source_dated_program_records)||a.state_code.localeCompare(b.state_code):
+   Number(b.verified_exact_gis_points)-Number(a.verified_exact_gis_points)||a.state_code.localeCompare(b.state_code));
+ const max=Math.max(1,...sorted.map(x=>Number(x.verified_exact_gis_points)));
+ const body=$('stateRows');body.replaceChildren();
+ for(const r of sorted){
+  const tr=document.createElement('tr');
+  tr.append(element('th',r.state_code));tr.lastChild.setAttribute('scope','row');
+  tr.append(element('td',Number(r.verified_exact_gis_points)===0?'Unknown (no exact pins)':count(r.verified_exact_gis_points),'num'));
+  const barCell=element('td');barCell.append(bar(Number(r.verified_exact_gis_points)/max*100));tr.append(barCell);
+  for(const key of ['source_dated_program_records','terminated_as_of_source','accountability_records'])tr.append(element('td',count(r[key]),'num'));
+  body.append(tr);
+ }
+}
+function renderMonths(){
+ const category=$('category').value;
+ const grouped=new Map();
+ for(const r of timeData)if(!category||r.event_type===category){
+   grouped.set(r.evidence_month,(grouped.get(r.evidence_month)||0)+Number(r.source_dated_records));
+ }
+ const months=[...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+ const max=Math.max(1,...months.map(x=>x[1]));
+ const box=$('timeChart');box.replaceChildren();
+ if(!months.length){box.append(element('p','No source-dated published records for this category. This is not evidence of no government activity.'));return;}
+ for(const [month,n] of months){
+  const row=element('div',null,'timeitem');row.setAttribute('role','listitem');
+  row.setAttribute('aria-label',month.slice(0,7)+': '+n+' source-dated records');
+  row.append(element('span',month.slice(0,7)));
+  row.append(bar(n/max*100));row.append(element('strong',count(n)));box.append(row);
+ }
+}
+function csvEscape(x){
+ let value=String(x??'');
+ if(/^[\s]*[=+@\-\t\r]/.test(value))value="'"+value;
+ return '"'+value.replaceAll('"','""')+'"';
+}
+$('download').addEventListener('click',()=>{
+ const cols=['state_code','verified_exact_gis_points','verified_point_jurisdictions','source_dated_program_records','terminated_as_of_source','accountability_records','agenda_mentions','signed_contracts'];
+ const csv=[cols.join(','),...stateData.map(r=>cols.map(k=>csvEscape(r[k])).join(','))].join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const a=document.createElement('a');a.href=url;a.download='katoptron-source-evidence-by-state.csv';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),2000);
+});
+$('sort').addEventListener('change',renderStates);
+$('category').addEventListener('change',renderMonths);
+async function start(){
+ try{
+  const [overview,states,months]=await Promise.all([
+   read('flock_analytics_overview'),read('flock_analytics_states'),read('flock_analytics_monthly_evidence')
+  ]);
+  if(overview.length!==1)throw Error('No unique national overview returned');
+  const o=overview[0];stateData=states;timeData=months;
+  put('exact',count(o.exact_government_points));put('corroborated',count(o.separately_corroborated_points));
+  put('programs',count(o.source_dated_programs));put('states',count(o.states_with_any_documented_evidence));
+  put('accountability',count(o.accountability_records));
+  put('overviewDetail',count(o.terminated_at_source_date)+' program records indicate termination as of source date; '+
+    count(o.states_with_exact_gis_evidence)+' states contain exact sourced GIS points; '+
+    count(o.documented_signed_contracts)+' signed agreements and '+count(o.documented_individual_positions)+
+    ' explicitly documented individual official positions currently published.');
+  renderStates();renderMonths();$('download').disabled=false;
+  put('status','Loaded current published evidence. Counts update from the database when original-source records change.');
+ }catch(error){put('status','Published evidence analytics unavailable: '+error.message);}
+}
+start();
+</script></body></html>
