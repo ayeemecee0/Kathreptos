@@ -73,6 +73,10 @@ on:
       - 'supabase/migrations/067_evidence_removal_after_withdrawal.sql'
       - 'supabase/migrations/068_automated_private_community_stage.sql'
       - 'supabase/migrations/069_explicit_community_publication_consent.sql'
+      - 'supabase/migrations/070_accountability_evidence_feed.sql'
+      - 'supabase/migrations/071_accountability_dated_roles.sql'
+      - 'scripts/test_accountability_m6.sql'
+      - 'accountability.html'
       - 'community-review.html'
       - 'scripts/test_community_submission_security.sql'
       - 'scripts/test_milestone5_submission_security.sql'
@@ -467,6 +471,12 @@ jobs:
             -f supabase/migrations/068_automated_private_community_stage.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/069_explicit_community_publication_consent.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/070_accountability_evidence_feed.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/071_accountability_dated_roles.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f scripts/test_accountability_m6.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_milestone5_submission_security.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
