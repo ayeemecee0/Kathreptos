@@ -83,6 +83,7 @@ on:
       - 'supabase/migrations/079_one_time_community_source_followup.sql'
       - 'scripts/test_community_source_followup.sql'
       - 'scripts/test_release_security_invariants.sql'
+      - 'scripts/rehearse_ci_application_restore.sh'
       - 'scripts/test_community_multi_actor_lifecycle.sql'
       - 'scripts/test_community_rolling_rate_limit.sql'
       - 'scripts/test_analytics_m7.sql'
@@ -913,3 +914,7 @@ jobs:
           node scripts/test_route_comparison.js
           node scripts/test_routing_routes.js
           node scripts/test_route_geometry.js
+      - name: Verify disposable PostgreSQL dump and actual recovery
+        env:
+          PGPASSWORD: test-only-password
+        run: bash scripts/rehearse_ci_application_restore.sh
