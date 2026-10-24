@@ -71,6 +71,7 @@ on:
       - 'supabase/migrations/065_audited_community_candidate_bridge.sql'
       - 'community-review.html'
       - 'scripts/test_community_submission_security.sql'
+      - 'scripts/test_milestone5_submission_security.sql'
       - 'submit.html'
       - 'scripts/test_tiered_source_bridge.sql'
       - 'privacy.html'
@@ -456,6 +457,8 @@ jobs:
             -f supabase/migrations/062_community_reviewer_queue.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/065_audited_community_candidate_bridge.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f scripts/test_milestone5_submission_security.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.withdraw_programme_area_after_link_loss(text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
