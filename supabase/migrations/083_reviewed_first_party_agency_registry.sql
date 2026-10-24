@@ -175,3 +175,34 @@ grant execute on function public.register_reviewed_first_party_flock_source(
 
 comment on function public.register_reviewed_first_party_flock_source(text,text,text,text,text,text,jsonb) is
 'Approved original government GIS sources only; cannot add a new approval root. Service-role verifier must recheck live original agency webpage, GIS Flock layer, complete typed twice-read IDs and government georeferenced points. Returns false or errors before public camera publication.';
+
+-- A withdrawn government-source approval must not leave a previously trusted
+-- source serving public records. The established public RLS predicate already
+-- hides canonical records whose trusted GIS source is no longer verified.
+create or replace function public.revoke_first_party_when_reviewed_source_lost()
+returns trigger language plpgsql security definer set search_path=''
+as $revoke_reviewed_gis$
+begin
+ if tg_op='DELETE' or (old.review_status='verified' and new.review_status<>'verified') then
+   update public.trusted_flock_gis_sources
+      set source_status='revoked'
+    where source_key=old.source_key and source_status='verified';
+   update public.gis_government_host_authorities
+      set verification_status='revoked'
+    where authority_key=old.source_key and verification_status='verified';
+   update public.gis_verification_profiles
+      set profile_status='revoked'
+    where source_key=old.source_key and profile_status='verified';
+ end if;
+ if tg_op='DELETE' then return old;end if;
+ return new;
+end
+$revoke_reviewed_gis$;
+revoke all on function public.revoke_first_party_when_reviewed_source_lost()
+ from public,anon,authenticated,service_role;
+drop trigger if exists revoke_first_party_when_reviewed_source_lost
+ on public.reviewed_first_party_gis_roots;
+create trigger revoke_first_party_when_reviewed_source_lost
+ after update of review_status or delete
+ on public.reviewed_first_party_gis_roots
+ for each row execute function public.revoke_first_party_when_reviewed_source_lost();
