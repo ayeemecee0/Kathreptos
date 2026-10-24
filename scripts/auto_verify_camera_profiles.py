@@ -18,7 +18,6 @@ from collections import Counter
 
 from auto_verify_flock_agenda import api_request
 from paged_supabase import fetch_all
-from paged_supabase import fetch_all
 from auto_verify_camera_gis import (
     get_official_json, classify_camera_type, write_verified,
     mark_rechecked, revoke_stale
