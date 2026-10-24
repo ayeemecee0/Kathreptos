@@ -24,8 +24,15 @@ def original_domain(host):
     # county.co.us does not grant other municipalities the same authority.
     # Compare one additional owner label for state-code and reserved .us
     # suffixes instead of trusting the shared "wa.us"/"co.us" suffix.
-    if labels[-1]=='us' and (len(labels[-2])==2 or
-            labels[-2] in {'k12','state','pvt','fed','dni','isa','kids','nsn','lib','gen'}):
+    if labels[-1]=='us' and len(labels[-2])==2:
+        # School, county and library namespaces may themselves be delegated
+        # under a state public suffix (e.g. school.k12.wa.us).
+        if len(labels)>=4 and labels[-3] in {
+                'k12','co','ci','city','county','town','lib','gen'}:
+            return '.'.join(labels[-4:])
+        return '.'.join(labels[-3:]) if len(labels)>=3 else None
+    if labels[-1]=='us' and labels[-2] in {
+            'k12','state','pvt','fed','dni','isa','kids','nsn','lib','gen'}:
         return '.'.join(labels[-3:]) if len(labels)>=3 else None
     return '.'.join(labels[-2:])
 
