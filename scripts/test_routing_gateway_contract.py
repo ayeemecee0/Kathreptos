@@ -20,6 +20,21 @@ class GatewayContract(unittest.TestCase):
         self.assertIn("GEOCODING_UPSTREAM: ",c)
         self.assertIn("127.0.0.1:8088:8080",c)
         self.assertIn("read_only: true",c)
+    def test_upstreams_fail_closed_before_nginx_starts(self):
+        import subprocess,os
+        script=ROOT/"01-validate-upstreams.sh"
+        def run(overrides):
+            env={"PATH":os.environ.get("PATH","/usr/bin:/bin"),**overrides}
+            return subprocess.run(["sh",str(script)],env=env,capture_output=True,text=True)
+        self.assertNotEqual(run({}).returncode,0)
+        self.assertNotEqual(run({"ROUTING_UPSTREAM":"https://router.project-osrm.org",
+            "GEOCODING_UPSTREAM":"http://internal:2322"}).returncode,0)
+        self.assertNotEqual(run({"ROUTING_UPSTREAM":"http://internal:5000",
+            "GEOCODING_UPSTREAM":"https://photon.komoot.io"}).returncode,0)
+        self.assertNotEqual(run({"ROUTING_UPSTREAM":"https://user:key@internal.example",
+            "GEOCODING_UPSTREAM":"http://internal:2322"}).returncode,0)
+        self.assertEqual(run({"ROUTING_UPSTREAM":"http://routing.internal:5000",
+            "GEOCODING_UPSTREAM":"http://geocode.internal:2322"}).returncode,0)
     def test_config_not_a_demo_or_secret(self):
         env=(ROOT/".env.example").read_text()
         self.assertNotIn("api_key=",env)
