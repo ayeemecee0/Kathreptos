@@ -52,9 +52,24 @@ def run(dry_run=False,publish=False):
                 row=current[0]
                 if row.get('gis_layer_url')!=verified['layer_url'] or row.get('source_status')!='verified':
                     raise ValueError('Previously approved first-party GIS source changed or was revoked')
+                # Persist a *fresh* independent original-agency portal +
+                # complete double-checked GIS inventory proof, separate from
+                # the existing camera-only GIS source timestamp. A failed
+                # original page check above never refreshes this receipt.
+                updated=api_request('rpc/refresh_reviewed_first_party_gis_receipt',
+                  method='POST',payload={
+                    'p_source_key':source_key,
+                    'p_page_sha256':verified['original_page_sha256'],
+                    'p_layer_sha256':verified['geometry_sha256'],
+                    'p_camera_count':len(original_points),
+                    'p_identity_basis':verified['identifier_basis'],
+                  })
+                if updated is not True:
+                    raise ValueError('Original government publisher recheck receipt refused')
                 metrics['existing_authorities_revalidated']+=1
-                # Existing source goes through standard profile recheck; no
-                # new DB grants, approvals, or duplicate source insertions.
+                metrics['fresh_original_publisher_receipts']+=1
+                # Existing camera source receives its normal independent
+                # GIS profile recheck by the scheduled verification workflow.
                 continue
             # Staging is a PRIVATE ledger operation, not automatic publication.
             stage_candidate({
@@ -94,7 +109,7 @@ def run(dry_run=False,publish=False):
         metrics['verification_errors']+=totals.get('errors',0)
     for name in ('qualified_sources','qualified_source_points',
                  'private_candidates_staged','new_authorities_registered',
-                 'existing_authorities_revalidated',
+                 'existing_authorities_revalidated','fresh_original_publisher_receipts',
                  'verified_points_published_or_rechecked','held',
                  'verification_errors'):
         print('ORIGINAL AGENCY GIS',name,metrics[name])
