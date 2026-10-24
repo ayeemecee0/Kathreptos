@@ -75,6 +75,22 @@ begin
     and cmd='DELETE' and qual like '%withdrawn%'
  ) then raise exception 'Withdrawn-report Storage API deletion policy absent';end if;
 end $qa$;
+-- Immediately on withdrawal, owner keeps listing rights for a Storage API
+-- deletion retry, but a reviewer must lose every direct-download/listing path.
+select set_config('request.jwt.claim.sub',current_setting('katoptron.storage_editor'),true);
+do $qa$
+begin
+ if exists(select 1 from storage.objects
+   where bucket_id='katoptron-community-evidence'
+   and name like current_setting('katoptron.storage_owner')||'/%') then
+   raise exception 'Withdrawn photo remains readable to an editorial reviewer';
+ end if;
+ if exists(select 1 from public.community_report_attachment_paths(
+    current_setting('katoptron.storage_case')::uuid)) then
+   raise exception 'Reviewer may mint signed URLs for withdrawn report';
+ end if;
+end $qa$;
+select set_config('request.jwt.claim.sub',current_setting('katoptron.storage_owner'),true);
 do $qa$
 begin
  begin
