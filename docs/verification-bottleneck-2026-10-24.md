@@ -178,3 +178,21 @@ RLS policies simply to make that advisory disappear.
 
 No new paid hosting was provisioned. Maintain the approximately 10% discovery
 maintenance share and the exact-source / non-operational-status warnings.
+
+
+### Final discovery pass: delegated namespaces and state-rotation wording
+
+Further validation covers nested delegated local-government and school-domain
+namespaces such as `district.k12.wa.us`, ensuring unrelated agencies cannot
+be treated as one original map publisher merely because they share a public
+suffix. The reviewed GIS source record is still separately bound by an
+owner-approved database authority row.
+
+The zero-cost nationwide crawler now alternates the government-search
+wording used for each state's successive 10-day cycles: "Flock Safety"
+and "Flock cameras". The fifty-state rotation and independent original
+source-page checks remain unchanged; this only increases the variety of
+evidence leads investigated. No search-engine snippet authorizes a camera pin.
+
+Production readiness remains explicitly **beta**, not an assertion of complete
+nationwide coverage or current live camera operation.
