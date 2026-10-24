@@ -217,6 +217,10 @@ def query_gis(s,p):
     else:
         fields.append(p["camera_id_field"])
         if p.get("vendor_field"):fields.append(p["vendor_field"])
+    # A first-party government Flock source may use its typed original
+    # objectid as its only per-camera identifier. Do not request the same
+    # ArcGIS field twice when it is both ObjectID and camera ID.
+    fields=list(dict.fromkeys(fields))
     url=s["gis_layer_url"]+"/query?"
     def read_ids():
         q=urllib.parse.urlencode({"where":"1=1","returnIdsOnly":"true","f":"json"})
