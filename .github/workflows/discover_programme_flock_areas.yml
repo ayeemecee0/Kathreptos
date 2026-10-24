@@ -1,0 +1,36 @@
+name: Find original government Flock programme GIS polygons
+
+on:
+  schedule:
+    - cron: '41 18 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover_programme_flock_areas.py'
+      - 'scripts/test_discover_programme_flock_areas.py'
+      - 'supabase/migrations/055_government_program_sourced_flock_areas.sql'
+      - '.github/workflows/discover_programme_flock_areas.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate same-original-government and polygon safeguards
+        run: python -m unittest discover -s scripts -p 'test_discover_programme_flock_areas.py' -v
+      - name: Check original Flock programme GIS polygons without inferred geometry
+        run: python scripts/discover_programme_flock_areas.py
