@@ -27,6 +27,7 @@ STAGES=(
  ('direct_government_gis_receipts','government_gis_disclosure_leads',''),
  ('externally_verified_authorities','official_external_flock_gis_authorities','verification_status=eq.verified'),
  ('first_party_agency_source_receipts','first_party_agency_gis_receipts',''),
+ ('reviewed_first_party_source_approvals','reviewed_first_party_gis_roots','review_status=eq.verified'),
 )
 # Stable primary keys guarantee no SELECT * or latent confidential fields.
 IDENTITIES={
@@ -38,6 +39,7 @@ IDENTITIES={
  'government_gis_disclosure_leads':'disclosure_url',
  'official_external_flock_gis_authorities':'source_key',
  'first_party_agency_gis_receipts':'source_key',
+ 'reviewed_first_party_gis_roots':'source_key',
 }
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -119,6 +121,8 @@ def tally(key,send=transport):
         # Existing public camera health monitor also checks source-specific
         # baselines; this catches total publication loss before a false zero.
         raise ValueError('Verified exact camera total below reviewed baseline')
+    if stats['reviewed_first_party_source_approvals']<1:
+        raise ValueError('Original agency GIS reviewer approval lost')
     if stats['first_party_agency_source_receipts']<1:
         raise ValueError('Independently authenticated original agency GIS authority missing')
     # Empty direct links are an actionable discovery weakness, but not
