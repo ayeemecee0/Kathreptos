@@ -70,6 +70,8 @@ on:
       - 'map.js'
       - 'route-geometry.js'
       - 'route-comparison.js'
+      - 'routing-provider.js'
+      - 'scripts/test_routing_provider.js'
       - 'map.css'
       - 'legacy-simulator.html'
       - 'records.html'
@@ -811,6 +813,8 @@ jobs:
           node --check route-geometry.js
           node --check map.js
           node --check routing-routes.js
+          node --check routing-provider.js
+          node scripts/test_routing_provider.js
           node --check route-comparison.js
           node scripts/test_route_comparison.js
           node scripts/test_routing_routes.js
