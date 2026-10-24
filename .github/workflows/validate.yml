@@ -78,6 +78,7 @@ on:
       - 'supabase/migrations/072_accountability_de_duplicate_public_index.sql'
       - 'supabase/migrations/073_explicit_official_positions.sql'
       - 'supabase/migrations/074_readonly_public_analytics.sql'
+      - 'supabase/migrations/075_private_review_fk_indexes.sql'
       - 'scripts/test_analytics_m7.sql'
       - 'analytics.html'
       - 'a11y.css'
@@ -491,6 +492,8 @@ jobs:
             -f scripts/test_accountability_individual.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/074_readonly_public_analytics.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/075_private_review_fk_indexes.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_analytics_m7.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
