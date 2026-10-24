@@ -26,7 +26,7 @@
   <p>A US-wide map for source-verified Flock Safety camera locations. Missing records mean unknown coverage, not an absence of surveillance.</p><a class="mobile-map-link" href="#map">Jump to live camera map ↓</a></div>
   <section class="sidebar-section" aria-labelledby="coverage-heading">
     <div class="section-heading"><h2 id="coverage-heading">Camera coverage</h2><span id="coverageSpinner" class="muted tiny">Loading…</span></div>
-    <div class="stats"><div><strong id="exactCount">—</strong><span>Exact camera pins in view</span></div><div><strong id="areaCount">—</strong><span>Approximate areas in view</span></div></div>
+    <div class="stats"><div><strong id="exactCount">—</strong><span>Exact camera pins in view</span></div><div><strong id="areaCount">—</strong><span>Approximate areas in view</span></div><div><strong id="provisionalCount">—</strong><span>Provisional points shown</span></div></div>
     <p id="nationalStats" class="micro" role="status">Loading national published evidence totals…</p>
     <details class="state-evidence-index">
       <summary>Published evidence by state</summary>
@@ -47,6 +47,8 @@
     <label class="toggle"><input id="showExact" type="checkbox" checked><span class="dot exact"></span> Verified exact locations</label>
     <p class="micro">Teal pins: original GIS checked within 72 hours. Amber pins: check overdue or timestamp unavailable. Neither color establishes that a camera is active or has recorded any vehicle.</p>
     <label class="toggle"><input id="showApprox" type="checkbox" checked><span class="dot approx"></span> Approximate deployment areas</label>
+    <label class="toggle"><input id="showProvisional" type="checkbox"><span class="dot provisional"></span> Independently corroborated · provisional</label>
+    <p class="micro">Off by default. Corroborated locations require multiple separately reviewed sources, but are not government-verified and never count toward the default camera encounter simulation. Candidate reports remain private.</p>
     <p class="micro" id="coverageStatus" role="status">Loading verified location data from Supabase…</p>
     <button class="text-button" id="viewPilot" type="button">Explore Monroe, WA verified cameras →</button><button class="text-button" id="viewColorado" type="button" style="margin-left:12px">Explore El Paso County, CO →</button><button class="text-button" id="viewPeoria" type="button" style="margin-left:12px">Explore Peoria, AZ →</button><button class="text-button" id="viewLawrenceville" type="button">Explore Lawrenceville, GA →</button><button class="text-button" id="viewWebster" type="button" style="margin-left:12px">Explore Webster, TX →</button><button class="text-button" id="viewNewportBeach" type="button" style="margin-left:12px">Explore Newport Beach, CA →</button>
   </section>
@@ -104,6 +106,7 @@
    <div class="legend" aria-label="Map legend">
       <span><i class="legend-dot exact"></i> Verified location</span>
       <span><i class="legend-dot approx"></i> Approximate area</span>
+      <span><i class="legend-dot provisional"></i> Corroborated · provisional</span>
       <span><i class="legend-dot hypothetical"></i> Simulation only</span>
    </div>
    <div class="timeline">
