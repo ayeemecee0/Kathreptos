@@ -16,10 +16,12 @@ class HealthTests(unittest.TestCase):
  def test_new_verified_sources_part_of_baseline(self):
   rows=([row('Monroe, WA')]*18+[row('El Paso County, CO')]*16+
         [row('Peoria, AZ')]*74+[row('Lawrenceville, GA')]*45+
-        [row('Webster, TX')]*53+[row('Newport Beach, CA')]*69)
+        [row('Webster, TX')]*53+[row('Newport Beach, CA')]*69+
+        [row('Alachua County, FL')]*18)
   counts,_=m.assess(rows,now=NOW)
-  self.assertEqual(sum(counts.values()),275)
+  self.assertEqual(sum(counts.values()),293)
   self.assertEqual(counts['Webster, TX'],53)
+  self.assertEqual(counts['Alachua County, FL'],18)
  def test_withdrawn_gis_source_triggers_alert(self):
   with self.assertRaisesRegex(ValueError,'below baseline'):
    m.assess([row('Peoria, AZ')]*73,now=NOW,minimum={'Peoria, AZ':74})
