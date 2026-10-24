@@ -57,7 +57,7 @@ const assert=require('node:assert/strict');
     results.routing.length+' geocoding='+results.geocoding.length);
  }catch(err){
   console.error('LIVE GEOAPIFY FAILED (no provider URL or credentials printed): '+
-    String(err.message||'acceptance failure').replace(/8c54de2386764931baa0f9aef9033ef3/gi,'[redacted]').slice(0,240));
+    err.name);
   console.error('Geoapify status codes: '+JSON.stringify(results));
   process.exitCode=1;
  }finally{await browser.close();}
