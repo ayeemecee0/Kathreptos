@@ -104,6 +104,8 @@ const assert=require('node:assert/strict');
   await page.locator('#planRoute').click();
   await page.waitForFunction(()=>Number(document.querySelector('#nearbyCount')?.textContent)>=1,{timeout:25000});
   assert.ok(Number(await page.locator('#observationCount').textContent())>=1);
+  assert.equal(await page.locator('#routeChoice option').count(),1);
+  assert.equal(await page.locator('#routeChoice').isDisabled(),true);
   assert.equal(await page.locator('#hypothetical').isChecked(),false);
   const intro=await page.locator('#timelineIntro').textContent();
   assert.ok(intro.includes('NOT a camera read-range'),intro);
