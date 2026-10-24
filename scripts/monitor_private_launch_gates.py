@@ -26,6 +26,7 @@ STAGES=(
  ('original_government_gis_pages','government_gis_search_queue',''),
  ('direct_government_gis_receipts','government_gis_disclosure_leads',''),
  ('externally_verified_authorities','official_external_flock_gis_authorities','verification_status=eq.verified'),
+ ('first_party_agency_source_receipts','first_party_agency_gis_receipts',''),
 )
 # Stable primary keys guarantee no SELECT * or latent confidential fields.
 IDENTITIES={
@@ -36,6 +37,7 @@ IDENTITIES={
  'government_gis_search_queue':'page_url',
  'government_gis_disclosure_leads':'disclosure_url',
  'official_external_flock_gis_authorities':'source_key',
+ 'first_party_agency_gis_receipts':'source_key',
 }
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -113,10 +115,12 @@ def tally(key,send=transport):
         if filters:
             url+='&'+filters
         stats[label]=extract_count(send('HEAD',url,key))
-    if stats['verified_exact_camera_points']<275:
+    if stats['verified_exact_camera_points']<293:
         # Existing public camera health monitor also checks source-specific
         # baselines; this catches total publication loss before a false zero.
         raise ValueError('Verified exact camera total below reviewed baseline')
+    if stats['first_party_agency_source_receipts']<1:
+        raise ValueError('Independently authenticated original agency GIS authority missing')
     # Empty direct links are an actionable discovery weakness, but not
     # evidence loss: never auto-promote ambiguous or vendor-controlled maps.
     return stats
