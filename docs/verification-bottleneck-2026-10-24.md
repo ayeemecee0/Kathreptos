@@ -42,3 +42,21 @@ The two government-hosted overlaps contain **32 original GIS point features**, a
 5. **Infrastructure:** retain the no-paid-service policy and approximately 10% automated discovery maintenance budget.
 
 **Acceptance limit:** The bottleneck is now classified and actively monitored, not completely resolved nationwide. More original government ownership disclosures are required before any of the seven externally hosted GIS candidates can become source-verified camera locations.
+
+## Independent original-government-to-Esri organization link search
+
+The zero-cost [original government Esri endorsement workflow #2](https://github.com/ayeemecee0/Katoptron/actions/runs/40133019083) passed its original-agency link and ownership regression tests and read-only live audit:
+
+- **22 original agency pages read successfully**, one page unavailable;
+- **six exact original ArcGIS publisher organizations identified** from the externally hosted Flock layer's original service item and publisher profile;
+- **none of the 22 original government pages linked the matching ArcGIS organization** through the restricted organization-ID or verified Esri organization portal URL forms;
+- one external ArcGIS layer still has no independently recoverable organization identity; and
+- **zero new sources approved and zero cameras published**.
+
+This is a real evidence bottleneck, not a code failure. Org names are self-asserted on Esri: an account whose title sounds governmental is not authority to label private map pins as police-operated Flock cameras. The newly introduced [government-to-Esri link probe](../scripts/probe_original_gov_arcgis_org_links.py) runs weekly with bounded original-government pages. It will surface an authenticated publisher-relationship lead if new original agency records start disclosing the correct Esri organization, without inferring installed camera locations.
+
+**Highest-leverage next source expansion:** prioritize independent same-domain government GIS inventories from newly vetted agencies and original public documents with exact installation locations; expand the original source registry when authenticated, and keep separately treating unendorsed third-party Esri/OSM nodes as provisional private leads. Do not spend repeated full verification cycles on the three redundant layers or two overlapping source wrappers.
+
+## Secondary maintenance finding
+
+[Government deployment polygon workflow #6](https://github.com/ayeemecee0/Katoptron/actions/runs/40132616090) remains red because the original Newport Beach GIS service-root catalog still does not return a valid layer listing after a bounded retry. This affects the optional original deployment-polygon crawler, not the independently verified public GIS camera point inventory. The persistent source issue is tracked at [GitHub issue #1](https://github.com/ayeemecee0/Katoptron/issues/1). Previously published camera points must not be revoked solely on this separate polygon discovery failure.
