@@ -11,7 +11,7 @@
   const USA_CENTER = [39, -98];
   const state = {
     map: null, pointLayer: null, areaLayer: null, routeLayer: null, simLayer: null,
-    visible: [], areas: [], programs: [], agendaMentions: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
+    visible: [], tiered: [], tieredUnavailable: false, areas: [], programs: [], agendaMentions: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
     observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null,
     routeChoices: [], routeRequest: 0, evidenceAbort: null
@@ -47,9 +47,13 @@
       return element;
     }
     add('strong', record.label);
-    add('span', record.location_accuracy === 'exact'
-      ? 'Source-verified location · actual detections not available'
-      : 'Approximate deployment area · NOT an individual camera position');
+    add('span',record.evidence_tier==='independently_corroborated'
+      ? 'PROVISIONAL · independently corroborated, NOT government verified. No detections available'
+      : record.evidence_tier==='government_verified'
+        ? 'Government verified via independently reviewed alternate authority evidence'
+        : record.location_accuracy === 'exact'
+          ? 'Source-verified location · actual detections not available'
+          : 'Approximate deployment area · NOT an individual camera position');
     add('span', record.jurisdiction_label);
     add('small', record.evidence_summary);
     add('small', 'Source last checked: ' + shortDate(record.last_source_recheck_at || record.last_confirmed_on));
@@ -66,7 +70,11 @@
     const originalEvidence=safeUrl(record.source_url);
     const arcgisExternal=originalEvidence && /^services[0-9]*\.arcgis\.com$/i
       .test(new URL(originalEvidence).hostname);
-    add('small',record.verification_method === 'official_georeferenced_camera_record_v1'
+    add('small',record.evidence_tier==='independently_corroborated'
+      ? 'Evidence tier: INDEPENDENTLY CORROBORATED · provisional map layer, excluded from simulator'
+      : record.evidence_tier==='government_verified'
+        ? 'Evidence tier: government verified through independently reviewed alternative authority path'
+        : record.verification_method === 'official_georeferenced_camera_record_v1'
       ? (arcgisExternal
           ? 'Evidence tier: government-endorsed EXTERNAL ArcGIS point; government does not host this source'
           : 'Evidence tier: original government-operated GIS point')
@@ -390,6 +398,45 @@
     return rows.filter(x => x && validCoord(Number(x.latitude),Number(x.longitude)) &&
       (x.location_accuracy === 'exact' || x.location_accuracy === 'approximate'));
   }
+  function publicTieredUrl(bounds) {
+    const query=new URLSearchParams({
+      select:'case_key,label,jurisdiction_label,latitude,longitude,evidence_tier,evidence_summary,source_url,published_at',
+      latitude:'gte.'+bounds.south.toFixed(6),
+      longitude:'gte.'+bounds.west.toFixed(6),
+      order:'case_key.asc',limit:String(MAX_VISIBLE)
+    });
+    query.append('latitude','lte.'+bounds.north.toFixed(6));
+    query.append('longitude','lte.'+bounds.east.toFixed(6));
+    return CFG.supabaseUrl.replace(/\\/$/,'')+
+      '/rest/v1/flock_public_tiered_camera_points?'+query.toString();
+  }
+  async function tieredRows(bounds,signal) {
+    const response=await fetch(publicTieredUrl(bounds),{
+      headers:{apikey:CFG.supabasePublishableKey},signal,cache:'no-store'
+    });
+    if(!response.ok)throw new Error('Tiered camera API HTTP '+response.status);
+    const rows=await response.json();
+    if(!Array.isArray(rows)||rows.length>=MAX_VISIBLE)
+      throw new Error('Tiered source list unavailable or truncated; camera coverage unknown');
+    if(rows.some(row=>!row || !validCoord(Number(row.latitude),Number(row.longitude)) ||
+        !['government_verified','independently_corroborated'].includes(row.evidence_tier)))
+      throw new Error('Tiered source contained invalid location or classification');
+    return rows.map(row=>({
+      ...row,record_key:'tiered-'+row.case_key,
+      location_accuracy:'exact',uncertainty_radius_m:0,
+      published_at:row.published_at,
+      last_confirmed_on:null,last_source_recheck_at:null,
+      verification_method:row.evidence_tier==='government_verified'
+        ?'alternative_government_authority_v1':'independent_corroboration_v1'
+    }));
+  }
+  async function routeCameraRows(bounds,signal) {
+    const [official,tiered]=await Promise.all([
+      cameraRows(bounds,signal),tieredRows(bounds,signal)
+    ]);
+    // Provisional locations never silently become "verified camera encounters".
+    return official.concat(tiered.filter(row=>row.evidence_tier==='government_verified'));
+  }
   async function loadRouteEvidence(route) {
     state.evidenceAbort?.abort();
     const controller=new AbortController();
@@ -415,7 +462,7 @@
       async function worker() {
         while(next<boxes.length) {
           const box=boxes[next++];
-          const rows=await cameraRows(box,controller.signal);
+          const rows=await routeCameraRows(box,controller.signal);
           if(rows.length>=MAX_VISIBLE)
             throw new Error('Camera evidence density exceeds this corridor query limit; analysis incomplete');
           for(const row of rows) collected.set(row.record_key,row);
@@ -529,6 +576,7 @@
     const east = Math.min(-64, bounds.getEast());
     if (north < south || east < west) {
       state.visible = [];
+      state.tiered=[];
       state.areas = [];
       drawLocations();
       setText('coverageStatus', 'Move the map to a US location to inspect documented coverage.');
@@ -540,27 +588,34 @@
       // polygon dataset is not yet reachable through the Data API.
       // Fail the approximate-area indicator separately, never silently
       // converting an unknown area status into a verified zero.
-      const [rows,areasResult]=await Promise.all([
+      const [rows,tieredResult,areasResult]=await Promise.all([
         cameraRows({south,north,west,east},state.abort.signal),
+        tieredRows({south,north,west,east},state.abort.signal).then(
+          value=>({value}),error=>({error})),
         loadOfficialAreas(state.abort.signal,{south,north,west,east}).then(
           value=>({value}),error=>({error}))
       ]);
       if (requestId !== state.requestNumber) return;
       state.visible = rows;
+      state.tiered=tieredResult.value || [];
+      state.tieredUnavailable=Boolean(tieredResult.error);
       state.areas = areasResult.value || [];
       updateJurisdictions();
       drawLocations();
       if(areasResult.error) setText('areaCount','Unknown');
       setText('coverageSpinner', 'Live data');
-      const shown = state.visible.length + state.areas.length;
+      const shown = state.visible.length + state.tiered.length + state.areas.length;
       const capped = state.visible.length >= MAX_VISIBLE;
       const areaWarning=areasResult.error
         ? ' Official deployment-area evidence is temporarily unavailable; area coverage is unknown.'
         : '';
+      const tierWarning=tieredResult.error
+        ? ' Independently reviewed additional source tier is unavailable; additional camera evidence unknown.'
+        : '';
       setText('coverageStatus', (shown
         ? String(shown) + (capped ? '+ records in current viewport. Zoom in to reduce the result limit.' :
            ' source-backed entries in the current map view; not an exhaustive camera census.')
-        : 'No source-verified camera coordinates in this view yet. This is an evidence gap, NOT evidence that there are no cameras.') + areaWarning);
+        : 'No source-verified camera coordinates in this view yet. This is an evidence gap, NOT evidence that there are no cameras.') + areaWarning + tierWarning);
     } catch (error) {
       if (error.name === 'AbortError' || requestId !== state.requestNumber) return;
       state.visible = [];
@@ -575,7 +630,7 @@
   function updateJurisdictions() {
     const select=$('jurisdictionFilter');
     const prior=select.value;
-    const jurisdictions=[...new Set([...state.visible,...state.areas]
+    const jurisdictions=[...new Set([...state.visible,...state.tiered,...state.areas]
       .map(x=>x.jurisdiction_label)
       .filter(x=>typeof x==='string'&&x.length<=150))].sort();
     select.replaceChildren();
@@ -601,10 +656,19 @@
     if (!state.map) return;
     state.pointLayer.clearLayers();
     state.areaLayer.clearLayers();
-    let exact = 0, areas = 0, overdue = 0, unknownFreshness = 0;
-    for (const record of state.visible) {
+    let exact = 0, areas = 0, provisional = 0, overdue = 0, unknownFreshness = 0;
+    for (const record of [...state.visible,...state.tiered]) {
       if (!recordMatchesFilters(record)) continue;
       const p = [Number(record.latitude), Number(record.longitude)];
+      if (record.evidence_tier==='independently_corroborated') {
+        if($('showProvisional').checked) {
+          provisional++;
+          L.circleMarker(p,{radius:7,color:'#afc1fa',weight:2,dashArray:'3 3',
+            fillColor:'#6587ce',fillOpacity:.6})
+            .bindPopup(popupFor(record)).addTo(state.pointLayer);
+        }
+        continue;
+      }
       if (record.location_accuracy === 'exact' && $('showExact').checked) {
         exact += 1;
         const freshness=sourceFreshness(record);
@@ -640,11 +704,13 @@
     }
     setText('exactCount', exact);
     setText('areaCount', areas);
+    setText('provisionalCount',state.tieredUnavailable?'Unknown':provisional);
     const freshnessWarning=(overdue||unknownFreshness)
       ? ' '+overdue+' point source(s) overdue, '+unknownFreshness+
         ' with unknown check freshness; orange pins require caution.'
       : '';
-    setText('filterStatus',exact+areas+' verified map entries displayed after filters. '+
+    setText('filterStatus',exact+areas+' government-verified camera or area entries and '+
+      provisional+' separately corroborated provisional point(s) displayed after filters. '+
       'Location precision is source-specific; zero displayed does not mean no cameras.'+
       freshnessWarning);
     // Never apply map UI filters to the full-route evidence queries.
@@ -950,6 +1016,7 @@
     $('cameraTextFilter').addEventListener('input',drawLocations);
     $('showExact').addEventListener('change',drawLocations);
     $('showApprox').addEventListener('change',drawLocations);
+    $('showProvisional').addEventListener('change',drawLocations);
     $('hypothetical').addEventListener('change',()=>{
       state.simLayer?.clearLayers();
       if (state.routeCoverage==='complete') computeObservations();
