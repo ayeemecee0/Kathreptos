@@ -25,7 +25,7 @@ class TestProfiles(unittest.TestCase):
   with self.assertRaises(ValueError):v.authorize({**S,"source_status":"candidate"},P,R)
   with self.assertRaises(ValueError):v.authorize({**S,"gis_layer_url":"https://evil.gov/MapServer/1"},P,R)
  def test_authenticated_agency_owned_flock_oid_only_path(self):
-  source={**S,'source_key':'agency_alachua_fl',
+  source={**S,'source_key':'agency_alachua_fl','reviewed_first_party_receipt':True,
     'gis_layer_url':'https://maps.alachuacounty.us/server/rest/services/Hosted/Flock_Cameras/FeatureServer/0',
     'government_evidence_url':'https://growth-management.alachuacounty.us/GIS',
     'jurisdiction_label':'Alachua County, FL',
@@ -42,6 +42,9 @@ class TestProfiles(unittest.TestCase):
     'fields':[{'name':'OBJECTID','type':'esriFieldTypeOID'}]}
   listing={'layers':[{'id':0,'name':'Flock Cameras'}]}
   self.assertTrue(v.authorize(source,policy,root))
+  with self.assertRaisesRegex(ValueError,'receipt'):
+   v.authorize({k:v for k,v in source.items() if k!='reviewed_first_party_receipt'},
+               policy,root)
   v.check_metadata(source,policy,listing,original)
   rows,held,total=v.verify_points(source,policy,{'features':[
     {'attributes':{'OBJECTID':11},'geometry':{'x':-82.3,'y':29.6}},
