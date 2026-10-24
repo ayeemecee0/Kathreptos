@@ -19,4 +19,4 @@ On October 23, production anonymous read-only queries returned 275 verified exac
 `scripts/test_analytics_m7.sql` tests analytics source reconciliation, caller-RLS view settings, nonnegative values and private-community isolation. The production database test passed.
 
 ## Release checks
-`scripts/smoke_analytics.cjs` verifies the live dashboard in Chromium when browser smoke runs. GitHub Pages CI results were not retrievable via the available connector at implementation time; successful release must be verified separately.
+`scripts/smoke_analytics.cjs` verifies the live dashboard in Chromium when browser smoke runs. Release verification completed: [Pages #649](https://github.com/ayeemecee0/Katoptron/actions/runs/40063927898), [validation #407](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928191), and [browser smoke #91](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928164) all passed. These checks validate public analytics rendering and counts, not nationwide completeness of Flock data.
