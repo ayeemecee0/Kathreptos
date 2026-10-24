@@ -65,6 +65,9 @@ on:
       - 'supabase/migrations/059_reconcile_trusted_evidence_without_self_approval.sql'
       - 'supabase/migrations/060_private_community_submissions.sql'
       - 'supabase/migrations/061_community_intake_screening.sql'
+      - 'supabase/migrations/062_community_reviewer_queue.sql'
+      - 'supabase/migrations/063_private_evidence_attachments.sql'
+      - 'community-review.html'
       - 'scripts/test_community_submission_security.sql'
       - 'submit.html'
       - 'scripts/test_tiered_source_bridge.sql'
@@ -447,6 +450,8 @@ jobs:
             -f scripts/test_community_submission_security.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/061_community_intake_screening.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/062_community_reviewer_queue.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.withdraw_programme_area_after_link_loss(text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
