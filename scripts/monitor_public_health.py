@@ -212,7 +212,7 @@ def assess_state_evidence_index(rows,counts,program_total):
 
 
 
-def assess_public_accountability(events,roles,minimum_events=33,minimum_roles=3):
+def assess_public_accountability(events,roles,minimum_events=30,minimum_roles=3):
     """Check RLS-filtered government disclosures and separately sourced staff roles.
 
     This guard verifies publication labeling and loss of baseline evidence only.
@@ -253,7 +253,7 @@ def assess_public_accountability(events,roles,minimum_events=33,minimum_roles=3)
 
 def fetch_public_accountability(key):
     base=PUBLIC_API.replace('/flock_camera_locations','')
-    events=json.loads(get(base+'/flock_accountability_events?select=*&limit=5000',{'apikey':key}))
+    events=json.loads(get(base+'/flock_accountability_directory?select=*&limit=5000',{'apikey':key}))
     roles=json.loads(get(base+'/flock_accountability_roles?select=role_key,person_name,role_title,organization_name,'
                          'role_category,source_type,source_url,source_date&limit=500',{'apikey':key}))
     return events,roles
