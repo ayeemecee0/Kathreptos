@@ -43,6 +43,7 @@ class GovernmentCrawler(unittest.TestCase):
   with (patch.object(d,'load_approved_domains',return_value={}),
         patch.object(d,'get_seed_pages',return_value=([(PAGE,'Example, ST')],{PAGE})),
         patch.object(d,'fetch_government_page',return_value=(document,'a'*64)),
+        patch.object(d,'same_site_page_links',return_value=[]),
         patch.object(d,'stage') as stage_leads,
         patch.object(d,'stage_same_gov_flock_page') as queue):
    result=d.scan(dry_run=False)
