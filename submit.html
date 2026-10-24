@@ -75,10 +75,24 @@ async function sanitizePhoto(file){
 async function syncSession(){
   const {data:{session},error}=await client.auth.getSession();
   if(error){status('Session check failed: '+error.message);return;}
-  $('authPanel').hidden=!!session;
-  $('reportPanel').hidden=!session;
-  $('sessionLabel').textContent=session?'Signed in as '+(session.user.email||'contributor'):'';
-  if(session)await loadOwnReports();
+  // getSession reads cached browser storage. Validate the identity with Auth
+  // before opening a contributor-only page; database RLS remains authoritative.
+  let user=null;
+  if(session){
+    const verified=await client.auth.getUser();
+    if(verified.error||!verified.data?.user){
+      $('authPanel').hidden=false;
+      $('reportPanel').hidden=true;
+      $('sessionLabel').textContent='';
+      status('Your saved session could not be verified. Sign in again to contribute.');
+      return;
+    }
+    user=verified.data.user;
+  }
+  $('authPanel').hidden=!!user;
+  $('reportPanel').hidden=!user;
+  $('sessionLabel').textContent=user?'Signed in as '+(user.email||'contributor'):'';
+  if(user)await loadOwnReports();
 }
 $('authForm').addEventListener('submit',async event=>{
   event.preventDefault();
