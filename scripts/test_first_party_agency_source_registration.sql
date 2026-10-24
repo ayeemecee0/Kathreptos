@@ -15,7 +15,7 @@ insert into public.flock_gis_source_candidates(
   layer_purpose,public_gov_context_url,trust_status)
 values(
  'https://maps.alachuacounty.us/server/rest/services/Hosted/Flock_Cameras/FeatureServer/0',
- 'Flock Cameras','esriGeometryPoint','OBJECTID',
+ 'Flock Cameras','esriGeometryPoint','objectid',
  'CI-only agency GIS profile; no actual cameras or original-government receipt are claimed.',
  'https://growth-management.alachuacounty.us/GIS','unverified')
 on conflict(gis_layer_url) do nothing;
@@ -26,7 +26,7 @@ begin
  -- same definer privileges as in live production.
  success:=public.register_first_party_agency_flock_source(
   'agency_alachua_fl', repeat('a',64),repeat('b',64),
-  'Flock Cameras','OBJECTID','arcgis_typed_objectid',
+  'Flock Cameras','objectid','arcgis_typed_objectid',
   '[{"id":1,"lat":29.6,"lon":-82.3},{"id":2,"lat":29.61,"lon":-82.32}]'::jsonb);
  if not success then raise exception 'Pinned agency source registration failed';end if;
  if (select count(*) from public.first_party_agency_gis_receipts
@@ -34,7 +34,7 @@ begin
  then raise exception 'No private original government source evidence receipt';end if;
  if not exists(select 1 from public.gis_verification_profiles
     where source_key='agency_alachua_fl' and profile_status='verified'
-      and camera_id_field='OBJECTID')
+      and camera_id_field='objectid')
  then raise exception 'Original typed ObjectID profile missing';end if;
  if exists(select 1 from public.flock_camera_locations
     where source_url like '%alachuacounty.us%')
