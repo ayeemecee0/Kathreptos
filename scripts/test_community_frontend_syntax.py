@@ -26,6 +26,7 @@ for filename, required in {
     "submit.html": ["withdraw_own_community_report", "sanitizePhoto", "flock_community_submissions"],
     "community-review.html": ["list_community_review_queue", "set_community_review_status", "community_report_attachment_paths"],
     "accountability.html": ["flock_accountability_directory", "flock_accountability_roles", "safeCsvValue"],
+    "analytics.html": ["flock_analytics_overview", "flock_analytics_states", "flock_analytics_monthly_evidence"],
 }.items():
     doc = (ROOT / filename).read_text(encoding="utf-8")
     for marker in required:
