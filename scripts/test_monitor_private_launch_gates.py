@@ -15,12 +15,14 @@ def safe_fetch(method,url,key):
     assert 'limit=1' in url
     assert 'select=' in url
     # Exact count is a header, not a download of any candidate row.
-    return '0-0/275' if '/flock_camera_locations?' in url else '*/0'
+    return ('0-0/293' if '/flock_camera_locations?' in url else
+            '0-0/1' if '/first_party_agency_gis_receipts?' in url else '*/0')
 
 class LaunchGates(unittest.TestCase):
  def test_private_bucket_and_aggregate_counts_pass(self):
     totals=m.tally(KEY,safe_fetch)
-    self.assertEqual(totals['verified_exact_camera_points'],275)
+    self.assertEqual(totals['verified_exact_camera_points'],293)
+    self.assertEqual(totals['first_party_agency_source_receipts'],1)
     self.assertEqual(totals['direct_government_gis_receipts'],0)
     self.assertEqual(set(totals),{x[0] for x in m.STAGES})
  def test_bucket_must_remain_private(self):
