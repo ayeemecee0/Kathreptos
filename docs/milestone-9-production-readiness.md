@@ -8,9 +8,9 @@ Katoptron is a public evidence-first beta. Full production requires evidence int
 
 | Control | Implementation | Status |
 | --- | --- | --- |
-| Production source health | Daily `.github/workflows/monitor_public_health.yml` checks deployed map, source rechecks, canonical GIS counts, source provenance and accountability/analytics reconciliation | Implemented; current run outcome must be independently confirmed |
-| Browser release smoke | `.github/workflows/browser_smoke.yml`: local push and published-site Chromium map, routing, community portal, accountability, analytics, keyboard/mobile checks | Added; latest run outcome not retrieved |
-| Postgres security regression | `.github/workflows/validate.yml`: SQL migrations, RLS boundary tests, original government verification rules, discovery tests, JS/static accessibility checks | Added; latest run outcome not retrieved |
+| Production source health | Daily `.github/workflows/monitor_public_health.yml` checks deployed map, source rechecks, canonical GIS counts, source provenance and accountability/analytics reconciliation | Implemented; [health monitor #24](https://github.com/ayeemecee0/Katoptron/actions/runs/40063811128) passed |
+| Browser release smoke | `.github/workflows/browser_smoke.yml`: local push and published-site Chromium map, routing, community portal, accountability, analytics, keyboard/mobile checks | Implemented; [browser smoke #91](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928164) passed |
+| Postgres security regression | `.github/workflows/validate.yml`: SQL migrations, RLS boundary tests, original government verification rules, discovery tests, JS/static accessibility checks | Implemented; [validation #407](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928191) passed |
 | Public evidence snapshots | Weekly `.github/workflows/snapshot_public_evidence.yml` gathers **anonymous-only** published evidence, reconciles counts and hashes content, 7-day artifact retention | Implemented; not a backup of private Supabase tables |
 | Public factual corrections | GitHub Issue template `.github/ISSUE_TEMPLATE/evidence_correction.yml`; prominent warnings against private details | Implemented |
 | Source provenance | Original government, agency, vendor-claimed roles and uncertain community reports kept distinct; source withdrawals revoke appropriate public evidence | Implemented in earlier milestones |
@@ -19,7 +19,7 @@ Katoptron is a public evidence-first beta. Full production requires evidence int
 
 ## Critical remaining production gates
 
-1. **CI deployment evidence**: inspect GitHub Actions for a green latest `Validate Katoptron scripts`, `Browser release smoke`, `Monitor public map health`, and `Archive public evidence snapshot` run. Do not infer passing from committed workflows or an empty commit-status response.
+1. **CI deployment evidence**: **Completed for this release:** [validation #407](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928191), [browser smoke #91](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928164), [health monitor #24](https://github.com/ayeemecee0/Katoptron/actions/runs/40063811128) and public snapshot #1 succeeded. Continue treating these workflows as mandatory for every subsequent release.
 2. **Authenticated browser acceptance**: confirm a real registration and confirmation, private evidence/photo upload, reviewer decision and report withdrawal without exposing a reporter's identity or a non-consenting point. Use an expendable test account and clear records afterward.
 3. **Provider controls**: verify Geoapify's public-key allowed referrers/origins (if supported) and daily usage/overage controls. The key is browser-visible; repository comments must not claim origin protection without dashboard proof. Production routing requires reliable provider capacity and availability, not anonymous demo infrastructure.
 4. **Auth protection**: Supabase advisor reports leaked-password detection not enabled. **Supabase documents this feature as Pro-plan-and-above only, so it is NOT a free-tier prerequisite.** While staying Free, set strong minimum password length and complexity in the project's Auth Email settings and verify email confirmation/abuse controls. Reconsider leaked-password protection when finances allow. Never add auth secrets to GitHub Pages.
