@@ -98,6 +98,56 @@ def fetch_public_camera_evidence(key):
     raise ValueError('Verified camera evidence exceeds public health scan capacity')
 
 
+def fetch_public_coverage_areas(key):
+    """Page the exact public-only, RLS-filtered original government polygons."""
+    rows=[]
+    endpoint=PUBLIC_API.replace('/flock_camera_locations','/flock_documented_coverage_areas')
+    limit,max_items=40,2000
+    for offset in range(0,max_items,limit):
+        query=urllib.parse.urlencode({
+            'select':'area_key,government_source_key,government_program_key,'
+                     'jurisdiction_label,geometry_status,evidence_url,outline_lonlat',
+            'geometry_status':'eq.verified','order':'area_key.asc',
+            'limit':limit,'offset':offset
+        })
+        page=json.loads(get(endpoint+'?'+query,{'apikey':key}))
+        if not isinstance(page,list) or len(page)>limit:
+            raise ValueError('Government polygon public data API malformed or truncated')
+        rows.extend(page)
+        if len(page)<limit:
+            return rows
+    raise ValueError('Government polygon inventory exceeds health scan capacity')
+
+
+def assess_public_area_provenance(rows,expected):
+    """Source-specific geometries only. No invented city buffers or circles."""
+    if not isinstance(rows,list) or type(expected) is not int or expected<0:
+        raise ValueError('Official polygon check inputs malformed')
+    ids=set()
+    for row in rows:
+        if not isinstance(row,dict) or row.get('geometry_status')!='verified':
+            raise ValueError('Unverified original government polygon leaked to public map')
+        key=row.get('area_key')
+        if not isinstance(key,str) or key in ids:
+            raise ValueError('Government polygon identity duplicated or missing')
+        ids.add(key)
+        proof=[row.get('government_source_key'),row.get('government_program_key')]
+        if sum(isinstance(p,str) and bool(p) for p in proof)!=1:
+            raise ValueError('Polygon missing its single original government authority')
+        if (not isinstance(row.get('evidence_url'),str) or
+            not row['evidence_url'].startswith('https://')):
+            raise ValueError('Government polygon original evidence link missing')
+        outline=row.get('outline_lonlat')
+        if (not isinstance(outline,list) or not 4<=len(outline)<=250 or
+            outline[0]!=outline[-1] or
+            not all(isinstance(x,list) and len(x)==2 and
+                 all(type(n) in (int,float) for n in x) for x in outline)):
+            raise ValueError('Official polygon source geometry invalid')
+    if len(rows)!=expected:
+        raise ValueError('Public polygon evidence count differs from national map summary')
+    return len(rows)
+
+
 def assess_published_summary(summary,counts):
     if not isinstance(summary,list) or len(summary)!=1:
         raise ValueError('Public national evidence summary unavailable')
@@ -180,12 +230,11 @@ def run(site=SITE):
         '&limit=65',{'apikey':key}))
     states=assess_state_evidence_index(footprint,counts,
        totals['documented_government_programs'])
-    areas_url=PUBLIC_API.replace('/flock_camera_locations','/flock_documented_coverage_areas')
-    area_probe=json.loads(get(areas_url+'?select=area_key&limit=1',{'apikey':key}))
-    if not isinstance(area_probe,list):
-        raise ValueError('Anonymous public official deployment polygon API unavailable')
+    areas=fetch_public_coverage_areas(key)
+    visible_areas=assess_public_area_provenance(
+        areas,totals['verified_area_polygons'])
     print('Verified nationwide published camera points:',totals['verified_camera_points'])
-    print('Verified deployment polygons:',totals['verified_area_polygons'])
+    print('Verified deployment polygons:',visible_areas)
     print('States with independently documented government evidence:',states)
     for j in sorted(counts):
         print('HEALTHY',j,counts[j],'last source verification',last[j].isoformat())

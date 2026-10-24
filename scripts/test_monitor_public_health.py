@@ -59,6 +59,28 @@ class HealthTests(unittest.TestCase):
    m.assess_state_evidence_index([rows[0],
        {**rows[1],'dated_program_records':0,'terminated_program_records':0}],
        {'Peoria, AZ':74},0)
+ def test_public_government_area_geometry_matches_original_source_count(self):
+  polygon={'area_key':'area_test_polygon_01',
+           'government_source_key':None,
+           'government_program_key':'panama_city_fl',
+           'jurisdiction_label':'Panama City, FL',
+           'geometry_status':'verified',
+           'evidence_url':'https://gis.panamacity.gov/arcgis/rest/services/Flock/MapServer/0',
+           'outline_lonlat':[[-85.7,30.1],[-85.6,30.1],
+                             [-85.65,30.2],[-85.7,30.1]]}
+  self.assertEqual(m.assess_public_area_provenance([polygon],1),1)
+  with self.assertRaisesRegex(ValueError,'single original government'):
+   m.assess_public_area_provenance([{
+      **polygon,'government_source_key':'peoria_az'}],1)
+  with self.assertRaisesRegex(ValueError,'differs'):
+   m.assess_public_area_provenance([polygon],2)
+  with self.assertRaisesRegex(ValueError,'source geometry invalid'):
+   m.assess_public_area_provenance([
+      {**polygon,'outline_lonlat':[[0,0],[1,1]]}],1)
+ def test_empty_polygon_inventory_is_not_faked(self):
+  self.assertEqual(m.assess_public_area_provenance([],0),0)
+  with self.assertRaisesRegex(ValueError,'differs'):
+   m.assess_public_area_provenance([],1)
  def test_health_monitor_pages_before_claiming_complete(self):
   from unittest.mock import patch
   import json
