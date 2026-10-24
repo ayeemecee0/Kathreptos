@@ -77,7 +77,7 @@ def check_all(settings,fetch=get_json):
     return results
 
 def active_mode(config):
-    match=re.search(r"locationProvider:\\s*'([^']+)'",config)
+    match=re.search(r"locationProvider:\s*'([^']+)'",config)
     mode=match.group(1) if match else "demo"
     if mode not in {"demo","geoapify"}:
         raise ValueError("Unknown location provider mode; no silent fallback")
