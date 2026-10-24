@@ -1,0 +1,51 @@
+name: Correct a published Flock evidence record
+description: Report an incorrect, stale, or wrongly classified public record using verifiable sources. GitHub issues are public.
+title: "[Evidence correction] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Public issue:** Do not include license plates, people's travel histories, private addresses, faces, phone numbers, or unrelated personal information. Do not upload raw community evidence here. For a private report, use Katoptron's signed-in submission workflow instead.
+  - type: input
+    id: record
+    attributes:
+      label: Katoptron public record or source reference
+      description: Link to the published camera record, government action, or original source URL.
+      placeholder: https://ayeemecee0.github.io/Katoptron/...
+    validations:
+      required: true
+  - type: dropdown
+    id: concern
+    attributes:
+      label: Problem category
+      options:
+        - Wrong government source or wrong vendor
+        - Obsolete or withdrawn source
+        - Incorrect coordinates or jurisdiction
+        - Agenda listed as an approval or agreement
+        - Contract execution not established
+        - Misattributed individual role or recorded vote
+        - Duplicate public evidence
+        - Other factual or technical issue
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: What is specifically incorrect?
+      description: Keep to the factual claim and how it conflicts with the cited public record. Do not submit private information.
+    validations:
+      required: true
+  - type: input
+    id: primary
+    attributes:
+      label: Original government or other qualifying primary-source URL
+      description: Include the strongest date- and source-attributed public evidence available.
+      placeholder: https://agency.gov/...
+  - type: checkboxes
+    id: disclosure
+    attributes:
+      label: Public safety and privacy
+      options:
+        - label: I understand this GitHub issue is public and confirm I have excluded private identifying or travel information.
+          required: true
