@@ -9,10 +9,11 @@ const mockSdk=String.raw`
 'use strict';
 const reviewerMode=location.pathname.includes('community-review.html');
 const followupMode=location.search.includes('scenario=followup');
+const staleMode=location.search.includes('scenario=stale');
 const contributor={id:'11111111-aaaa-4111-8111-111111111111',email:'qa.contributor@example.invalid'};
 const reviewer={id:'22222222-bbbb-4222-8222-222222222222',email:'qa.reviewer@example.invalid'};
 const id='33333333-cccc-4333-8333-333333333333';
-let session=null;
+let session=staleMode?{user:reviewerMode?reviewer:contributor}:null;
 const onAuth=[];
 const reports=reviewerMode?
  [{submission_id:id,created_at:'2026-10-23T12:00:00Z',latitude:38.5,longitude:-121.5,
@@ -27,7 +28,9 @@ const activity={uploaded:[],deleted:[],signed:[],reviewed:[],withdrawn:[],lastSu
 function signal(){for(const cb of onAuth)cb('SIGNED_IN',session);}
 const auth={
  getSession:async()=>({data:{session},error:null}),
- getUser:async()=>({data:{user:session?.user||null},error:null}),
+ getUser:async()=>staleMode?
+   ({data:{user:null},error:{message:'Mock Auth server rejects expired cached token'}}):
+   ({data:{user:session?.user||null},error:null}),
  signInWithPassword:async({email})=>{
    session={user:reviewerMode?reviewer:{...contributor,email}};
    signal();return{data:{session},error:null};
@@ -175,6 +178,20 @@ window.__QA={reports,activity};
    assert.equal(reviewed.p_status,'rejected');
    assert.ok(reviewed.p_note.length>=15,'Reviewer audit rationale was omitted');
    console.log('MOCK REVIEWER PASS: restricted portal gateway, private photo link, mandatory review explanation and decision');
+   await page.goto(new URL('submit.html?scenario=stale',base).href,{waitUntil:'load'});
+   await page.waitForFunction(()=>
+     /saved session could not be verified/i.test(document.querySelector('#notice')?.textContent||''),
+     undefined,{timeout:12000});
+   assert.equal(await page.locator('#reportPanel').isHidden(),true,
+      'Cached stale contributor token must not open private form');
+   assert.equal(await page.locator('#authPanel').isVisible(),true);
+   await page.goto(new URL('community-review.html?scenario=stale',base).href,{waitUntil:'load'});
+   await page.waitForFunction(()=>
+     /saved session could not be verified/i.test(document.querySelector('#notice')?.textContent||''),
+     undefined,{timeout:12000});
+   assert.equal(await page.locator('#workspace').isHidden(),true,
+      'Cached stale reviewer token must not open private review queue');
+   console.log('STALE SESSION PASS: unverified cached browser token never opens contributor or reviewer pages');
  }catch(err){console.error('MOCK AUTHENTICATED FLOW FAIL:',err.stack||err);process.exitCode=1;}
  finally{await browser.close();}
 })().catch(err=>{console.error('Smoke harness failed',err);process.exitCode=1});
