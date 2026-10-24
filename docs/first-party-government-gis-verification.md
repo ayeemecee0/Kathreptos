@@ -41,3 +41,17 @@ Original linked-page removal, server withdrawal, service schema drift or unverif
 ## Acceptance status
 
 Live source publication, full map integrity, independent checked feature count, original-page proof, CI source security, public map health and private receipt monitoring passed. Manual real-device visual review and a full production restore drill are independent gates for overall Katoptron production certification.
+
+## October 24 follow-on: reusable, independently governed agency registry
+
+[Validation #499](https://github.com/ayeemecee0/Katoptron/actions/runs/40119773469) passed the new generic registration and review-revocation SQL suite, then migration 083 was applied to production.
+
+- `scripts/reviewed_first_party_gis_sources.json` is a **publicly auditable and strictly validated input registry**. Its entries contain original agency GIS page, original county-operated portal, exact point layer, source key, jurisdiction, bounded geographic envelope and human-reviewed explanation. The JSON does not authorize the source by itself.
+- `public.reviewed_first_party_gis_roots` is the **independent database-owner-reviewed approval gate**. Service-role automation may read approvals, but cannot insert, edit or delete them. No contributor or anonymous role can approve a government authority. The reviewed table currently contains the previously independently authenticated Alachua agency; adding another requires an individually supported owner-side approval/migration.
+- `public.register_reviewed_first_party_flock_source` is **one reusable source registration function**. The live verifier must present original agency evidence, twice-confirmed stable ArcGIS feature IDs, bounded source geometry, original source digest and reviewed layer binding. A new exact layer without a vetted database-root entry cannot qualify. It cannot publish a camera by source registration alone.
+- Revocation or deletion of an original reviewed approval revokes the corresponding trusted source, government GIS host authority and verification profile; current public visibility is additionally constrained by the underlying verified-source predicate.
+- `scripts/audit_agency_hosted_gis.py` now obtains approved agency inputs from the reviewed JSON, uses per-agency geographic bounds (rather than Florida-only bounds) and remains read-only. `scripts/auto_register_agency_gis.py` checks the database review row and exact pinned attributes separately before attempting the generic registration RPC.
+- `scripts/auto_verify_camera_profiles.py` rebinds every original government receipt to its still-approved registry row and GIS host; a typed ArcGIS ObjectID-only profile cannot inherit another agency's source key. The existing Alachua source remains published through this common authorization logic. Changes are covered by owner-bound tests and complete SQL registration tests.
+- The scheduled private health workflow now requires both at least one **approved original government GIS root** and at least one **original source receipt**; loss of an approval is a live monitoring failure.
+
+**Result:** the hardcoded registration bottleneck is removed at the application/SQL architecture layer, but automatic nationwide approval is intentionally not enabled. The remaining throughput bottleneck is researching and independently approving additional legitimate agency-operated GIS origins. Third-party vendor-hosted Esri data require their own evidence path and cannot be auto-trusted. The canonical exact point count remains 293 across seven jurisdictions.
