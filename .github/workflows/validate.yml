@@ -76,6 +76,8 @@ on:
       - 'supabase/migrations/070_accountability_evidence_feed.sql'
       - 'supabase/migrations/071_accountability_dated_roles.sql'
       - 'supabase/migrations/072_accountability_de_duplicate_public_index.sql'
+      - 'supabase/migrations/073_explicit_official_positions.sql'
+      - 'scripts/test_accountability_individual.sql'
       - 'scripts/test_accountability_m6.sql'
       - 'accountability.html'
       - 'community-review.html'
@@ -478,6 +480,10 @@ jobs:
             -f supabase/migrations/071_accountability_dated_roles.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/072_accountability_de_duplicate_public_index.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/073_explicit_official_positions.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f scripts/test_accountability_individual.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_accountability_m6.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
