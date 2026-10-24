@@ -58,6 +58,7 @@ on:
       - 'supabase/migrations/052_original_gov_single_flock_layer_service_root_links.sql'
       - 'supabase/migrations/053_two_pass_official_gis_withdrawals.sql'
       - 'supabase/migrations/054_seven_official_flock_program_disclosures.sql'
+      - 'supabase/migrations/055_government_program_sourced_flock_areas.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -408,6 +409,16 @@ jobs:
             -f supabase/migrations/053_two_pass_official_gis_withdrawals.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/054_seven_official_flock_program_disclosures.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/055_government_program_sourced_flock_areas.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.register_government_program_flock_area(text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.register_government_program_flock_area(text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_documented_coverage_areas','INSERT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from pg_constraint where conrelid='public.flock_documented_coverage_areas'::regclass and conname='coverage_one_original_source_only'" | grep -qx 1
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(distinct state_code) from public.flock_documented_programs where record_status='verified'" | grep -qx 12
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
