@@ -10,10 +10,16 @@ PUBLIC_KEY='sb_publishable_test_public'
 class AnonymousBoundaryTests(unittest.TestCase):
  def test_all_sensitive_endpoints_denied(self):
   seen=[]
-  def reject(url,key):
+  def reject(url,key,method='GET',payload=None):
    self.assertEqual(key,PUBLIC_KEY)
    self.assertNotIn('password',url)
    self.assertEqual(url.split('?')[0].split('/')[-1] != '',True)
+   if '/rpc/' in url:
+    self.assertEqual(method,'POST')
+    self.assertIsInstance(payload,dict)
+   else:
+    self.assertEqual(method,'GET')
+    self.assertIsNone(payload)
    seen.append(url)
    return 401 if len(seen)%2 else 403
   self.assertEqual(m.check_boundaries(PUBLIC_KEY,reject),
@@ -21,15 +27,15 @@ class AnonymousBoundaryTests(unittest.TestCase):
   self.assertEqual(len(seen),len(set(seen)))
  def test_empty_success_response_is_not_private(self):
   with self.assertRaisesRegex(ValueError,'accessible'):
-   m.check_boundaries(PUBLIC_KEY,lambda url,key:200)
+   m.check_boundaries(PUBLIC_KEY,lambda url,key,**kwargs:200)
  def test_any_unexpected_response_causes_failure(self):
   for status in (200,206,301,400,404,405,429,500):
    with self.subTest(status=status):
     with self.assertRaises(ValueError):
-     m.check_boundaries(PUBLIC_KEY,lambda url,key:status)
+     m.check_boundaries(PUBLIC_KEY,lambda url,key,**kwargs:status)
  def test_privileged_key_not_allowed(self):
   with self.assertRaisesRegex(ValueError,'Only a public'):
-   m.check_boundaries('sb_secret_test_private',lambda url,key:401)
+   m.check_boundaries('sb_secret_test_private',lambda url,key,**kwargs:401)
  def test_request_never_reads_200_body(self):
   class MockResponse:
    status=200
@@ -47,6 +53,15 @@ class AnonymousBoundaryTests(unittest.TestCase):
    def open(self,*args,**kwargs):return deny()
   with patch.object(m.urllib.request,'build_opener',return_value=MockOpener()):
    self.assertEqual(m.status_only(m.BASE+'/abc',PUBLIC_KEY),403)
+ def test_post_requires_readonly_rpc_path(self):
+  with self.assertRaisesRegex(ValueError,'restricted'):
+   m.status_only(m.BASE+'/flock_community_submissions',PUBLIC_KEY,
+                 method='POST',payload={})
+  with self.assertRaisesRegex(ValueError,'Unapproved'):
+   m.status_only(m.BASE+'/rpc/editorial_session',PUBLIC_KEY,method='DELETE')
+  with self.assertRaisesRegex(ValueError,'Unapproved'):
+   m.status_only(m.BASE+'/rpc/editorial_session',PUBLIC_KEY,method='GET',payload={})
+
  def test_host_restriction(self):
   with self.assertRaisesRegex(ValueError,'exact production'):
    m.status_only('https://untrusted.example/credentials',PUBLIC_KEY)
