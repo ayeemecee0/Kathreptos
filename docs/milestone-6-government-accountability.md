@@ -54,3 +54,13 @@ The production PostgreSQL checks passed:
 ### Design constraints
 
 No addresses, plates, personal travel histories, or unofficial individual voting inferences. A current verified government source means a provenance-backed factual claim at its source date, not an exhaustive census or an assurance of current operation. Monitoring failures are alerts, not permission to manufacture evidence.
+
+### Vendor role URL spot-check — October 23, 2026
+
+The three seeded professional role sources were rechecked against their first-party Flock Safety published articles:
+- [Garrett Langley, founder/CEO, July 21, 2026](https://www.flocksafety.com/blog/flock-safety-ceo-garrett-langley-ted2026)
+- [Chris Castaldo, CISO, December 8, 2025](https://www.flocksafety.com/blog/flock-safety-appoints-chris-castaldo-as-chief-information-security-officer)
+- [Matthew Webster, CMO, September 16, 2025](https://www.flocksafety.com/blog/flock-safety-appoints-matthew-webster-as-cmo)
+
+These are **vendor-described, source-dated professional role claims**, not independently confirmed current tenure, official government decisions, or claims about camera deployment. Continual rechecks are needed as roles change.
+
