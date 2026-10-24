@@ -28,8 +28,24 @@ def run(dry_run=False,publish=False):
             metrics['qualified_source_points']+=len(original_points)
             if dry_run:
                 continue
+            source_key=source['source_key']
+            approved=api_request('reviewed_first_party_gis_roots?select=source_key,agency_page_url,'
+                 'agency_portal_url,gis_layer_url,jurisdiction_label,'
+                 'bounds_south,bounds_west,bounds_north,bounds_east,review_status'
+                 '&source_key=eq.'+source_key+'&limit=2')
+            if not isinstance(approved,list) or len(approved)!=1:
+                raise ValueError('Original agency lacks independent database-owner review')
+            root=approved[0]
+            if (root.get('review_status')!='verified' or
+                root.get('agency_page_url')!=source['original_gis_page'] or
+                root.get('agency_portal_url')!=source['public_gis_anchor'] or
+                root.get('gis_layer_url')!=verified['layer_url'] or
+                root.get('jurisdiction_label')!=source['jurisdiction'] or
+                any(root.get(field)!=source[field] for field in (
+                  'bounds_south','bounds_west','bounds_north','bounds_east'))):
+                raise ValueError('Original government GIS source differs from reviewed owner-bound authority')
             current=api_request('trusted_flock_gis_sources?select=source_key,gis_layer_url,'
-                 'source_status&source_key=eq.'+SOURCE_KEY+'&limit=2')
+                 'source_status&source_key=eq.'+source_key+'&limit=2')
             if not isinstance(current,list) or len(current)>1:
                 raise ValueError('Government GIS authority state cannot be trusted')
             if current:
@@ -55,9 +71,9 @@ def run(dry_run=False,publish=False):
               ),
             })
             metrics['private_candidates_staged']+=1
-            result=api_request('rpc/register_first_party_agency_flock_source',
+            result=api_request('rpc/register_reviewed_first_party_flock_source',
                  method='POST',payload={
-                   'p_source_key':SOURCE_KEY,
+                   'p_source_key':source_key,
                    'p_page_sha256':verified['original_page_sha256'],
                    'p_layer_sha256':verified['geometry_sha256'],
                    'p_layer_name':verified['layer_name'],
