@@ -17,6 +17,8 @@ on:
       - 'scripts/smoke_community.cjs'
       - 'scripts/smoke_accountability.cjs'
       - 'scripts/smoke_analytics.cjs'
+      - 'scripts/smoke_accessibility.cjs'
+      - 'a11y.css'
       - 'analytics.html'
       - 'accountability.html'
       - 'submit.html'
@@ -67,6 +69,7 @@ jobs:
           node scripts/smoke_community.cjs
           node scripts/smoke_accountability.cjs
           node scripts/smoke_analytics.cjs
+          node scripts/smoke_accessibility.cjs
       - name: Verify live free Geoapify from the authorized GitHub Pages origin
         if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push'
         env:
