@@ -17,19 +17,10 @@ from auto_verify_camera_gis import get_official_json
 from government_domain_registry import public_dns
 from discover_camera_gis_sources import stage_candidate
 
-# Evidence seeds must be reviewed original agency sites, never scraped ArcGIS
-# item descriptions. Additional cities need a separately sourced original
-# municipality GIS page and exact city-controlled server.
-SOURCES=(
-  {
-   'jurisdiction':'Alachua County, FL',
-   'original_gis_page':'https://growth-management.alachuacounty.us/GIS',
-   'public_gis_anchor':'https://mapgenius.alachuacounty.us/',
-   'layer':'https://maps.alachuacounty.us/server/rest/services/Hosted/Flock_Cameras/FeatureServer/0',
-  },
-)
+from first_party_registry import load_sources
+
+SOURCES=load_sources()
 MAX_ITEMS=250
-GEO_BOUNDS=(24.3,-88.0,31.1,-79.7)  # Florida envelope; no claim of jurisdiction boundary.
 FLOCK_NAME=re.compile(r'^flock[_ ]cameras(?: - [A-Za-z][A-Za-z ]{0,60})?$',re.I)
 ID_FIELDS=('CameraID','Camera_ID','NAME','ID','CameraNo','CameraNumber')
 
@@ -127,6 +118,7 @@ def inspect(source,get_page=None,fetch=None,include_private_locations=False):
     if (not isinstance(entries,list) or len(entries)!=len(identities) or
        result.get('error') or result.get('exceededTransferLimit')):
         raise ValueError('Government camera GIS geometry missing or truncated')
+    bounds=[source[k] for k in ('bounds_south','bounds_west','bounds_north','bounds_east')]
     points=[];seen=set()
     for feature in entries:
         attr=feature.get('attributes') if isinstance(feature,dict) else None
@@ -138,8 +130,8 @@ def inspect(source,get_page=None,fetch=None,include_private_locations=False):
         if (type(fid)!=int or fid not in identities or fid in seen or
             (id_field!=oid and (not isinstance(individual,str) or not 1<=len(individual.strip())<=100)) or
             type(lat) not in (int,float) or type(lon) not in (int,float) or
-            not GEO_BOUNDS[0]<=lat<=GEO_BOUNDS[2] or
-            not GEO_BOUNDS[1]<=lon<=GEO_BOUNDS[3]):
+            not bounds[0]<=lat<=bounds[2] or
+            not bounds[1]<=lon<=bounds[3]):
             raise ValueError('Incomplete or ambiguous agency Flock camera IDs/coordinates')
         seen.add(fid)
         points.append((fid,round(lat,7),round(lon,7)))
