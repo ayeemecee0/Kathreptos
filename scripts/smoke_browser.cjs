@@ -186,6 +186,17 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#play').isDisabled(),true);
   await page.locator('#fromMatch').selectOption('1');
   assert.ok((await page.locator('#fromMatch option:checked').textContent()).includes('Missouri'));
+  let selectedRouteRequest='';
+  await page.route('https://router.project-osrm.org/**',async route=>{
+    selectedRouteRequest=route.request().url();
+    await route.fulfill({status:200,contentType:'application/json',
+      headers:{'access-control-allow-origin':'*'},
+      body:JSON.stringify({code:'NoRoute',routes:[]})});
+  });
+  await page.locator('#planRoute').click();
+  await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.startsWith('Route unavailable:'),
+    {timeout:11000});
+  assert.ok(selectedRouteRequest.includes('-93.29,37.21;'),selectedRouteRequest);
   await page.locator('#from').fill('Springfield, Illinois');
   assert.equal(await page.locator('#fromMatch').isVisible(),false);
   assert.deepEqual(errors,[]);
