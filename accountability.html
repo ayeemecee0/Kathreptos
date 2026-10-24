@@ -73,6 +73,10 @@ label{display:flex;flex-direction:column;gap:.4rem;font-size:.76rem;color:#b9cbd
 </section>
 <section id="peoplePanel" role="tabpanel" aria-labelledby="peopleTab" hidden>
 <p>Only primary-source-documented public professional roles. A role reported by Flock Safety is identified as a <strong>company claim</strong>, not independent confirmation of present employment. No individual government votes are currently evidenced in this directory.</p>
+<h2>Individual government votes and official statements</h2>
+<p>A named position appears only when an original roll-call record or directly recorded government statement identifies the person and exact action. General agency decisions are never attributed to individuals.</p>
+<div id="positionsStatus" role="status">Loading original individual evidence…</div><div id="positionResults"></div>
+<h2 style="margin-top:1.7rem">Dated Flock Safety professional roles</h2>
 <div id="peopleStatus" role="status">Loading dated role evidence…</div><div id="peopleResults"></div>
 </section>
 <p class="foot">All times shown are original evidence dates or explicitly unknown. Exports contain public facts and original source links only; they never include private community submissions, number plates or traveler data. <a href="./privacy.html">Privacy</a> · <a href="./methodology.html">Verification methodology</a></p>
@@ -83,7 +87,7 @@ label{display:flex;flex-direction:column;gap:.4rem;font-size:.76rem;color:#b9cbd
 const cfg=window.KATOPTRON_CONFIG;
 const $=id=>document.getElementById(id);
 const evidence=[];
-let people=[],limitReached=false;
+let people=[],positions=[],limitReached=false;
 const labels={
 government_program:'Government program',editorially_reviewed_action:'Editorially reviewed record',
 agenda_mention:'Official agenda mention',recorded_legislative_decision:'Recorded legislative action',
@@ -193,6 +197,22 @@ function showTab(which){
 $('recordsTab').addEventListener('click',()=>showTab('records'));
 $('peopleTab').addEventListener('click',()=>showTab('people'));
 for(const field of ['search','state','type','dated'])$(field).addEventListener('input',render);
+
+function renderPositions(){
+ const box=$('positionResults');box.replaceChildren();
+ $('positionsStatus').textContent=positions.length+' individually evidenced government position records';
+ for(const r of positions){
+  const card=elem('article',null,'entry');
+  card.append(elem('div',r.record_kind==='individual_roll_call_vote'?'Original government roll-call vote':'Original government-recorded statement','eyebrow'));
+  card.append(elem('h3',r.person_name),elem('div',r.office_title+' · '+r.jurisdiction_label+' · '+r.action_date,'eyebrow'));
+  card.append(elem('p',r.evidence_description));
+  card.append(elem('div','Recorded position: '+r.recorded_position.replaceAll('_',' ')+' · Document '+r.document_reference,'eyebrow'));
+  const a=link(r.original_government_url,'Original named government record ↗');
+  if(a)card.append(a);
+  box.append(card);
+ }
+ if(!positions.length)box.append(elem('p','No original government source currently establishes a specific individual vote or statement in this dataset. This does not imply that officials did not vote or speak.','warning'));
+}
 function renderPeople(){
  const box=$('peopleResults');box.replaceChildren();
  $('peopleStatus').textContent=people.length+' source-attributed professional role records; these do not establish individual government votes';
@@ -210,17 +230,20 @@ function renderPeople(){
 async function load(){
  try{
   if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey)throw Error('Missing public connection configuration');
-  const [events,roles]=await Promise.all([
+  const [events,roles,individuals]=await Promise.all([
    fetchRows('flock_accountability_directory'),
-   fetchRows('flock_accountability_roles','role_key,person_name,role_title,organization_name,role_category,source_publisher,source_type,source_url,source_date,evidence_description,reviewed_at,last_checked_at')
+   fetchRows('flock_accountability_roles','role_key,person_name,role_title,organization_name,role_category,source_publisher,source_type,source_url,source_date,evidence_description,reviewed_at,last_checked_at'),
+   fetchRows('flock_individual_public_positions','position_key,person_name,office_title,jurisdiction_label,state_code,record_kind,recorded_position,action_date,document_reference,evidence_description,original_government_url,source_kind,verified_at,last_checked_at')
   ]);
   const seen=new Set(); evidence.length=0;
   for(const row of events){if(!seen.has(row.event_key)&&safeHttps(row.source_url)){seen.add(row.event_key);evidence.push(row);}}
   people=roles.filter(r=>safeHttps(r.source_url));
-  stats();render();renderPeople();$('export').disabled=false;
+  positions=individuals.filter(r=>safeHttps(r.original_government_url));
+  stats();render();renderPeople();renderPositions();$('export').disabled=false;
  }catch(e){
   $('status').textContent='Accountability records unavailable: '+e.message;
   $('peopleStatus').textContent='Professional-role records unavailable: '+e.message;
+  $('positionsStatus').textContent='Named government votes unavailable: '+e.message;
  }
 }
 load();
