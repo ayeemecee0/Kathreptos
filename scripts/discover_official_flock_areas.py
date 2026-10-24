@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import re
+import time
 import urllib.parse
 from collections import Counter
 
@@ -38,10 +39,17 @@ def polygon_layers(root):
         not re.fullmatch(r"/[A-Za-z0-9_/-]+/(?:MapServer|FeatureServer)/[0-9]+",path)):
         raise ValueError("Invalid reviewed GIS original layer binding")
     service_url=("https://"+host+path).rsplit("/",1)[0]
+    # A transient original GIS catalog response must not imply there are
+    # zero documented polygons. Retry once; if still missing, fail this
+    # optional polygon discovery job and preserve previously sourced data.
     service=get_official_json(service_url+"?f=json")
     items=service.get("layers") if isinstance(service,dict) else None
     if not isinstance(items,list) or len(items)>300:
-        raise ValueError("Original government GIS service catalog absent")
+        time.sleep(0.4)
+        service=get_official_json(service_url+"?f=json")
+        items=service.get("layers") if isinstance(service,dict) else None
+        if not isinstance(items,list) or len(items)>300:
+            raise ValueError("Original government GIS service catalog absent after retry")
     for item in items:
         if not isinstance(item,dict):continue
         oid,name=item.get("id"),item.get("name")
