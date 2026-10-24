@@ -1,0 +1,35 @@
+name: Validate dedicated routing gateway container
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/routing-gateway/**'
+      - 'render.yaml'
+      - 'scripts/test_routing_gateway_contract.py'
+      - 'scripts/test_render_blueprint_safety.py'
+      - '.github/workflows/validate_routing_gateway.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check bounded gateway and opt-in hosting configuration
+        run: python -m unittest discover -s scripts -p 'test_routing_gateway_contract.py' -v && python -m unittest discover -s scripts -p 'test_render_blueprint_safety.py' -v
+      - name: Build the private gateway image
+        run: docker build -f infra/routing-gateway/Dockerfile -t katoptron-routing-gateway:ci infra/routing-gateway
+      - name: Validate rendered NGINX configuration with safe placeholder upstreams
+        run: |
+          docker run --rm \
+            -e PORT=8080 \
+            -e ROUTING_UPSTREAM=http://127.0.0.1:5000 \
+            -e GEOCODING_UPSTREAM=http://127.0.0.1:2322 \
+            katoptron-routing-gateway:ci nginx -t
