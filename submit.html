@@ -102,6 +102,36 @@ async function loadOwnReports(){
  for(const report of data){
  const li=document.createElement('li');
  li.textContent=new Date(report.created_at).toLocaleDateString()+' · '+report.report_status.replaceAll('_',' ')+' · Ref '+report.submission_id.slice(0,8);
+ if(['pending','needs_evidence'].includes(report.report_status)){
+   const picker=document.createElement('input');
+   picker.type='file';picker.accept='image/jpeg,image/png,image/webp';
+   picker.setAttribute('aria-label','Private evidence photo for report '+report.submission_id.slice(0,8));
+   const attach=document.createElement('button');attach.type='button';
+   attach.textContent=report.report_status==='needs_evidence'?'Add requested photo':'Attach or retry photo';
+   attach.addEventListener('click',async()=>{
+     const file=picker.files[0];
+     if(!file){status('Choose a JPG, PNG or WebP photo to attach to this report.');return;}
+     if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>3145728){
+       status('Photo must be JPG, PNG or WebP and no larger than 3 MB.');return;
+     }
+     attach.disabled=true;
+     try{
+       const {data:{user},error:userError}=await client.auth.getUser();
+       if(userError||!user)throw Error('Sign in again to attach your private photograph.');
+       const prepared=await sanitizePhoto(file);
+       const objectPath=user.id+'/'+report.submission_id+'/evidence.webp';
+       const {error}=await client.storage.from('katoptron-community-evidence')
+         .upload(objectPath,prepared,{upsert:false,contentType:'image/webp'});
+       if(error)throw Error(error.message);
+       picker.value='';
+       status('Private photo attached. It does not verify or publish this camera.');
+     }catch(error){
+       status('Photo attachment failed: '+error.message+
+         '. If a photo already exists on this report, contact the reviewer rather than submitting another report.');
+     }finally{attach.disabled=false;}
+   });
+   li.append(' ',picker,' ',attach);
+ }
  if(report.report_status!=='withdrawn'){
    const button=document.createElement('button');
    button.type='button';button.textContent='Withdraw report';
