@@ -1,0 +1,40 @@
+name: Disposable real community Auth and Storage acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/accept_live_community_auth_storage.py'
+      - '.github/workflows/live_community_acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-disposable-live-community-qa
+  cancel-in-progress: false
+
+jobs:
+  verify-real-auth-storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    env:
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+      KATOPTRON_LIVE_QA: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Confirm server-only acceptance credential
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || {
+            echo "::error::Existing Supabase server-only QA credential unavailable"
+            exit 1
+          }
+      - name: Exercise real disposable Auth, RLS, Storage, and reviewer lifecycle
+        run: python scripts/accept_live_community_auth_storage.py
