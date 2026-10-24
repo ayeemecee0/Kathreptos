@@ -111,6 +111,8 @@ def authorize(s,p,r,external=None):
         not re.fullmatch(r"/.+/(MapServer|FeatureServer)/\d+",a.path)):
         raise ValueError("Unverified government GIS URL")
     if r:
+        if r.get("authority_key")!=s.get("source_key"):
+            raise ValueError("First-party GIS receipt and independently reviewed root source keys disagree")
         if (r.get("verification_status")!="verified" or
             s["gis_layer_url"]!="https://"+r["government_gis_host"]+r["allowed_layer_path"] or
             s["government_evidence_url"]!=r["official_government_page"] or
