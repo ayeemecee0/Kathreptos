@@ -48,7 +48,7 @@ async function load(){
     if(error){say('Evidence access failed: '+error.message);evidenceButton.disabled=false;return;}
     if(!paths.length){say('No photos attached to this report.');evidenceButton.disabled=false;return;}
     for(const item of paths){
-      const signed=await api.storage.from('katoptron-community-evidence').createSignedUrl(item.object_path,120);
+      const signed=await api.storage.from('katoptron-community-evidence').createSignedUrl(item.object_path,60);
       if(signed.error){say('Could not authorize photograph: '+signed.error.message);continue;}
       const a=document.createElement('a');a.href=signed.data.signedUrl;a.textContent='Open evidence photo';a.target='_blank';a.rel='noopener noreferrer';article.append(a);
     }
