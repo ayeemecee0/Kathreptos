@@ -65,18 +65,28 @@ class HealthTests(unittest.TestCase):
            'government_program_key':'panama_city_fl',
            'jurisdiction_label':'Panama City, FL',
            'geometry_status':'verified',
+           'evidence_verified_at':NOW.isoformat(),
            'evidence_url':'https://gis.panamacity.gov/arcgis/rest/services/Flock/MapServer/0',
            'outline_lonlat':[[-85.7,30.1],[-85.6,30.1],
                              [-85.65,30.2],[-85.7,30.1]]}
-  self.assertEqual(m.assess_public_area_provenance([polygon],1),1)
+  self.assertEqual(m.assess_public_area_provenance([polygon],1,now=NOW),1)
   with self.assertRaisesRegex(ValueError,'single original government'):
    m.assess_public_area_provenance([{
-      **polygon,'government_source_key':'peoria_az'}],1)
+      **polygon,'government_source_key':'peoria_az'}],1,now=NOW)
   with self.assertRaisesRegex(ValueError,'differs'):
-   m.assess_public_area_provenance([polygon],2)
+   m.assess_public_area_provenance([polygon],2,now=NOW)
   with self.assertRaisesRegex(ValueError,'source geometry invalid'):
    m.assess_public_area_provenance([
-      {**polygon,'outline_lonlat':[[0,0],[1,1]]}],1)
+      {**polygon,'outline_lonlat':[[0,0],[1,1]]}],1,now=NOW)
+ def test_unrechecked_source_backed_area_is_not_labeled_current(self):
+  polygon={'area_key':'area_old_source','government_source_key':None,
+    'government_program_key':'panama_city_fl',
+    'jurisdiction_label':'Panama City, FL','geometry_status':'verified',
+    'evidence_url':'https://gis.panamacity.gov/arcgis/rest/services/Flock/MapServer/0',
+    'evidence_verified_at':(NOW-dt.timedelta(days=5)).isoformat(),
+    'outline_lonlat':[[-85.7,30.1],[-85.6,30.1],[-85.65,30.2],[-85.7,30.1]]}
+  with self.assertRaisesRegex(ValueError,'overdue'):
+   m.assess_public_area_provenance([polygon],1,now=NOW)
  def test_empty_polygon_inventory_is_not_faked(self):
   self.assertEqual(m.assess_public_area_provenance([],0),0)
   with self.assertRaisesRegex(ValueError,'differs'):

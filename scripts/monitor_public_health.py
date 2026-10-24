@@ -106,7 +106,7 @@ def fetch_public_coverage_areas(key):
     for offset in range(0,max_items,limit):
         query=urllib.parse.urlencode({
             'select':'area_key,government_source_key,government_program_key,'
-                     'jurisdiction_label,geometry_status,evidence_url,outline_lonlat',
+                     'jurisdiction_label,geometry_status,evidence_url,evidence_verified_at,outline_lonlat',
             'geometry_status':'eq.verified','order':'area_key.asc',
             'limit':limit,'offset':offset
         })
@@ -119,10 +119,12 @@ def fetch_public_coverage_areas(key):
     raise ValueError('Government polygon inventory exceeds health scan capacity')
 
 
-def assess_public_area_provenance(rows,expected):
+def assess_public_area_provenance(rows,expected,now=None):
     """Source-specific geometries only. No invented city buffers or circles."""
     if not isinstance(rows,list) or type(expected) is not int or expected<0:
         raise ValueError('Official polygon check inputs malformed')
+    if now is None:
+        now=dt.datetime.now(dt.timezone.utc)
     ids=set()
     for row in rows:
         if not isinstance(row,dict) or row.get('geometry_status')!='verified':
@@ -137,6 +139,13 @@ def assess_public_area_provenance(rows,expected):
         if (not isinstance(row.get('evidence_url'),str) or
             not row['evidence_url'].startswith('https://')):
             raise ValueError('Government polygon original evidence link missing')
+        checked=row.get('evidence_verified_at')
+        if not isinstance(checked,str):
+            raise ValueError('Original government polygon verification date missing')
+        stamp=dt.datetime.fromisoformat(checked.replace('Z','+00:00'))
+        if (stamp.tzinfo is None or stamp>now+dt.timedelta(minutes=15) or
+            now-stamp>dt.timedelta(hours=MAX_STALE_HOURS)):
+            raise ValueError('Original government polygon evidence verification overdue')
         outline=row.get('outline_lonlat')
         if (not isinstance(outline,list) or not 4<=len(outline)<=250 or
             outline[0]!=outline[-1] or
