@@ -1,0 +1,56 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Katoptron | Community review</title><link rel="stylesheet" href="./map.css">
+<style>main{max-width:950px;margin:2rem auto;padding:1rem}input,button{padding:.7rem;margin:.4rem}input{max-width:360px}article{border:1px solid #587383;border-radius:10px;padding:1rem;margin:1rem 0;overflow-wrap:anywhere}article p{white-space:pre-wrap}button{cursor:pointer} .muted{opacity:.8}</style>
+</head><body><header class="masthead"><a class="brand" href="./index.html"><strong>KATOPTRON</strong></a><nav><a href="./review.html">EDITORIAL DASHBOARD</a><a href="./submit.html">SUBMIT</a></nav></header>
+<main><h1>Private community report review</h1>
+<p>Approved editorial reviewers only. Source links and near-duplicate results are leads, not evidence authentication. Marking a report incorporated does not publish a camera point.</p>
+<form id="login"><label>Email<input id="email" type="email" required autocomplete="username"></label><label>Password<input id="password" type="password" required autocomplete="current-password"></label><button>Sign in</button></form>
+<section id="workspace" hidden><button id="refresh">Reload pending reports</button><button id="logout">Sign out</button><p id="total"></p><div id="cases"></div></section>
+<p id="notice" role="status" aria-live="polite"></p></main>
+<script src="./config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+const api=window.supabase.createClient(window.KATOPTRON_CONFIG.supabaseUrl,window.KATOPTRON_CONFIG.supabasePublishableKey);
+const $=id=>document.getElementById(id);
+const say=t=>{$('notice').textContent=t;};
+async function load(){
+ const {data:{session}}=await api.auth.getSession();
+ if(!session){$('workspace').hidden=true;$('login').hidden=false;return;}
+ const {data,error}=await api.rpc('list_community_review_queue',{p_limit:100});
+ if(error){$('workspace').hidden=true;say('Reviewer authorization failed: '+error.message);return;}
+ $('login').hidden=true;$('workspace').hidden=false;
+ const container=$('cases');container.replaceChildren();
+ $('total').textContent=data.length+' reports in the current page';
+ for(const r of data){
+  const article=document.createElement('article');
+  const title=document.createElement('h2');title.textContent='Report '+r.submission_id.slice(0,8)+' · '+r.screening_state;
+  const description=document.createElement('p');description.textContent=r.description;
+  const meta=document.createElement('p');meta.className='muted';
+  meta.textContent='Coordinates '+r.latitude+', '+r.longitude+' · Received '+new Date(r.created_at).toLocaleString()+' · '+r.related_submission_count+' nearby reports · '+r.matching_verified_count+' nearby verified points';
+  article.append(title,meta,description);
+  if(r.original_source_url){
+    const link=document.createElement('a');link.textContent='Original evidence URL';link.href=r.original_source_url;
+    link.target='_blank';link.rel='noopener noreferrer';article.append(link);
+  }
+  for(const [label,value] of [['Needs evidence','needs_evidence'],['Reject','rejected'],['Incorporate into research','incorporated']]){
+    const button=document.createElement('button');button.type='button';button.textContent=label;
+    button.addEventListener('click',async()=>{
+      button.disabled=true;
+      const {error}=await api.rpc('set_community_review_status',{p_id:r.submission_id,p_status:value});
+      if(error){say('Review failed: '+error.message);button.disabled=false;return;}
+      say('Updated report status. No camera publication occurred.');await load();
+    });article.append(button);
+  }
+  container.append(article);
+ }
+}
+$('login').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const {error}=await api.auth.signInWithPassword({email:$('email').value,password:$('password').value});
+ if(error){say(error.message);return;}await load();
+});
+$('refresh').addEventListener('click',load);
+$('logout').addEventListener('click',async()=>{await api.auth.signOut();await load();});
+load();
+</script></body></html>
