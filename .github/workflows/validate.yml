@@ -69,6 +69,9 @@ on:
       - 'supabase/migrations/063_private_evidence_attachments.sql'
       - 'supabase/migrations/064_community_attachment_review.sql'
       - 'supabase/migrations/065_audited_community_candidate_bridge.sql'
+      - 'supabase/migrations/066_community_withdrawal.sql'
+      - 'supabase/migrations/067_evidence_removal_after_withdrawal.sql'
+      - 'supabase/migrations/068_automated_private_community_stage.sql'
       - 'community-review.html'
       - 'scripts/test_community_submission_security.sql'
       - 'scripts/test_milestone5_submission_security.sql'
@@ -457,6 +460,10 @@ jobs:
             -f supabase/migrations/062_community_reviewer_queue.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/065_audited_community_candidate_bridge.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/066_community_withdrawal.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/068_automated_private_community_stage.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_milestone5_submission_security.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
