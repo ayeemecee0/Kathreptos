@@ -23,6 +23,9 @@ from government_domain_registry import public_dns
 MAX_RESULTS=50
 MAX_VISITS=28
 MAX_LINKS=25
+MAX_SECONDARY_VISITS=10
+SECONDARY_PER_GOV_PAGE=2
+GOV_MAP_LINK=re.compile(r'\b(flock|alpr|license plate|cameras?|gis|mapping)\b',re.I)
 SEARCHERS=("bing-rss","ddg-html")
 FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\b.{0,35}\balpr\b',re.I)
 CAMERAS=re.compile(r'\b(camera|license plate|alpr|lpr)\b',re.I)
@@ -80,6 +83,33 @@ def page_candidate(page,label,query,html,hash_value):
       "evidence_excerpt":excerpt if len(excerpt)>=12 else
           "Original government page explicitly mentions Flock Safety camera deployment.",
     }
+
+
+def direct_same_host_flock_pages(document,page):
+    """At most two same-host navigation leads from a sourced Flock page.
+
+    This is original-government discovery, NOT government camera approval.
+    A subpage will be accepted only if its OWN live HTML mentions Flock
+    AND a camera program AND directly links an original GIS service/layer.
+    """
+    choices=[]
+    base=urllib.parse.urlsplit(page)
+    for raw,label in document.anchors:
+        if not isinstance(raw,str) or not isinstance(label,str) or not GOV_MAP_LINK.search(label):
+            continue
+        candidate=gov_url(urllib.parse.urljoin(page,raw))
+        if not candidate:
+            continue
+        p=urllib.parse.urlsplit(candidate)
+        if (p.hostname!=base.hostname or p.port not in (None,443)
+            or candidate==page or candidate in choices):
+            continue
+        if GIS_LINK.search(p.path) or GIS_SERVICE.search(p.path):
+            continue
+        choices.append(candidate)
+        if len(choices)>=SECONDARY_PER_GOV_PAGE:
+            break
+    return choices
 
 
 def stage(item):
@@ -229,6 +259,7 @@ def scan(dry_run=False,plan=None):
         raise RuntimeError("Cannot select unvisited government URLs without full source registry") from exc
     counts["gov_sources_previously_staged"]=len(observed)
     checked_hosts=set()
+    secondary_visited=set()
     for url,(label,query) in prioritize_new_government_pages(hits,observed)[:MAX_VISITS]:
         host=urllib.parse.urlsplit(url).hostname
         # Avoid private/internal resolved IPs and DNS rebinding as far as the
@@ -245,12 +276,40 @@ def scan(dry_run=False,plan=None):
                 counts["direct_gis_links"]+=len(item["gis_links"])
                 if not dry_run:
                     stage(item);counts["submitted"]+=1
+                # Government Flock disclosure pages often link a dedicated
+                # city GIS page instead of the ArcGIS endpoint itself.
+                # Bounded one-hop discovery gives the exact GIS subpage an
+                # independent HTML fingerprint; never inherit a parent-page
+                # Flock claim as camera or owner authority.
+                for sub in direct_same_host_flock_pages(html,url):
+                    if (len(secondary_visited)>=MAX_SECONDARY_VISITS or
+                        sub in secondary_visited or sub in observed):
+                        continue
+                    secondary_visited.add(sub)
+                    try:
+                        sub_html,sub_sha=fetch_government_page(sub)
+                        counts["secondary_pages_checked"]+=1
+                        sub_item=page_candidate(
+                            sub,label,"Same-host original .gov Flock disclosure",sub_html,sub_sha)
+                        if not sub_item or not sub_item["gis_links"]:
+                            continue
+                        counts["secondary_pages_with_direct_gis"]+=1
+                        counts["direct_gis_links"]+=len(sub_item["gis_links"])
+                        if not dry_run:
+                            stage(sub_item);counts["submitted"]+=1
+                    except Exception as secondary_error:
+                        counts["secondary_pages_held"]+=1
+                        print("Original government Flock subpage held:",
+                              urllib.parse.urlsplit(sub).hostname,
+                              type(secondary_error).__name__,str(secondary_error)[:100])
         except Exception as exc:
             counts["pages_held"]+=1
             print("Original .gov page inaccessible:",host,type(exc).__name__,str(exc)[:100])
     for k in ("searches_completed","search_errors","source_registry_gov_urls","registry_errors",
               "gov_search_urls","gov_sources_previously_staged","pages_checked",
-              "flock_pages","direct_gis_links","submitted","pages_held","unsafe_hosts"):
+              "flock_pages","direct_gis_links","submitted","pages_held",
+              "secondary_pages_checked","secondary_pages_with_direct_gis",
+              "secondary_pages_held","unsafe_hosts"):
         print("National GIS candidate",k+":",counts[k])
     print("Newly approved government GIS authorities from search: 0")
     print("Camera coordinates published from search hits: 0")

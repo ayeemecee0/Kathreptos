@@ -49,6 +49,39 @@ class National(unittest.TestCase):
   self.assertIn("rpc/refresh_original_government_gis_search_lead",api.call_args.args[0])
   self.assertEqual(api.call_args.kwargs["payload"]["p_expected_previous_sha"],'a'*64)
   self.assertEqual(api.call_args.kwargs["payload"]["p_gis_links"],item["gis_links"])
+ def test_government_subpage_crawl_preserves_independent_page_digest(self):
+  root="https://city.example.gov/flock"
+  sub="https://city.example.gov/public-safety/flock-map"
+  layer="https://gis.city.example.gov/arcgis/rest/services/Police/Flock/MapServer/7"
+  parent=html('<h1>Flock Safety ALPR cameras</h1>'+
+      '<a href="/public-safety/flock-map">Flock GIS map</a>')
+  child=html('<h2>Flock Safety ALPR cameras in city</h2>'+
+      '<a href="'+layer+'">Flock camera GIS</a>')
+  self.assertEqual(d.direct_same_host_flock_pages(parent,root),[sub])
+  with (patch.object(d,"search_provider",return_value=("bing-rss",[root])),
+        patch.object(d,"upstream_government_source_seeds",return_value={}),
+        patch.object(d,"previously_checked_original_pages",return_value=set()),
+        patch.object(d,"public_dns",return_value=True),
+        patch.object(d,"fetch_government_page",side_effect=[(parent,'a'*64),(child,'b'*64)]),
+        patch.object(d,"stage") as stage):
+   result=d.scan(False,[("TX","Flock cameras original city.gov")])
+  self.assertEqual(result["secondary_pages_with_direct_gis"],1)
+  self.assertEqual(stage.call_count,2)
+  staged=stage.call_args.args[0]
+  self.assertEqual(staged["page_url"],sub)
+  self.assertEqual(staged["page_sha256"],'b'*64)
+  self.assertEqual(staged["gis_links"],[layer])
+ def test_no_outside_host_or_source_less_subpage_promotion(self):
+  root="https://city.example.gov/flock"
+  parent=html('<h1>Flock Safety ALPR cameras</h1>'+
+    '<a href="https://other.example.gov/maps">Flock map</a>'+
+    '<a href="/flock-second">Flock GIS</a>')
+  self.assertEqual(d.direct_same_host_flock_pages(parent,root),
+                   ["https://city.example.gov/flock-second"])
+  child=html('<h2>Generic municipal traffic map</h2>'+
+    '<a href="https://gis.city.example.gov/a/MapServer/3">Camera GIS</a>')
+  self.assertIsNone(d.page_candidate("https://city.example.gov/flock-second",
+      "TX","Independent government evidence",child,'b'*64))
  def test_unverified_only_and_no_public_write(self):
   with patch.object(d,"api_request",side_effect=[[],None]) as api:
    d.stage({"page_url":"https://city.example.gov/flock"})
