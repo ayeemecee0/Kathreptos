@@ -76,6 +76,9 @@
      <button class="main-button" type="submit" id="planRoute">Calculate driving route <span aria-hidden="true">↗</span></button>
    </form>
    <button class="text-button" id="sampleRoute" type="button">Try Sacramento → Folsom example</button>
+   <label for="routeChoice" class="field-label">DRIVING ROUTE ALTERNATIVES</label>
+   <select id="routeChoice" disabled aria-describedby="routeChoiceStatus"></select>
+   <p class="micro" id="routeChoiceStatus" role="status">Driving alternatives will appear after planning a route.</p>
    <p class="micro">Addresses are sent directly from your browser to external geocoding and routing services. Katoptron does not store them. A publicly hosted demo router is used during beta.</p>
   </section>
   <section class="sidebar-section simulation-section" aria-labelledby="simulation-heading">
@@ -114,5 +117,6 @@
 <script src="./config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./route-geometry.js"></script>
+<script src="./routing-routes.js"></script>
 <script src="./map.js"></script>
 </body></html>
