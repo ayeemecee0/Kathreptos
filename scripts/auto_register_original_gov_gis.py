@@ -111,13 +111,53 @@ def qualified_original_layer(page,url):
             "expected_layer_name":name,"service_evidence_mode":"listed_flock_layer"}
     check_metadata(temp,policy,service,layer)
     fields_out={identifier,"OBJECTID"}|({vendor} if vendor else set())
-    q=urllib.parse.urlencode({"where":"1=1","outFields":",".join(sorted(fields_out)),
-      "returnGeometry":"true","outSR":"4326",
-      "orderByFields":"OBJECTID ASC","resultRecordCount":MAX_FEATURES+1,"f":"json"})
-    data=get_official_json(url+"/query?"+q)
-    features=data.get("features") if isinstance(data,dict) else None
-    if not isinstance(features,list) or not 1<=len(features)<=MAX_FEATURES or data.get("exceededTransferLimit") or data.get("error"):
-        raise ValueError("Government original Flock camera inventory missing/oversized/truncated")
+    # A single resultRecordCount request is NOT a complete-inventory proof:
+    # ArcGIS services may silently apply maxRecordCount even when they omit
+    # exceededTransferLimit. Compare original returnIdsOnly inventories before
+    # and after fetching every exact feature by ID in bounded chunks.
+    def original_ids():
+        snapshot=get_official_json(url+"/query?"+urllib.parse.urlencode({
+            "where":"1=1","returnIdsOnly":"true","f":"json"}))
+        if not isinstance(snapshot,dict) or snapshot.get("error"):
+            raise ValueError("Government original GIS ObjectID inventory unavailable")
+        if snapshot.get("objectIdFieldName") not in (None,"OBJECTID"):
+            raise ValueError("Government original GIS ObjectID field changed")
+        ids=snapshot.get("objectIds")
+        if (not isinstance(ids,list) or not 1<=len(ids)<=MAX_FEATURES or
+            any(type(oid) is not int or oid<=0 for oid in ids) or
+            len(set(ids))!=len(ids)):
+            raise ValueError("Government original GIS ObjectID inventory invalid or oversized")
+        return sorted(ids)
+
+    original_inventory=original_ids()
+    original_set=set(original_inventory)
+    fields_out={identifier,"OBJECTID"}|({vendor} if vendor else set())
+    features=[]
+    for start in range(0,len(original_inventory),50):
+        block=original_inventory[start:start+50]
+        q=urllib.parse.urlencode({
+            "objectIds":",".join(map(str,block)),
+            "outFields":",".join(sorted(fields_out)),
+            "returnGeometry":"true","outSR":"4326","f":"json"})
+        result=get_official_json(url+"/query?"+q)
+        batch=result.get("features") if isinstance(result,dict) else None
+        if (not isinstance(batch,list) or len(batch)!=len(block) or
+            result.get("error") or result.get("exceededTransferLimit")):
+            raise ValueError("Government original GIS feature batch incomplete")
+        expected=set(block)
+        actual=[item.get("attributes",{}).get("OBJECTID")
+                for item in batch if isinstance(item,dict)
+                and isinstance(item.get("attributes"),dict)]
+        if (len(actual)!=len(block) or set(actual)!=expected or
+            len(set(actual))!=len(actual)):
+            raise ValueError("Government original GIS feature identity mismatch")
+        features.extend(batch)
+    if original_inventory!=original_ids():
+        raise ValueError("Government original GIS inventory changed during verification")
+    features.sort(key=lambda item:item["attributes"]["OBJECTID"])
+    data={"features":features}
+    if len(features)!=len(original_set):
+        raise ValueError("Government original GIS feature inventory incomplete")
     locations=[]
     for f in features:
         attrs=f.get("attributes") if isinstance(f,dict) else None
