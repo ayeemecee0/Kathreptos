@@ -57,6 +57,20 @@ const cfg=window.KATOPTRON_CONFIG;
 const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey);
 const $=id=>document.getElementById(id);
 function status(message){$('notice').textContent=message;}
+async function sanitizePhoto(file){
+  const bitmap=await createImageBitmap(file);
+  try{
+    if(bitmap.width*bitmap.height>20000000)throw Error('Photograph dimensions are too large.');
+    const scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+    canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+    canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.82));
+    if(!blob||blob.type!=='image/webp'||blob.size>3145728)throw Error('Could not safely prepare the photo.');
+    return new File([blob],'evidence.webp',{type:'image/webp'});
+  }finally{bitmap.close();}
+}
 async function syncSession(){
   const {data:{session},error}=await client.auth.getSession();
   if(error){status('Session check failed: '+error.message);return;}
@@ -100,8 +114,9 @@ $('reportForm').addEventListener('submit',async event=>{
   if(!$('consent').checked){status('Consent is required.');return;}
   $('send').disabled=true;
   try{
-    const photo=$('photo').files[0];
-    if(photo && (!['image/jpeg','image/png','image/webp'].includes(photo.type)||photo.size>3145728))throw Error('Photo must be JPG, PNG or WebP and no larger than 3 MB.');
+    const originalPhoto=$('photo').files[0];
+    if(originalPhoto && (!['image/jpeg','image/png','image/webp'].includes(originalPhoto.type)||originalPhoto.size>3145728))throw Error('Photo must be JPG, PNG or WebP and no larger than 3 MB.');
+    const photo=originalPhoto?await sanitizePhoto(originalPhoto):null;
     const {data:receipt,error}=await client.from('flock_community_submissions').insert({
       latitude:lat,longitude:lon,description,original_source_url:source?(new URL(source).href):null,
       observed_on:$('observed').value||null,consent_to_review:true
