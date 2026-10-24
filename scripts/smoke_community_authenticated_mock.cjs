@@ -8,6 +8,7 @@ const mockSdk=String.raw`
 (()=>{
 'use strict';
 const reviewerMode=location.pathname.includes('community-review.html');
+const followupMode=location.search.includes('scenario=followup');
 const contributor={id:'11111111-aaaa-4111-8111-111111111111',email:'qa.contributor@example.invalid'};
 const reviewer={id:'22222222-bbbb-4222-8222-222222222222',email:'qa.reviewer@example.invalid'};
 const id='33333333-cccc-4333-8333-333333333333';
@@ -18,7 +19,10 @@ const reports=reviewerMode?
    description:'This mock report exists only to test private review UI handling.',
    report_status:'pending',screening_state:'review_needed',
    related_submission_count:0,matching_verified_count:0,
-   original_source_url:'https://example.org/mock-review-proof'}]:[];
+   original_source_url:'https://example.org/mock-review-proof'}]:
+ followupMode?
+ [{submission_id:id,created_at:'2026-10-23T12:00:00Z',
+   report_status:'needs_evidence',observed_on:null}]:[];
 const activity={uploaded:[],deleted:[],signed:[],reviewed:[],withdrawn:[],lastSubmission:null};
 function signal(){for(const cb of onAuth)cb('SIGNED_IN',session);}
 const auth={
@@ -129,6 +133,20 @@ window.__QA={reports,activity};
    assert.equal(withdrawn.deleted.length,1,'Withdrawn contributor evidence should be removed');
    assert.equal((await page.locator('#myReports').textContent()).includes('withdrawn'),true);
    console.log('MOCK CONTRIBUTOR PASS: sign-in, submission, private image recode/upload, default consent, withdraw and photo cleanup');
+   await page.goto(new URL('submit.html?scenario=followup',base).href,{waitUntil:'load'});
+   await page.locator('#email').fill('qa.contributor@example.invalid');
+   await page.locator('#password').fill('another-safe-mock-password');
+   await page.locator('#authForm button[type=submit]').click();
+   await page.locator('#reportPanel').waitFor({state:'visible',timeout:12000});
+   await page.locator('#myReports input[type=file]').setInputFiles({name:'followup.png',mimeType:'image/png',buffer:png});
+   await page.getByRole('button',{name:'Add requested photo'}).click();
+   await page.waitForFunction(()=>window.__QA.activity.uploaded.length===1 ||
+     /Photo attachment failed/.test(document.querySelector('#notice')?.textContent||''),undefined,{timeout:12000});
+   if(!await page.evaluate(()=>window.__QA.activity.uploaded.length))
+     throw Error('Followup photo failed: '+await page.locator('#notice').textContent());
+   assert.equal(await page.evaluate(()=>window.__QA.reports.length),1,
+     'Adding evidence should not create another report or consume a report slot');
+   console.log('MOCK FOLLOWUP PASS: needs-evidence report accepts new original photograph without duplicate submission');
    await page.goto(new URL('community-review.html',base).href,{waitUntil:'load'});
    assert.equal(await page.locator('#workspace').isHidden(),true);
    await page.locator('#email').fill('qa.reviewer@example.invalid');
