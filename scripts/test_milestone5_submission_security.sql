@@ -1,0 +1,46 @@
+-- Milestone 5 regression: run after migrations 060, 061, 062, 065.
+begin;
+insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111');
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
+set local role authenticated;
+do $m5$
+declare
+ i integer;
+ rejected boolean:=false;
+begin
+ if has_table_privilege('anon','public.flock_community_submissions','INSERT')
+    or has_table_privilege('anon','public.flock_community_submissions','SELECT')
+    or has_table_privilege('authenticated','public.flock_community_screening','SELECT')
+    or has_table_privilege('authenticated','public.flock_community_review_history','SELECT')
+    or has_table_privilege('authenticated','public.flock_point_evidence_cases','UPDATE')
+ then raise exception 'Milestone 5 private data leak'; end if;
+ for i in 1..3 loop
+  insert into public.flock_community_submissions(latitude,longitude,description,consent_to_review)
+  values (38.55+i/10000.0,-121.4,
+  'Synthetic verification report used in rollback-only CI tests, never submitted to the live public queue.',true);
+ end loop;
+ if (select count(*) from public.flock_community_submissions)<>3 then
+  raise exception 'Incorrect report count';end if;
+ begin
+  insert into public.flock_community_submissions(latitude,longitude,description,consent_to_review)
+  values (38.56,-121.4,'Fourth synthetic CI submission must be rejected by the daily account rate limit.',true);
+ exception when check_violation or raise_exception then rejected:=true;
+ end;
+ if not rejected then raise exception 'Rate limiter bypass'; end if;
+ begin
+  perform public.list_community_review_queue(1);
+  raise exception 'Reviewer permission bypass';
+ exception when insufficient_privilege then null;
+ end;
+end $m5$;
+reset role;
+do $admin$
+begin
+ if (select count(*) from public.flock_community_screening)<>3 then
+  raise exception 'Screening trigger missed reports';end if;
+ if exists(select 1 from public.flock_point_evidence_cases c
+   where c.case_key like 'tier_%' and c.classification<>'candidate'
+   and c.staged_at>=now()-interval '1 minute') then
+  raise exception 'Community test accidentally published tiered evidence';end if;
+end $admin$;
+rollback;
