@@ -74,4 +74,18 @@ begin
   if sqlerrm='Duplicate source authority reapproved' then raise;end if;
  end;
 end $qa$;
+-- Withdrawal of an independently reviewed source immediately revokes all
+-- corresponding trusted GIS authorities; no live camera record is involved.
+update public.reviewed_first_party_gis_roots
+ set review_status='revoked' where source_key='agency_ci_testtown_oh';
+do $qa$
+begin
+ if exists(select 1 from public.trusted_flock_gis_sources
+   where source_key='agency_ci_testtown_oh' and source_status='verified')
+ or exists(select 1 from public.gis_government_host_authorities
+   where authority_key='agency_ci_testtown_oh' and verification_status='verified')
+ or exists(select 1 from public.gis_verification_profiles
+   where source_key='agency_ci_testtown_oh' and profile_status='verified')
+ then raise exception 'Revoked source remains trusted after independent agency review withdrawal';end if;
+end $qa$;
 rollback;
