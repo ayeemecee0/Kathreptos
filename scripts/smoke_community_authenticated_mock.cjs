@@ -211,6 +211,8 @@ window.__QA={reports,activity};
    assert.equal(await page.locator('#cases article').count(),1);
    await page.locator('#cases button').first().click();
    await page.waitForFunction(()=>window.__QA.activity.signed.length===1,undefined,{timeout:12000});
+   assert.equal(await page.evaluate(()=>window.__QA.activity.signed[0].seconds),60,
+      'Reviewer photo links must expire within one minute');
    await page.locator('#cases textarea').fill(
       'This is a deliberately fictional QA reviewer assessment with an original source URL.');
    await page.getByRole('button',{name:'Reject'}).click();
