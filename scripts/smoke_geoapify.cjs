@@ -13,9 +13,14 @@ const assert=require('node:assert/strict');
   await page.route('**/config.js',async route=>{
    const response=await route.fetch();
    let body=await response.text();
-   if(!body.includes("locationProvider: 'demo'"))throw Error('Free adapter config switch missing');
-   body=body.replace("locationProvider: 'demo'","locationProvider: 'geoapify'")
-      .replace("geoapifyPublicKey: ''","geoapifyPublicKey: '"+fake+"'");
+   if(!/locationProvider:\s*'(demo|geoapify)'/.test(body))
+     throw Error('Location provider config switch missing');
+   // Supply a fake client key, even if the deployed site has a real one.
+   // All Geoapify URLs below are intercepted and no credits are consumed.
+   body=body.replace(/locationProvider:\s*'[^']+'/,
+     "locationProvider: 'geoapify'")
+     .replace(/geoapifyPublicKey:\s*'[^']*'/,
+       "geoapifyPublicKey: '"+fake+"'");
    await route.fulfill({status:200,contentType:'application/javascript',body});
   });
   await page.route('https://api.geoapify.com/v1/geocode/search**',async route=>{
