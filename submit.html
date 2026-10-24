@@ -95,7 +95,7 @@ $('register').addEventListener('click',async()=>{
 });
 $('signout').addEventListener('click',async()=>{const {error}=await client.auth.signOut();status(error?error.message:'Signed out.');await syncSession();});
 async function loadOwnReports(){
- const {data,error}=await client.from('flock_community_submissions').select('submission_id,created_at,report_status,observed_on').order('created_at',{ascending:false}).limit(20);
+ const {data,error}=await client.from('flock_community_submissions').select('submission_id,created_at,report_status,observed_on,original_source_url').order('created_at',{ascending:false}).limit(20);
  const box=$('myReports');box.replaceChildren();
  if(error){status('Could not load reports: '+error.message);return;}
  if(!data.length){const li=document.createElement('li');li.textContent='No reports submitted yet.';box.append(li);return;}
@@ -103,6 +103,33 @@ async function loadOwnReports(){
  const li=document.createElement('li');
  li.textContent=new Date(report.created_at).toLocaleDateString()+' · '+report.report_status.replaceAll('_',' ')+' · Ref '+report.submission_id.slice(0,8);
  if(['pending','needs_evidence'].includes(report.report_status)){
+   if(!report.original_source_url){
+     const sourceField=document.createElement('input');
+     sourceField.type='url';sourceField.maxLength=1600;
+     sourceField.placeholder='https://original-government-source...';
+     sourceField.setAttribute('aria-label','Original source URL for report '+report.submission_id.slice(0,8));
+     const sourceButton=document.createElement('button');
+     sourceButton.type='button';sourceButton.textContent='Add missing source link';
+     sourceButton.addEventListener('click',async()=>{
+       const raw=sourceField.value.trim();
+       if(!/^https:\\/\\/[a-z0-9.-]+(?:\\/|$)/i.test(raw)){
+         status('An original HTTPS source URL is required.');return;
+       }
+       sourceButton.disabled=true;
+       try{
+         const url=new URL(raw).href;
+         const {data,error}=await client.from('flock_community_submissions')
+           .update({original_source_url:url})
+           .eq('submission_id',report.submission_id)
+           .select('submission_id');
+         if(error||!data?.length)throw Error(error?.message||'Source was not accepted or was already provided.');
+         status('Original source saved privately for independent review. It does not verify or publish the report.');
+         await loadOwnReports();
+       }catch(error){status('Source update failed: '+error.message);}
+       finally{sourceButton.disabled=false;}
+     });
+     li.append(' ',sourceField,' ',sourceButton);
+   }
    const picker=document.createElement('input');
    picker.type='file';picker.accept='image/jpeg,image/png,image/webp';
    picker.setAttribute('aria-label','Private evidence photo for report '+report.submission_id.slice(0,8));
