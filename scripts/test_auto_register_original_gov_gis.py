@@ -59,6 +59,44 @@ class NewOriginalGov(unittest.TestCase):
   self.assertEqual(result["registered"],1)
   self.assertEqual(result["government_page_digest_refreshed"],1)
   self.assertEqual(rpc.call_args_list[0].kwargs["payload"]["p_expected_old_sha"],"a"*64)
+ def test_unambiguous_original_government_service_root(self):
+  root=URL.rsplit("/",1)[0]
+  with patch.object(x,"get_official_json",return_value={
+    "layers":[{"id":0,"name":"Flock Cameras"},{"id":8,"name":"Traffic Cameras"}]}):
+   self.assertEqual(x.resolve_exact_original_camera_layer(PAGE,root),
+                    (URL,root,"Flock Cameras"))
+  with patch.object(x,"get_official_json",return_value={
+    "layers":[{"id":0,"name":"Flock Cameras"},{"id":1,"name":"Flock Cameras"}]}):
+   with self.assertRaisesRegex(ValueError,"zero or multiple"):
+    x.resolve_exact_original_camera_layer(PAGE,root)
+ def test_government_service_root_never_resolves_untrusted_publisher(self):
+  with patch.object(x,"get_official_json") as fetch:
+   for url in ("http://gis.city.example.gov/arcgis/rest/services/Flock/MapServer",
+      "https://services.arcgis.com/abc/arcgis/rest/services/Flock/FeatureServer",
+      "https://gis.other.gov/arcgis/rest/services/Flock/MapServer"):
+    with self.assertRaises(ValueError):
+     x.resolve_exact_original_camera_layer(PAGE,url)
+  fetch.assert_not_called()
+ def test_government_service_direct_anchor_is_not_an_auto_approval(self):
+  root=URL.rsplit("/",1)[0]
+  doc=Anchors()
+  doc.feed('<h1>Our Flock Safety ALPR camera system</h1>'
+           '<a href="'+root+'">Flock GIS cameras</a>')
+  candidate={"gis_layer_url":URL,"layer_name":"Flock Cameras"}
+  with (patch.object(x,"private_government_pages",return_value=[
+      {"page_url":PAGE,"page_sha256":'a'*64,"gis_links":[root]}]),
+        patch.object(x,"get_official_json",return_value={
+          "layers":[{"id":0,"name":"Flock Cameras"}]}),
+        patch.object(x,"public_dns",return_value=True),
+        patch.object(x,"fetch_government_page",return_value=(doc,'a'*64)),
+        patch.object(x,"qualified_original_layer",return_value=[
+          "CameraID",None,[{"id":4,"lat":38.5,"lon":-98.45}],'b'*64,candidate]),
+        patch.object(x,"stage_candidate") as stage,
+        patch.object(x,"api_request") as backend):
+   result=x.run(dry_run=True)
+  self.assertEqual(result["qualified_live_layers"],1)
+  stage.assert_not_called()
+  backend.assert_not_called()
  def test_dryrun_no_mutations(self):
   candidate={"gis_layer_url":URL,"layer_name":"Flock Cameras"}
   with (patch.object(x,"private_government_pages",return_value=[
