@@ -17,7 +17,7 @@ from auto_verify_camera_gis import get_official_json
 from government_domain_registry import public_dns
 from discover_camera_gis_sources import stage_candidate
 
-from first_party_registry import load_sources
+from first_party_registry import load_sources, original_domain
 
 SOURCES=load_sources()
 MAX_ITEMS=250
@@ -30,7 +30,7 @@ def apex(host):
     parts=host.split('.')
     if len(parts)<3 or any(not x for x in parts):
         return None
-    return '.'.join(parts[-2:])
+    return original_domain(host)
 
 def authority(source,document):
     """Original agency site must control both hosted GIS server and portal."""
