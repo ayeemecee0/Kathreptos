@@ -53,3 +53,11 @@ No paid infrastructure added for this milestone. Free-tier limits and unbounded 
 ## Next engineering milestones
 
 Use maintenance/analytics telemetry to improve national official-source coverage and evidence correctness. New sources must follow the independent verification architecture and cannot be promoted merely from community reports, news, or vendor-advertised material. A fully nationwide inventory is not a realistic sign-off requirement while official camera data remain unavailable; missing records are labeled unknown.
+
+## October 23 production-hardening acceptance
+
+- [Validation #440](https://github.com/ayeemecee0/Katoptron/actions/runs/40066618103) passed the required release boundary checks. These deny anonymous reads/writes on private community data, preserve editor-only writes, catch unaudited editor RPC grants, reconcile camera evidence totals, and alert if new unreviewed anonymous privileged functions appear.
+- [Browser smoke #108](https://github.com/ayeemecee0/Katoptron/actions/runs/40066618279) passed. New trip planning clears the prior street route, camera proximity totals and replay controls **before** trying an external routing request. Failed replacements do not display the former trip's camera results.
+- [Private offline backup runbook](./free-tier-private-backup-recovery.md) is implemented but **not executed**. A trusted owner machine, database credentials, encrypted local/offsite storage, and a real local restore drill are required; the 7-day GitHub public snapshot does not protect private records or Storage object bytes.
+- Supabase database size was approximately 33.4 MiB when queried. Free-tier database and provider quotas still need operational alerts as adoption grows.
+- Browser Supabase SDK is version-pinned to `2.118.0` in contributor and editorial pages. This is a supply-chain hardening measure, not a promise of immunity from CDN compromise.
