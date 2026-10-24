@@ -6,6 +6,8 @@
   const CFG = window.KATOPTRON_CONFIG;
   const Geo = window.KatoptronRouteGeometry;
   const Routing = window.KatoptronRouting;
+  const Provider = window.KatoptronProvider;
+  const providerClient = Provider?.client();
   const Comparison = window.KatoptronRouteComparison;
   const MAX_VISIBLE = 1200;
   const CAMERA_NEAR_ROUTE_M = 120; // Demonstration proximity threshold, NOT a device read range.
@@ -16,7 +18,7 @@
     observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null,
     routeChoices: [], routeComparisons: [], routeRequest: 0, evidenceAbort: null,
-    routeGeocodeCache: {}
+    routeGeocodeCache: {}, routeProviderAbort: null
   };
 
   function setText(id, value) { $(id).textContent = String(value); }
@@ -830,22 +832,21 @@
       throw new Error('Route/location provider configuration must be an HTTPS base URL without credentials');
     return url.href.replace(/\/$/,'');
   }
-  async function getJson(url, timeoutMs) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+  async function getJson(url,timeoutMs,kind,signal) {
+    if(!providerClient)throw new Error('Location provider transport unavailable');
     try {
-      const res = await fetch(url, {signal:controller.signal,cache:'no-store',
-        headers:{Accept:'application/json'},referrerPolicy:'strict-origin-when-cross-origin'});
-      if (!res.ok) throw new Error('External location/routing service returned HTTP '+res.status);
-      const length=Number(res.headers.get('content-length')||0);
-      if(length>6000000)throw new Error('External provider response exceeds safety limit');
-      const payload=await res.text();
-      if(!payload || payload.length>6000000)
-        throw new Error('External provider response missing or too large');
-      return JSON.parse(payload);
-    } finally { clearTimeout(timer); }
+      const data=await providerClient.json(kind,url,timeoutMs,signal);
+      setText('providerStatus',(kind==='routing'?'Routing':'Geocoding')+
+        ' service responded. Shared demo availability is NOT guaranteed.');
+      return data;
+    }catch(error){
+      if(error.name!=='AbortError')setText('providerStatus',
+        'LOCATION PROVIDER DEGRADED · '+error.message+
+        ' Do not assume a failed route is camera-free.');
+      throw error;
+    }
   }
-  async function geocodeCandidates(input) {
+  async function geocodeCandidates(input,signal) {
     const coord=coordinateInput(input);
     if(coord)return [{point:coord,label:input+' (coordinates)'}];
     const q=input.trim();
@@ -856,7 +857,7 @@
     state.lastGeocodeAt=Date.now();
     const url=providerBase(CFG.geocodingServiceBase,
       'https://photon.komoot.io')+'/api/?limit=5&lang=en&q='+encodeURIComponent(q);
-    const data=await getJson(url,13000);
+    const data=await getJson(url,13000,'geocoding',signal);
     if(!Array.isArray(data?.features))
       throw new Error('Geocoding service returned malformed results.');
     const results=[];
@@ -886,7 +887,7 @@
     select.disabled=true;
     delete state.routeGeocodeCache[slot];
   }
-  async function resolveRoutePlace(slot,query) {
+  async function resolveRoutePlace(slot,query,signal) {
     const raw=coordinateInput(query);
     if(raw){
       clearRouteCandidate(slot);
@@ -896,7 +897,7 @@
     let cached=state.routeGeocodeCache[slot];
     if(!cached||cached.query!==query) {
       clearRouteCandidate(slot);
-      const candidates=await geocodeCandidates(query);
+      const candidates=await geocodeCandidates(query,signal);
       cached={query,candidates};
       state.routeGeocodeCache[slot]=cached;
       if(candidates.length>1) {
@@ -919,13 +920,13 @@
     const index=Number(select.value);
     return cached.candidates[index]||null;
   }
-  async function routing(from,to) {
+  async function routing(from,to,signal) {
     const a = from.point, b = to.point;
     const path = String(a[1]) + ',' + String(a[0]) + ';' + String(b[1]) + ',' + String(b[0]);
     const url = providerBase(CFG.routingServiceBase,
       'https://router.project-osrm.org')+'/route/v1/driving/' + path +
       '?overview=full&geometries=geojson&steps=false&alternatives=true';
-    const data = await getJson(url,22000);
+    const data = await getJson(url,22000,'routing',signal);
     if(!Routing)throw new Error('Routing verification library unavailable');
     return Routing.readAlternatives(data,from,to,Geo);
   }
@@ -1074,19 +1075,22 @@
     const from=$('from').value.trim(), to=$('to').value.trim();
     if (!from || !to) return;
     const request=++state.routeRequest;
+    state.routeProviderAbort?.abort();
+    const providerController=new AbortController();
+    state.routeProviderAbort=providerController;
     $('planRoute').disabled=true;
     stopReplay();
     setText('routeStatus','Resolving US destinations; contacting routing service…');
     try {
-      const a=await resolveRoutePlace('from',from);
+      const a=await resolveRoutePlace('from',from,providerController.signal);
       if(request!==state.routeRequest)return;
-      const b=await resolveRoutePlace('to',to);
+      const b=await resolveRoutePlace('to',to,providerController.signal);
       if(request!==state.routeRequest)return;
       if(!a||!b){
         setText('routeStatus','Choose the intended US start and destination matches above, then calculate again. No location was guessed.');
         return;
       }
-      const trips=await routing(a,b);
+      const trips=await routing(a,b,providerController.signal);
       if(request!==state.routeRequest)return;
       state.evidenceAbort?.abort();
       state.routeChoices=trips;
@@ -1107,15 +1111,18 @@
       selectRoute(0);
       await compareRouteChoices(request);
     } catch (error) {
-      if(request!==state.routeRequest)return;
+      if(request!==state.routeRequest||error.name==='AbortError')return;
       setText('routeStatus','Route unavailable: '+error.message+
         ' No straight-line route or guessed detections will be displayed.');
     } finally {
+      if(state.routeProviderAbort===providerController)state.routeProviderAbort=null;
       if(request===state.routeRequest)$('planRoute').disabled=false;
     }
   }
   function reset() {
     ++state.routeRequest;
+    state.routeProviderAbort?.abort();
+    state.routeProviderAbort=null;
     state.evidenceAbort?.abort();
     state.evidenceAbort=null;
     state.routeChoices=[];
