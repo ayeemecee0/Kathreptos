@@ -101,7 +101,7 @@ class MapPageTests(unittest.TestCase):
         self.assertIn('Routing.readAlternatives',self.script)
         self.assertIn('state.evidenceAbort?.abort()',self.script)
         self.assertIn('cameraRows(box,controller.signal)',self.script)
-        self.assertIn('state.route!==route',self.script)
+        self.assertIn('state.route!==route || state.evidenceAbort!==controller',self.script)
 
 
 if __name__=='__main__':
