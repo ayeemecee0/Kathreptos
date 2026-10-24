@@ -6,6 +6,17 @@ const assert=require('node:assert/strict');
  const page=await browser.newPage({viewport:{width:1440,height:960}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
+  // The legacy smoke intentionally mocks demo endpoints, independent of
+  // which real provider production uses. No real Geoapify credits are spent.
+  await page.route('**/config.js',async route=>{
+    const response=await route.fetch();
+    let body=await response.text();
+    body=body.replace(/locationProvider:\s*'[^']+'/,
+      "locationProvider: 'demo'");
+    body=body.replace(/geoapifyPublicKey:\s*'[^']*'/,
+      "geoapifyPublicKey: ''");
+    await route.fulfill({status:200,contentType:'application/javascript',body});
+  });
   await page.goto(process.env.KATOPTRON_SMOKE_BASE||'https://ayeemecee0.github.io/Katoptron/',{waitUntil:'domcontentloaded',timeout:45000});
   await page.waitForFunction(()=>document.querySelector('#coverageSpinner')?.textContent==='Live data',{timeout:30000});
   await page.waitForFunction(()=>document.querySelector('#nationalStats')?.textContent?.includes('verified camera points in'),{timeout:20000});
