@@ -53,3 +53,11 @@ This feature is ready for a *controlled beta* but is not yet certified productio
 ## October 24 accessible intake update
 
 A local-only coordinate helper accepts a copy/pasted `latitude, longitude` pair, validates supported U.S. bounding coordinates and fills the existing separate inputs without geocoding or persisting the input. This reduces entry friction **without** altering publication consent, identity protection or evidence verification. The controlled sign-in, submission and follow-up browser mock now tests both valid and malformed coordinate pairs. [Browser release smoke #111](https://github.com/ayeemecee0/Katoptron/actions/runs/40108388057) passed. Real Supabase Auth email and Storage HTTP acceptance remain independently unverified.
+
+## October 24 withdrawal privacy recovery
+
+Production migration `080_revoke_withdrawn_report_reviewer_photo_access.sql` now gates reviewer Storage `SELECT` and `community_report_attachment_paths` on the report *not* being withdrawn. A withdrawn contributor retains their own bucket SELECT permission needed to list and retry deleting any orphaned photo; the DELETE policy for withdrawn own reports remains separate. This explicitly addresses a network/storage outage between revoking a report and successfully deleting the binary object.
+
+The public contributor UI now offers **Retry photo deletion** for withdrawn reports. It checks the user's server-verified Auth identity, only lists their own report directory, rejects unexpected filenames and never claims removal if the Storage API returns an error. The reviewer UI shortens newly issued signed photo links to **60 seconds**. Previously issued signed URLs may still work until expiry; immediate revocation of an already-issued signed URL is not guaranteed.
+
+The live `scripts/test_community_storage_rls_production.sql` was run successfully using a rollback-only synthetic user/reviewer/photo-metadata scenario. It verified reviewer denial after withdrawal and owner ability to list and delete. This does **not** test actual Storage binary upload/download and does not demonstrate that all failed deletions are eventually retried.
