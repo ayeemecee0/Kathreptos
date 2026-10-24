@@ -1,6 +1,9 @@
 -- Milestone 5 regression: run after migrations 060, 061, 062, 065.
 begin;
-insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111');
+-- Earlier regression fixtures may already create this synthetic user.
+-- Reuse it only in the disposable PostgreSQL CI database, never in production.
+insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111')
+on conflict (id) do nothing;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
 set local role authenticated;
 do $m5$
