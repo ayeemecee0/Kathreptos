@@ -536,7 +536,8 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from pg_indexes where schemaname='public' and indexname like '%_fk_idx'" | grep -qx 10
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | grep -qx 6
+            "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | tee /tmp/verified_gis_sources_count
+          grep -Eq '^([6-9]|[1-9][0-9]+)
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
@@ -569,6 +570,385 @@ jobs:
             "select has_column_privilege('service_role','public.flock_camera_locations','last_source_recheck_at','UPDATE')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | grep -qx 6
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.trusted_flock_gis_sources','UPDATE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_discovery_candidates','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_camera_discovery_candidates','INSERT')" | grep -qx t
+          # No hypothetical cameras may be seeded into the live verified map.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.flock_camera_locations" | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_locations','INSERT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_camera_locations','INSERT')" | grep -qx t
+          # Source-domain validation must be enforced inside PostgreSQL,
+          # not only in the scanner. These are vendor-scoped example URLs,
+          # not a claim that the government documents are signed contracts.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://oakland.legistar1.com/oakland/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'oakland','Oakland, CA');" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://legistar.granicus.com/Commerce/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'commerce','Commerce City, CO');" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://legistar.granicus.com/commerce/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'oakland','Oakland, CA');" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://unknown.gov/FlockAgreement.pdf','oakland','Oakland, CA');" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.verified_flock_agenda_mentions(
+            tenant,matter_id,jurisdiction_label,matter_title,file_number,
+            government_evidence_url,intro_date)
+          values(
+            'costamesa',2660,'Costa Mesa, CA',
+            'Flock Safety automated license plate reader lease - agenda item',
+            '24-068','https://costamesa.gov/','2024-03-19');
+          SQL
+          # A clearly labelled official agenda mention is readable by visitors.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon;
+             select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 1
+          # Revocation hides it without erasing provenance; service role
+          # cannot rewrite the verified historical claim.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             insert into public.verified_flock_agenda_mentions(
+              tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url)
+             values('notarealcity',44,'Not A Real City, CA',
+              'Flock Safety ALPR camera discussion','https://fake.gov/');" \
+            >/tmp/katoptron-invalid-auto-mention.log 2>&1; then
+            echo "::error::Unverified government tenant published an agenda mention"
+            exit 1
+          fi
+          grep -q "Government tenant/evidence no longer independently verified" \
+            /tmp/katoptron-invalid-auto-mention.log
+          # The automatic mention does not create a contract or council vote.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.contracts" | grep -qx 0
+          # Revoking a government registry entry must automatically hide the
+          # published mention without any independent/manual publication edit.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "update public.government_source_registry
+                set verification_status='candidate'
+             where source_url='https://costamesa.legistar.com/';"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 0
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "update public.verified_flock_agenda_mentions set status='verified'
+             where tenant='costamesa' and matter_id=2660;" \
+             >/tmp/katoptron-no-silent-reapproval.log 2>&1; then
+            echo "::error::Revoked published agenda was silently reapproved"
+            exit 1
+          fi
+          grep -q "cannot be silently reapproved" /tmp/katoptron-no-silent-reapproval.log
+          # A reviewed custom-government domain can be revoked independently
+          # of the tenant registry, and its public mentions must disappear.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.government_source_registry
+            (source_url,host,source_kind,jurisdiction_label,verification_status,evidence_url)
+          values
+            ('https://commerce.legistar.com/','commerce.legistar.com','legistar',
+             'Commerce City, CO','verified',
+             'https://www.c3gov.com/Government/City-Council/Council-Voting-Records');
+          insert into public.discovery_queue(url,headline,publisher)
+          values('https://webapi.legistar.com/v1/commerce/matters/12379',
+                 'Flock Safety Safe Cities Program','Commerce City, CO');
+          insert into public.verified_flock_agenda_mentions
+            (tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url)
+          values('commerce',12379,'Commerce City, CO',
+                 'Flock Safety Safe Cities Program',
+                 'https://www.c3gov.com/Government/City-Council/Council-Voting-Records');
+          insert into public.verified_flock_legislative_decisions
+            (tenant,matter_id,history_id,jurisdiction_label,matter_title,
+             action_name,action_body,passed_flag_name,decision_outcome,action_date)
+          values('commerce',12379,77,'Commerce City, CO',
+                 'Flock Safety Safe Cities Program',
+                 'Adopted as Amended','City Council','Passed',
+                 'adopted_as_amended','2026-04-06');
+          SQL
+          # Only a truly recorded, corroborated action may publish.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_legislative_decisions" |
+            tail -1 | grep -qx 1
+          # The service role cannot edit a published event.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             update public.verified_flock_legislative_decisions set
+                decision_outcome='approved' where history_id=77;" \
+             >/tmp/katoptron-immutable-decision.log 2>&1; then
+            echo "::error::Workflow rewrote an independently verified decision"
+            exit 1
+          fi
+          # Conflicting action/pass flag and committee-only decisions must fail.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "insert into public.verified_flock_legislative_decisions
+             (tenant,matter_id,history_id,jurisdiction_label,matter_title,
+              action_name,action_body,passed_flag_name,decision_outcome,action_date)
+             values('commerce',12379,78,'Commerce City, CO',
+             'Flock Safety Safe Cities Program',
+             'Adopted','Public Safety Committee','Failed','adopted','2026-04-06');" \
+            >/tmp/katoptron-ambiguous-decision.log 2>&1; then
+            echo "::error::Ambiguous committee/flag action escaped its constraints"
+            exit 1
+          fi
+          grep -q 'violates check constraint' /tmp/katoptron-ambiguous-decision.log
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "update public.official_government_domains
+                set verification_status='rejected'
+              where domain='c3gov.com';"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_legislative_decisions" |
+            tail -1 | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.verified_flock_legislative_decisions
+             where tenant='commerce' and status='revoked'" | grep -qx 1
+          # A reviewer must never be able to publish an already-approved item.
+          # Check the private allowlist has no direct table grants for users.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('authenticated','public.editorial_reviewers','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.agenda_evidence_reviews','SELECT')" | grep -qx f
+          # Validate the actual seeded SQL records with the same parser as
+          # production (not only hard-coded mock fixtures).
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
+            "select coalesce(json_agg(row_to_json(t)), '[]'::json) from
+            (select domain,jurisdiction_label,legistar_tenant,legistar_evidence_url,
+                    allow_www,verification_status,evidence_url,reviewed_by,reviewed_at
+             from public.official_government_domains
+             where verification_status='verified') t" |
+            PYTHONPATH=scripts python -c 'import json,sys; from government_domain_registry import parse_verified_rows; approved=parse_verified_rows(json.load(sys.stdin)); assert len(approved)==4, approved; print("Validated 4 remaining reviewed authorities after intentional domain revocation test")'
+      - name: Check Python syntax
+        run: python -m compileall -q scripts
+      - name: Install discovery dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test government-domain safety
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Validate map and route geometry JavaScript
+        run: |
+          node --check route-geometry.js
+          node --check map.js
+          node scripts/test_route_geometry.js
+ /tmp/verified_gis_sources_count
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('authenticated','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.government_gis_disclosure_leads','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.gis_government_host_authorities where verification_status='verified'" | grep -qx 5
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.trusted_flock_gis_sources where source_key='elpaso_co' and source_status='candidate'" | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.gis_government_host_authorities','UPDATE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.gis_camera_authority_current('https://gis.monroewa.gov/citygis/rest/services/UtilityData/Street_Layers/MapServer/22','Monroe, WA')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.gis_camera_authority_current('https://unapproved.example/FeatureServer/0','Monroe, WA')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_gis_source_candidates','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.trusted_flock_gis_sources','UPDATE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_source_matches','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_column_privilege('service_role','public.flock_camera_locations','last_source_recheck_at','UPDATE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | tee /tmp/verified_gis_sources_count
+          grep -Eq '^([6-9]|[1-9][0-9]+)
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.trusted_flock_gis_sources','UPDATE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_discovery_candidates','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_camera_discovery_candidates','INSERT')" | grep -qx t
+          # No hypothetical cameras may be seeded into the live verified map.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.flock_camera_locations" | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.flock_camera_locations','INSERT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('service_role','public.flock_camera_locations','INSERT')" | grep -qx t
+          # Source-domain validation must be enforced inside PostgreSQL,
+          # not only in the scanner. These are vendor-scoped example URLs,
+          # not a claim that the government documents are signed contracts.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://oakland.legistar1.com/oakland/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'oakland','Oakland, CA');" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://legistar.granicus.com/Commerce/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'commerce','Commerce City, CO');" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://legistar.granicus.com/commerce/attachments/955cbde1-4b0b-4cf5-89bb-3bc18de1c785.pdf',
+              'oakland','Oakland, CA');" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select public.is_current_government_document_url(
+              'https://unknown.gov/FlockAgreement.pdf','oakland','Oakland, CA');" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.verified_flock_agenda_mentions(
+            tenant,matter_id,jurisdiction_label,matter_title,file_number,
+            government_evidence_url,intro_date)
+          values(
+            'costamesa',2660,'Costa Mesa, CA',
+            'Flock Safety automated license plate reader lease - agenda item',
+            '24-068','https://costamesa.gov/','2024-03-19');
+          SQL
+          # A clearly labelled official agenda mention is readable by visitors.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon;
+             select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 1
+          # Revocation hides it without erasing provenance; service role
+          # cannot rewrite the verified historical claim.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             insert into public.verified_flock_agenda_mentions(
+              tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url)
+             values('notarealcity',44,'Not A Real City, CA',
+              'Flock Safety ALPR camera discussion','https://fake.gov/');" \
+            >/tmp/katoptron-invalid-auto-mention.log 2>&1; then
+            echo "::error::Unverified government tenant published an agenda mention"
+            exit 1
+          fi
+          grep -q "Government tenant/evidence no longer independently verified" \
+            /tmp/katoptron-invalid-auto-mention.log
+          # The automatic mention does not create a contract or council vote.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.contracts" | grep -qx 0
+          # Revoking a government registry entry must automatically hide the
+          # published mention without any independent/manual publication edit.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "update public.government_source_registry
+                set verification_status='candidate'
+             where source_url='https://costamesa.legistar.com/';"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 0
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "update public.verified_flock_agenda_mentions set status='verified'
+             where tenant='costamesa' and matter_id=2660;" \
+             >/tmp/katoptron-no-silent-reapproval.log 2>&1; then
+            echo "::error::Revoked published agenda was silently reapproved"
+            exit 1
+          fi
+          grep -q "cannot be silently reapproved" /tmp/katoptron-no-silent-reapproval.log
+          # A reviewed custom-government domain can be revoked independently
+          # of the tenant registry, and its public mentions must disappear.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.government_source_registry
+            (source_url,host,source_kind,jurisdiction_label,verification_status,evidence_url)
+          values
+            ('https://commerce.legistar.com/','commerce.legistar.com','legistar',
+             'Commerce City, CO','verified',
+             'https://www.c3gov.com/Government/City-Council/Council-Voting-Records');
+          insert into public.discovery_queue(url,headline,publisher)
+          values('https://webapi.legistar.com/v1/commerce/matters/12379',
+                 'Flock Safety Safe Cities Program','Commerce City, CO');
+          insert into public.verified_flock_agenda_mentions
+            (tenant,matter_id,jurisdiction_label,matter_title,government_evidence_url)
+          values('commerce',12379,'Commerce City, CO',
+                 'Flock Safety Safe Cities Program',
+                 'https://www.c3gov.com/Government/City-Council/Council-Voting-Records');
+          insert into public.verified_flock_legislative_decisions
+            (tenant,matter_id,history_id,jurisdiction_label,matter_title,
+             action_name,action_body,passed_flag_name,decision_outcome,action_date)
+          values('commerce',12379,77,'Commerce City, CO',
+                 'Flock Safety Safe Cities Program',
+                 'Adopted as Amended','City Council','Passed',
+                 'adopted_as_amended','2026-04-06');
+          SQL
+          # Only a truly recorded, corroborated action may publish.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_legislative_decisions" |
+            tail -1 | grep -qx 1
+          # The service role cannot edit a published event.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "set role service_role;
+             update public.verified_flock_legislative_decisions set
+                decision_outcome='approved' where history_id=77;" \
+             >/tmp/katoptron-immutable-decision.log 2>&1; then
+            echo "::error::Workflow rewrote an independently verified decision"
+            exit 1
+          fi
+          # Conflicting action/pass flag and committee-only decisions must fail.
+          if psql -h 127.0.0.1 -U postgres -d katoptron_test -c \
+            "insert into public.verified_flock_legislative_decisions
+             (tenant,matter_id,history_id,jurisdiction_label,matter_title,
+              action_name,action_body,passed_flag_name,decision_outcome,action_date)
+             values('commerce',12379,78,'Commerce City, CO',
+             'Flock Safety Safe Cities Program',
+             'Adopted','Public Safety Committee','Failed','adopted','2026-04-06');" \
+            >/tmp/katoptron-ambiguous-decision.log 2>&1; then
+            echo "::error::Ambiguous committee/flag action escaped its constraints"
+            exit 1
+          fi
+          grep -q 'violates check constraint' /tmp/katoptron-ambiguous-decision.log
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 1
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -c \
+            "update public.official_government_domains
+                set verification_status='rejected'
+              where domain='c3gov.com';"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_agenda_mentions" |
+            tail -1 | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "set role anon; select count(*) from public.verified_flock_legislative_decisions" |
+            tail -1 | grep -qx 0
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select count(*) from public.verified_flock_legislative_decisions
+             where tenant='commerce' and status='revoked'" | grep -qx 1
+          # A reviewer must never be able to publish an already-approved item.
+          # Check the private allowlist has no direct table grants for users.
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('authenticated','public.editorial_reviewers','SELECT')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.agenda_evidence_reviews','SELECT')" | grep -qx f
+          # Validate the actual seeded SQL records with the same parser as
+          # production (not only hard-coded mock fixtures).
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 -Atc \
+            "select coalesce(json_agg(row_to_json(t)), '[]'::json) from
+            (select domain,jurisdiction_label,legistar_tenant,legistar_evidence_url,
+                    allow_www,verification_status,evidence_url,reviewed_by,reviewed_at
+             from public.official_government_domains
+             where verification_status='verified') t" |
+            PYTHONPATH=scripts python -c 'import json,sys; from government_domain_registry import parse_verified_rows; approved=parse_verified_rows(json.load(sys.stdin)); assert len(approved)==4, approved; print("Validated 4 remaining reviewed authorities after intentional domain revocation test")'
+      - name: Check Python syntax
+        run: python -m compileall -q scripts
+      - name: Install discovery dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test government-domain safety
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Validate map and route geometry JavaScript
+        run: |
+          node --check route-geometry.js
+          node --check map.js
+          node scripts/test_route_geometry.js
+ /tmp/verified_gis_sources_count
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('service_role','public.trusted_flock_gis_sources','UPDATE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
