@@ -1,0 +1,41 @@
+name: Triage government GIS verification backlog
+on:
+  schedule:
+    - cron: '13 18 * * 1,4'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/triage_gis_verification_backlog.py'
+      - 'scripts/test_triage_gis_verification_backlog.py'
+      - '.github/workflows/triage_gis_verification_backlog.yml'
+permissions:
+  contents: read
+concurrency:
+  group: katoptron-government-gis-verification-triage
+  cancel-in-progress: false
+jobs:
+  classify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test that only original agency GIS hosts qualify for geometry comparisons
+        run: python -m unittest discover -s scripts -p 'test_triage_gis_verification_backlog.py' -v
+      - name: Verify private server-only triage credential
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || {
+            echo "::error::Missing existing government GIS health credential"
+            exit 1
+          }
+      - name: Classify GIS candidate blockers without publishing unreviewed locations
+        run: python scripts/triage_gis_verification_backlog.py
