@@ -81,6 +81,12 @@
    <label for="routeChoice" class="field-label">DRIVING ROUTE ALTERNATIVES</label>
    <select id="routeChoice" disabled aria-describedby="routeChoiceStatus"></select>
    <p class="micro" id="routeChoiceStatus" role="status">Driving alternatives will appear after planning a route.</p>
+   <section class="route-compare" aria-labelledby="comparisonHeading">
+     <h3 id="comparisonHeading">Compare published camera evidence</h3>
+     <p id="comparisonStatus" class="micro" role="status">Plan a route to compare independently checked alternatives. Camera inventory remains incomplete.</p>
+     <ol id="routeComparisonList" aria-label="Driving-route evidence comparison"></ol>
+     <p class="micro">Each route is independently searched across its full corridor. Counts describe documented points within 120 meters of the road, not read range, detection likelihood, active cameras, or surveillance-free travel.</p>
+   </section>
    <p class="micro">Addresses are sent directly from your browser to external geocoding and routing services. Katoptron does not store them. A publicly hosted demo router is used during beta.</p>
   </section>
   <section class="sidebar-section simulation-section" aria-labelledby="simulation-heading">
@@ -121,5 +127,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./route-geometry.js"></script>
 <script src="./routing-routes.js"></script>
+<script src="./route-comparison.js"></script>
 <script src="./map.js"></script>
 </body></html>
