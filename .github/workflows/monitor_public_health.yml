@@ -9,6 +9,8 @@ on:
     paths:
       - 'scripts/monitor_public_health.py'
       - 'scripts/test_monitor_public_health.py'
+      - 'scripts/test_monitor_accountability.py'
+      - 'accountability.html'
       - '.github/workflows/monitor_public_health.yml'
 
 permissions:
@@ -27,6 +29,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run health safety regression tests
-        run: python -m unittest discover -s scripts -p 'test_monitor_public_health.py' -v
-      - name: Verify live Katoptron website and public GIS data
+        run: |
+          python -m unittest discover -s scripts -p 'test_monitor_public_health.py' -v
+          python -m unittest discover -s scripts -p 'test_monitor_accountability.py' -v
+      - name: Verify live Katoptron website, verified discovery, and accountability data
         run: python scripts/monitor_public_health.py
