@@ -21,12 +21,12 @@ Katoptron is a **nationwide Flock Safety camera-map and route-surveillance educa
 
 ## Milestone 5: Community evidence submissions (October 23, 2026)
 
-- [Report possible Flock cameras](./submit.html): signed-in intake, evidence URLs, dates and optional metadata-stripped private images, limited to three reports per contributor per 24-hour bucket.
+- [Report possible Flock cameras](./submit.html): signed-in intake, evidence URLs, dates and optional metadata-stripped private images, limited to three reports per contributor in a true rolling 24-hour window.
 - [Private reviewer dashboard](./community-review.html): allowlisted editorial reviewers inspect private screening matches, photos and supporting URLs, with written and audited reviewer outcomes.
 - **Automatically staged does not mean verified.** Eligible report details enter the separate private candidate queue only; no new report can certify itself, enter canonical verified counts or appear publicly without separately qualifying reviewed evidence.
-- Contributors can inspect their own report history, withdraw reports and request attached-photo deletion. Rejection or withdrawal revokes linked case evidence.
+- Contributors can inspect their own report history, attach a requested missing private photo or original HTTPS link, withdraw reports and request Storage-API photo deletion. Rejection or withdrawal revokes linked case evidence.
 - Public publication permission is separately requested and **off by default**. Public case eligibility still checks independent evidence provenance and review status.
-- [Milestone 5 release details](./docs/milestone-5-community-evidence.md) record production schema tests and the remaining credentialed-browser and Pages-deployment acceptance gates.
+- [Milestone 5 release details](./docs/milestone-5-community-evidence.md) record successful CI/browser deployment checks and full multi-user/storage RLS rollback tests. Real email-confirmed Auth and an actual Storage HTTP upload/delete still require a signed-in tester.
 
 ## Current project status
 
