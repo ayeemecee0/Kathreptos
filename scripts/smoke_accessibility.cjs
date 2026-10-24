@@ -15,6 +15,16 @@ const assert=require('node:assert/strict');
     await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(()=>document.activeElement?.getAttribute('href')),
       '#main-content',path+' has no keyboard-accessible skip link');
+    if(path==='index.html'){
+      assert.equal(await page.locator('#map').getAttribute('tabindex'),'0',
+        'Interactive map not keyboard-focusable');
+      assert.equal(await page.locator('#map').getAttribute('aria-describedby'),'mapKeyboardHelp');
+      assert.ok((await page.locator('#mapKeyboardHelp').textContent()).includes('arrow keys'),
+        'Map keyboard controls not explained');
+      await page.locator('#map').focus();
+      assert.equal(await page.evaluate(()=>document.activeElement?.id),'map',
+        'Keyboard navigation cannot focus map');
+    }
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
     assert.ok(overflow<=4,path+' unexpectedly overflows '+width+'px viewport: '+overflow);
    }
