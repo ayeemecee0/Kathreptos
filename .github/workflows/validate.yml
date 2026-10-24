@@ -60,6 +60,7 @@ on:
       - 'supabase/migrations/054_seven_official_flock_program_disclosures.sql'
       - 'supabase/migrations/055_government_program_sourced_flock_areas.sql'
       - 'supabase/migrations/056_polygon_rls_private_gis_authority_predicate.sql'
+      - 'supabase/migrations/057_programme_polygon_source_revalidation.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -414,6 +415,14 @@ jobs:
             -f supabase/migrations/055_government_program_sourced_flock_areas.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/056_polygon_rls_private_gis_authority_predicate.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/057_programme_polygon_source_revalidation.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.withdraw_programme_area_after_link_loss(text,text)','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.withdraw_programme_area_after_link_loss(text,text)','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.programme_flock_polygon_evidence_history','SELECT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.is_current_flock_polygon_camera_gis_source(text)','EXECUTE')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
