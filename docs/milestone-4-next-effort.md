@@ -35,3 +35,11 @@ Milestone 4 (reliable nationwide planned-route surveillance simulation) is prior
 2. Monitor the independently checked route comparison in production, enforce API error budgets, and add provider contract/health monitoring. Distinguish a successfully checked *published inventory* from unknown actual camera coverage.
 3. Expand end-to-end tests for ambiguous Photon names, provider outages, and long corridors before general launch.
 4. Continue original-government GIS backlink discovery in the scheduled jobs; do not promote ArcGIS organization names or program announcements as verified exact cameras.
+
+## October 24 route-integrity acceptance (free-provider deployment)
+
+The actual configured browser provider is **Geoapify**, with the OSRM/Photon demos retained as an explicit alternate configuration only. The older description above that a live production provider is *unprovisioned* is out of date: free-tier Geoapify requests and the authorized production origin have been exercised by the live Chromium route smoke. However, **daily quotas, account-side origin restrictions, API longevity and an uptime commitment are not independently signed off.** These remain genuine capacity/credential safeguards.
+
+Geoapify MultiLineString conversion now rejects disconnected road segments rather than inventing a straight-line connector that could produce a false simulated route. Harmless sub-centimeter boundary rounding is tolerated; a multi-meter discontinuity fails shut. [Validation #447](https://github.com/ayeemecee0/Katoptron/actions/runs/40108532736) passed its geometry regression and [Browser smoke #114](https://github.com/ayeemecee0/Katoptron/actions/runs/40108637053) passed complete route flows after deployment.
+
+A second route request clears old camera proximity counts and replay immediately; if the provider fails, the new trip has **unknown** evidence rather than displaying old-trip results.
