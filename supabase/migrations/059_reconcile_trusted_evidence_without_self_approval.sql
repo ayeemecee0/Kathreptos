@@ -235,6 +235,8 @@ declare
 begin
   for rec in select * from public.flock_point_evidence_cases c
     where c.classification='candidate'
+      and exists (select 1 from public.flock_point_evidence_attestations prior
+                  where prior.case_key=c.case_key and prior.evidence_status='reviewed')
       and not exists (
         select 1 from public.flock_camera_locations o
         where o.verification_status='verified'
