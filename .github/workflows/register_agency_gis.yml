@@ -12,6 +12,8 @@ on:
       - 'scripts/auto_verify_camera_profiles.py'
       - 'supabase/migrations/082_agency_arcgis_objectid_casefold.sql'
       - 'scripts/test_first_party_agency_source_registration.sql'
+      - 'supabase/migrations/083_reviewed_first_party_agency_registry.sql'
+      - 'scripts/test_reviewed_first_party_agency_registry.sql'
       - '.github/workflows/register_agency_gis.yml'
 
 permissions:
@@ -45,6 +47,7 @@ jobs:
       - name: Prove registration rejects edited, revoked, offsite or incomplete source evidence
         run: |
           python -m unittest discover -s scripts -p 'test_audit_agency_hosted_gis.py' -v
+          python -m unittest discover -s scripts -p 'test_first_party_registry.py' -v
           python -m unittest discover -s scripts -p 'test_auto_register_agency_gis.py' -v
       - name: Verify government agency GIS and register only authenticated original source
         run: python scripts/auto_register_agency_gis.py --publish
