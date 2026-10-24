@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Katoptron | Flock Safety Government Accountability</title>
+<meta name="description" content="Explore original government documents, dated Flock Safety program disclosures, legislative actions and source-backed professional role records without confusing proposals, contracts and installations.">
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#090f16;color:#e9f0f7}
+*{box-sizing:border-box}body{margin:0}a{color:#a4d8f0}a:hover{text-decoration:underline}
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.15rem max(1rem,4vw);border-bottom:1px solid #304252;background:#0d1822}
+.brand{font-weight:800;letter-spacing:.15em;font-size:1.2rem;text-decoration:none;color:#e9f0f7}
+.brand small{display:block;font-weight:400;letter-spacing:0;font-size:.68rem;color:#a9b9c7}
+nav{display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.8rem}
+main{max-width:1240px;margin:0 auto;padding:2.4rem max(1rem,3vw) 5rem}
+h1{font-size:clamp(1.6rem,3.6vw,2.4rem);line-height:1.2;margin:0 0 .6rem}h2{font-size:1.18rem;margin:0}
+p{color:#c2cfda;line-height:1.6}.lead{max-width:940px}
+.counters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;margin:1.6rem 0}
+.counter{border:1px solid #31495c;border-radius:12px;padding:1rem;background:#12202d}
+.counter strong{display:block;font-size:1.75rem;font-variant-numeric:tabular-nums}
+.counter span{color:#adbecd;font-size:.75rem}
+.warning{border-left:3px solid #a1bccc;padding:.9rem 1rem;background:#132431;margin:1rem 0;font-size:.92rem}
+.tabs{display:flex;gap:.5rem;border-bottom:1px solid #3b5064;margin:1.6rem 0 1.2rem;padding-bottom:.6rem;flex-wrap:wrap}
+button,input,select{font:inherit;color:#eef6fb;background:#162737;border:1px solid #587083;border-radius:7px;padding:.7rem .85rem}
+button{cursor:pointer}button:hover{border-color:#93c9df}button:disabled{opacity:.5;cursor:not-allowed}
+button.active{background:#7dd0dd;color:#0a1925;font-weight:700}
+.controls{display:grid;grid-template-columns:minmax(220px,2fr) repeat(3,minmax(110px,1fr)) auto;gap:.7rem;align-items:end}
+label{display:flex;flex-direction:column;gap:.4rem;font-size:.76rem;color:#b9cbd9;font-weight:650}
+#status{font-size:.85rem;min-height:1.6em}#results{display:grid;gap:.75rem}
+.entry{border:1px solid #334d60;border-radius:11px;background:#111e2a;padding:1rem 1.15rem}
+.entry h3{font-size:1.05rem;margin:.55rem 0}.entry p{margin:.55rem 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.eyebrow{font-size:.73rem;letter-spacing:.04em;color:#9fb5c8;font-weight:650}
+.chips{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin:.25rem 0}
+.chip{border:1px solid #537082;border-radius:999px;font-size:.69rem;padding:.24rem .55rem;color:#bcd1df}
+.chip.info{border-color:#4e91a7;color:#a9e9ee}.chip.uncertain{border-color:#997f5c;color:#ebd5ac}
+.source{display:inline-block;margin-top:.5rem;font-size:.86rem}
+.foot{font-size:.8rem;color:#9fb4c4;margin-top:1.8rem}
+.group{font-size:.9rem;font-weight:750;margin:1.3rem 0 .2rem;border-bottom:1px solid #334c5d;padding:.55rem 0}
+#peoplePanel[hidden],#recordsPanel[hidden]{display:none}
+@media(max-width:870px){.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.controls label:first-child{grid-column:span 2}.counters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.controls{grid-template-columns:1fr}.controls label:first-child{grid-column:auto}}
+:focus-visible{outline:3px solid #8bdeed;outline-offset:3px}
+</style></head>
+<body>
+<header><a class="brand" href="./index.html">KATOPTRON <small>Flock Safety · Public accountability</small></a>
+<nav aria-label="Navigation"><a href="./index.html">CAMERA MAP</a><a href="./records.html">SOURCE RECORDS</a><a href="./methodology.html">EVIDENCE POLICY</a></nav></header>
+<main>
+<h1>Government accountability</h1>
+<p class="lead">Explore documented Flock Safety programs, original government agenda items, agency actions and contracts without collapsing distinct facts into a single surveillance narrative. Only published, source-qualified records appear. This is not a complete national inventory.</p>
+<div class="warning" role="note">A government proposal is not approval. Approval does not prove an executed contract. A contract does not prove camera installation. An agency-level decision cannot be attributed to a named official without original individual evidence. Program termination is historical as of its source date, not guaranteed current status.</div>
+<section class="counters" aria-label="Published accountability evidence">
+<div class="counter"><strong id="total">—</strong><span>Source-backed government records</span></div>
+<div class="counter"><strong id="programCount">—</strong><span>Government program disclosures</span></div>
+<div class="counter"><strong id="decisionCount">—</strong><span>Recorded legislative decisions</span></div>
+<div class="counter"><strong id="contractCount">—</strong><span>Documented signed agreements</span></div>
+</section>
+<div class="tabs" role="tablist" aria-label="Accountability datasets">
+<button id="recordsTab" class="active" role="tab" aria-selected="true" aria-controls="recordsPanel">Government evidence</button>
+<button id="peopleTab" role="tab" aria-selected="false" aria-controls="peoplePanel">Documented professional roles</button>
+</div>
+<section id="recordsPanel" role="tabpanel" aria-labelledby="recordsTab">
+<div class="controls">
+<label>Search original records<input id="search" type="search" maxlength="140" placeholder="Agency, city, source claim or file number"></label>
+<label>State<select id="state"><option value="">All states</option></select></label>
+<label>Evidence type<select id="type"><option value="">All types</option>
+<option value="government_program">Government programs</option><option value="editorially_reviewed_action">Editorial actions</option>
+<option value="agenda_mention">Agenda mentions</option><option value="recorded_legislative_decision">Recorded decisions</option>
+<option value="executed_contract">Signed agreements</option><option value="contract_form_document">Agreement PDFs — unsigned status</option>
+<option value="agency_reported_deployment">Agency deployment reports</option></select></label>
+<label>Date<select id="dated"><option value="">Any date</option><option value="dated">Documented date only</option><option value="undated">Date unverified</option></select></label>
+<button id="export" type="button" disabled>Export CSV</button>
+</div>
+<p id="status" role="status" aria-live="polite">Loading official records…</p>
+<div id="results" aria-live="polite"></div>
+</section>
+<section id="peoplePanel" role="tabpanel" aria-labelledby="peopleTab" hidden>
+<p>Only primary-source-documented public professional roles. A role reported by Flock Safety is identified as a <strong>company claim</strong>, not independent confirmation of present employment. No individual government votes are currently evidenced in this directory.</p>
+<div id="peopleStatus" role="status">Loading dated role evidence…</div><div id="peopleResults"></div>
+</section>
+<p class="foot">All times shown are original evidence dates or explicitly unknown. Exports contain public facts and original source links only; they never include private community submissions, number plates or traveler data. <a href="./privacy.html">Privacy</a> · <a href="./methodology.html">Verification methodology</a></p>
+</main>
+<script src="./config.js"></script>
+<script>
+'use strict';
+const cfg=window.KATOPTRON_CONFIG;
+const $=id=>document.getElementById(id);
+const evidence=[];
+let people=[],limitReached=false;
+const labels={
+government_program:'Government program',editorially_reviewed_action:'Editorially reviewed record',
+agenda_mention:'Official agenda mention',recorded_legislative_decision:'Recorded legislative action',
+executed_contract:'Documented signed agreement',contract_form_document:'Agreement-form document · execution unknown',
+agency_reported_deployment:'Agency-reported deployment'};
+function elem(tag,text,css){
+ const e=document.createElement(tag);
+ if(text!==null&&text!==undefined)e.textContent=String(text);
+ if(css)e.className=css;
+ return e;
+}
+function safeHttps(url){
+ try{const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password?u.href:null;}catch{return null;}
+}
+async function fetchRows(table,fields='*'){
+ const result=[];
+ let offset=0;
+ for(let n=0;n<10;n++){
+  const params=new URLSearchParams({select:fields,limit:'500',offset:String(offset)});
+  const resp=await fetch(cfg.supabaseUrl+'/rest/v1/'+table+'?'+params,
+   {headers:{apikey:cfg.supabasePublishableKey},cache:'no-store',referrerPolicy:'no-referrer'});
+  if(!resp.ok)throw Error('Evidence service '+table+' failed ('+resp.status+').');
+  const page=await resp.json();
+  if(!Array.isArray(page))throw Error('Unexpected published evidence response.');
+  result.push(...page);
+  if(page.length<500)return result;
+  offset+=500;
+ }
+ limitReached=true;return result;
+}
+function link(to,label){
+ const href=safeHttps(to);
+ if(!href)return null;
+ const a=elem('a',label,'source');
+ a.href=href;a.target='_blank';a.rel='noopener noreferrer';
+ return a;
+}
+function stats(){
+ $('total').textContent=evidence.length.toLocaleString();
+ $('programCount').textContent=evidence.filter(x=>x.event_type==='government_program').length;
+ $('decisionCount').textContent=evidence.filter(x=>x.event_type==='recorded_legislative_decision').length;
+ $('contractCount').textContent=evidence.filter(x=>x.event_type==='executed_contract').length;
+ const states=[...new Set(evidence.map(x=>x.state_code).filter(Boolean))].sort();
+ const select=$('state');select.replaceChildren(new Option('All states',''));
+ for(const s of states)select.append(new Option(s,s));
+}
+function recordCard(x){
+ const article=elem('article',null,'entry');
+ const tags=elem('div',null,'chips');
+ tags.append(elem('span',labels[x.event_type]||x.event_type,'chip info'));
+ if(x.evidence_level==='historical_termination')tags.append(elem('span','Terminated at source date','chip uncertain'));
+ if(x.event_type==='agenda_mention'||x.event_type==='contract_form_document')
+   tags.append(elem('span','Not evidence of contract execution','chip uncertain'));
+ if(!x.event_date)tags.append(elem('span','Date unverified','chip uncertain'));
+ article.append(tags,elem('h3',x.title),elem('div',x.jurisdiction_label+(x.agency_label?' · '+x.agency_label:'')+' · '+(x.event_date||'No dated event established'),'eyebrow'));
+ article.append(elem('p',x.summary));
+ if(x.camera_count!=null)article.append(elem('div','Source-reported cameras: '+x.camera_count+' (not verified active locations)','eyebrow'));
+ if(x.amount_usd!=null)article.append(elem('div','Documented contract amount: $'+Number(x.amount_usd).toLocaleString('en-US'),'eyebrow'));
+ if(x.person_label)article.append(elem('p','Named person evidenced: '+x.person_label+' ('+(x.person_role||'role not provided')+')'));
+ const a=link(x.source_url,'Original evidence: '+(x.source_label||'Open source')+' ↗');
+ if(a)article.append(a);
+ return article;
+}
+function currentRows(){
+ const q=$('search').value.trim().toLocaleLowerCase();
+ const state=$('state').value,type=$('type').value,date=$('dated').value;
+ return evidence.filter(x=>
+  (!state||x.state_code===state)&&(!type||x.event_type===type)&&
+  (!date||(date==='dated'?!!x.event_date:!x.event_date))&&
+  (!q||[x.title,x.summary,x.jurisdiction_label,x.agency_label,x.person_label,x.event_key]
+   .filter(Boolean).join(' ').toLocaleLowerCase().includes(q)))
+  .sort((a,b)=>(b.event_date||'').localeCompare(a.event_date||'')||
+    a.jurisdiction_label.localeCompare(b.jurisdiction_label)||a.event_key.localeCompare(b.event_key));
+}
+function render(){
+ const rows=currentRows();
+ $('status').textContent=rows.length+' matching published records'+(limitReached?' · Result cap reached; dataset may be incomplete':'');
+ const box=$('results');box.replaceChildren();
+ if(!rows.length){box.append(elem('p','No source-backed records match these filters. Absence of records does not prove absence of Flock activity.','warning'));return;}
+ let year='';
+ for(const x of rows){
+  const next=(x.event_date||'Undated').slice(0,4);
+  if(next!==year){year=next;box.append(elem('h2',next==='Unda'?'Undated or date not established':next,'group'));}
+  box.append(recordCard(x));
+ }
+}
+function safeCsvValue(value){
+ let s=String(value??'');
+ if(/^[\s]*[=+@\-\t\r]/.test(s))s="'"+s;
+ return '"'+s.replaceAll('"','""')+'"';
+}
+$('export').addEventListener('click',()=>{
+ const headers=['event_key','event_type','evidence_level','jurisdiction_label','state_code','agency_label','event_date','date_basis','title','summary','source_url','source_label','camera_count','amount_usd'];
+ const rows=currentRows();
+ const csv=[headers.join(','),...rows.map(r=>headers.map(k=>safeCsvValue(r[k])).join(','))].join('\r\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download='katoptron-accountability-evidence.csv';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),2000);
+});
+function showTab(which){
+ const person=which==='people';
+ $('recordsTab').classList.toggle('active',!person);$('peopleTab').classList.toggle('active',person);
+ $('recordsTab').setAttribute('aria-selected',String(!person));$('peopleTab').setAttribute('aria-selected',String(person));
+ $('recordsPanel').hidden=person;$('peoplePanel').hidden=!person;
+}
+$('recordsTab').addEventListener('click',()=>showTab('records'));
+$('peopleTab').addEventListener('click',()=>showTab('people'));
+for(const field of ['search','state','type','dated'])$(field).addEventListener('input',render);
+function renderPeople(){
+ const box=$('peopleResults');box.replaceChildren();
+ $('peopleStatus').textContent=people.length+' source-attributed professional role records; these do not establish individual government votes';
+ for(const r of people){
+  const card=elem('article',null,'entry');
+  card.append(elem('div',r.role_category==='flock_vendor_leadership'?'Vendor-issued role claim · dated source':'Original government role claim','eyebrow'));
+  card.append(elem('h3',r.person_name),elem('div',r.role_title+' · '+r.organization_name,'eyebrow'));
+  card.append(elem('p',r.evidence_description));
+  card.append(elem('div','Documented as of '+r.source_date+' · '+r.source_publisher,'eyebrow'));
+  const a=link(r.source_url,'Original professional-role source ↗');if(a)card.append(a);
+  box.append(card);
+ }
+ if(!people.length)box.append(elem('p','No qualifying dated professional roles available. Unverified officials and inferred votes remain absent.','warning'));
+}
+async function load(){
+ try{
+  if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey)throw Error('Missing public connection configuration');
+  const [events,roles]=await Promise.all([
+   fetchRows('flock_accountability_events'),
+   fetchRows('flock_accountability_roles','role_key,person_name,role_title,organization_name,role_category,source_publisher,source_type,source_url,source_date,evidence_description,reviewed_at,last_checked_at')
+  ]);
+  const seen=new Set(); evidence.length=0;
+  for(const row of events){if(!seen.has(row.event_key)&&safeHttps(row.source_url)){seen.add(row.event_key);evidence.push(row);}}
+  people=roles.filter(r=>safeHttps(r.source_url));
+  stats();render();renderPeople();$('export').disabled=false;
+ }catch(e){
+  $('status').textContent='Accountability records unavailable: '+e.message;
+  $('peopleStatus').textContent='Professional-role records unavailable: '+e.message;
+ }
+}
+load();
+</script></body></html>
