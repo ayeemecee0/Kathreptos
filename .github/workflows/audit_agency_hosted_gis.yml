@@ -1,0 +1,36 @@
+name: Authenticate original agency GIS camera datasets
+
+on:
+  schedule:
+    - cron: '18 21 * * 2'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/audit_agency_hosted_gis.py'
+      - 'scripts/test_audit_agency_hosted_gis.py'
+      - '.github/workflows/audit_agency_hosted_gis.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-agency-owned-camera-gis-audit
+  cancel-in-progress: false
+
+jobs:
+  verify-original-agency:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test independent government publisher proof and fail-closed point verification
+        run: python -m unittest discover -s scripts -p 'test_audit_agency_hosted_gis.py' -v
+      - name: Authenticate original agency GIS without publishing camera coordinates
+        run: python scripts/audit_agency_hosted_gis.py
