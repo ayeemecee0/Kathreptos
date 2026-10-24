@@ -1104,6 +1104,29 @@
     state.routeProviderAbort=providerController;
     $('planRoute').disabled=true;
     stopReplay();
+    // A failed second request must never leave the previous route or its
+    // verified-camera proximity claims visible for newly entered endpoints.
+    state.evidenceAbort?.abort();
+    state.evidenceAbort=null;
+    state.routeChoices=[];
+    state.routeComparisons=[];
+    state.route=null;
+    state.routeRecords=[];
+    state.routeCoverage='unchecked';
+    state.observations=[];
+    state.routeLayer?.clearLayers();
+    state.simLayer?.clearLayers();
+    $('play').disabled=true;
+    $('routeChoice').replaceChildren();
+    $('routeChoice').disabled=true;
+    setText('routeChoiceStatus','Checking newly requested driving route…');
+    setText('routeDistance','—');
+    setText('nearbyCount','Unknown');
+    setText('observationCount','Unknown');
+    setText('timelineBadge','NEW ROUTE PENDING');
+    setText('timelineIntro','No current route has been validated. Old route evidence has been cleared.');
+    $('timelineEvents').replaceChildren();
+    renderRouteComparisons();
     setText('routeStatus','Resolving US destinations; contacting routing service…');
     try {
       const a=await resolveRoutePlace('from',from,providerController.signal);
