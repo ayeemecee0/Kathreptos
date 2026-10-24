@@ -13,6 +13,14 @@ const assert=require('node:assert/strict');
       {waitUntil:'domcontentloaded',timeout:45000});
     await page.waitForFunction(()=>document.querySelector('#coverageSpinner')?.textContent==='Live data',
       {timeout:30000});
+    const shortcut=page.locator('.mobile-map-link');
+    assert.equal(await shortcut.isVisible(),true,
+      'Mobile page needs a map shortcut above the long source index');
+    await shortcut.click();
+    await page.waitForFunction(()=>window.location.hash==='#map',{timeout:6000});
+    const mobileMapTop=await page.locator('#map').evaluate(el=>el.getBoundingClientRect().top);
+    assert.ok(mobileMapTop < 844 && mobileMapTop > -900,
+      'Map shortcut did not bring the map within a phone viewport');
     const base=await page.evaluate(()=>({
       width:window.innerWidth,
       documentWidth:document.documentElement.scrollWidth,
