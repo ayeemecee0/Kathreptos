@@ -49,3 +49,7 @@ An eligible human tester must confirm a real email-signup link and redirect, an 
 Check Supabase's Auth redirect allowlist and password/email abuse settings in the owner's dashboard; API migrations and mock sessions cannot prove those external settings. Free-plan leaked-password screening is not available without a higher tier.
 
 This feature is ready for a *controlled beta* but is not yet certified production-ready. No paid hosting resource was added.
+
+## October 24 accessible intake update
+
+A local-only coordinate helper accepts a copy/pasted `latitude, longitude` pair, validates supported U.S. bounding coordinates and fills the existing separate inputs without geocoding or persisting the input. This reduces entry friction **without** altering publication consent, identity protection or evidence verification. The controlled sign-in, submission and follow-up browser mock now tests both valid and malformed coordinate pairs. [Browser release smoke #111](https://github.com/ayeemecee0/Katoptron/actions/runs/40108388057) passed. Real Supabase Auth email and Storage HTTP acceptance remain independently unverified.
