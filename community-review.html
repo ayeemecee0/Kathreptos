@@ -15,8 +15,16 @@ const api=window.supabase.createClient(window.KATOPTRON_CONFIG.supabaseUrl,windo
 const $=id=>document.getElementById(id);
 const say=t=>{$('notice').textContent=t;};
 async function load(){
- const {data:{session}}=await api.auth.getSession();
- if(!session){$('workspace').hidden=true;$('login').hidden=false;return;}
+ const {data:{session},error:sessionError}=await api.auth.getSession();
+ if(sessionError||!session){$('workspace').hidden=true;$('login').hidden=false;return;}
+ // Cached session is not proof that the Supabase Auth service still
+ // recognizes the user. Keep the reviewer workspace closed until verified.
+ const {data:identity,error:identityError}=await api.auth.getUser();
+ if(identityError||!identity?.user){
+   $('workspace').hidden=true;$('login').hidden=false;
+   say('Saved session could not be verified. Sign in again to review.');
+   return;
+ }
  const {data,error}=await api.rpc('list_community_review_queue',{p_limit:100});
  if(error){$('workspace').hidden=true;say('Reviewer authorization failed: '+error.message);return;}
  $('login').hidden=true;$('workspace').hidden=false;
