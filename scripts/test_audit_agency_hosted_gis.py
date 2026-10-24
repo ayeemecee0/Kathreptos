@@ -22,7 +22,7 @@ FEATURES={'features':[
   'geometry':{'x':-82.35,'y':29.65}},
 ]}
 def normal():
- return [SERVICE,LAYER,IDS,FEATURES]
+ return [SERVICE,LAYER,IDS,FEATURES,IDS]
 
 class AgencyPath(unittest.TestCase):
  def test_host_control_via_original_agency_page_not_exact_layer_backlink(self):
@@ -51,11 +51,18 @@ class AgencyPath(unittest.TestCase):
   ]}
   with (patch.object(a,'public_dns',return_value=True),
         patch.object(a,'fetch_government_page',return_value=(document(),'a'*64)),
-        patch.object(a,'get_official_json',side_effect=[SERVICE,original,IDS,original_features])):
+        patch.object(a,'get_official_json',side_effect=[SERVICE,original,IDS,original_features,IDS])):
    out=a.inspect(SOURCE)
   self.assertEqual(out['individual_id_field'],'OBJECTID')
   self.assertEqual(out['identifier_basis'],'arcgis_typed_objectid')
   self.assertEqual(out['point_count'],2)
+ def test_changed_ids_on_second_read_withheld(self):
+  with (patch.object(a,'public_dns',return_value=True),
+        patch.object(a,'fetch_government_page',return_value=(document(),'a'*64)),
+        patch.object(a,'get_official_json',
+           side_effect=[SERVICE,LAYER,IDS,FEATURES,{'objectIds':[2,8]}])):
+   with self.assertRaisesRegex(ValueError,'changed during GIS inspection'):
+    a.inspect(SOURCE)
  def test_rejects_partial_or_wrong_camera_inventories(self):
   variations=[
    [SERVICE,{**LAYER,'geometryType':'esriGeometryPolygon'},IDS,FEATURES],
