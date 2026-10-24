@@ -10,6 +10,7 @@ LAYER={"name":"Flock Cameras","type":"Feature Layer",
        "fields":[{"name":"OBJECTID","type":"esriFieldTypeOID"},
                  {"name":"CameraID","type":"esriFieldTypeString"}]}
 SERVICE={"layers":[{"id":0,"name":"Flock Cameras"}]}
+IDS={"objectIdFieldName":"OBJECTID","objectIds":[4]}
 DATA={"features":[{"attributes":{"OBJECTID":4,"CameraID":"Camera 4"},
           "geometry":{"x":-98.45,"y":38.5}}]}
 def doc():
@@ -23,16 +24,38 @@ class NewOriginalGov(unittest.TestCase):
   self.assertFalse(x.same_gov_apex(PAGE,URL.replace("gis.city.example.gov","services.arcgis.com")))
   self.assertFalse(x.same_gov_apex(PAGE,"http://gis.city.example.gov/arcgis/rest/services/Map/MapServer/0"))
  def test_original_layer_flock_schema_and_geometry(self):
-  with patch.object(x,"get_official_json",side_effect=[SERVICE,LAYER,DATA]):
+  with patch.object(x,"get_official_json",side_effect=[SERVICE,LAYER,IDS,DATA,IDS]):
    idfield,vendor,points,sha,candidate=x.qualified_original_layer(PAGE,URL)
   self.assertEqual(idfield,"CameraID")
   self.assertIsNone(vendor)
   self.assertEqual(points,[{"id":4,"lat":38.5,"lon":-98.45}])
   self.assertEqual(candidate["trust_status"],"unverified")
   with patch.object(x,"get_official_json",side_effect=[SERVICE,
-         {**LAYER,"name":"General Traffic Cameras"},DATA]):
+         {**LAYER,"name":"General Traffic Cameras"},IDS,DATA,IDS]):
    with self.assertRaises(ValueError):
     x.qualified_original_layer(PAGE,URL)
+ def test_explicit_object_ids_detect_partial_and_changing_inventory(self):
+  # Failing to receive all ObjectIDs must not silently publish a partial map.
+  for responses in (
+    [SERVICE,LAYER,{"objectIds":[4,5]},DATA],
+    [SERVICE,LAYER,IDS,DATA,{"objectIds":[4,5]}],
+    [SERVICE,LAYER,{"objectIds":[4,4]},DATA,IDS],
+    [SERVICE,LAYER,IDS,{"features":[]},IDS],
+  ):
+   with self.subTest(case=len(responses)):
+    with patch.object(x,"get_official_json",side_effect=responses):
+     with self.assertRaises(ValueError):
+      x.qualified_original_layer(PAGE,URL)
+ def test_original_id_inventory_uses_explicit_object_id_query(self):
+  urls=[]
+  def read(url):
+   urls.append(url)
+   return [SERVICE,LAYER,IDS,DATA,IDS][len(urls)-1]
+  with patch.object(x,"get_official_json",side_effect=read):
+   x.qualified_original_layer(PAGE,URL)
+  self.assertEqual(sum("returnIdsOnly=true" in url for url in urls),2)
+  self.assertTrue(any("objectIds=4" in url for url in urls))
+  self.assertFalse(any("resultRecordCount" in url for url in urls))
  def test_unverified_and_stale_webpage_no_publication(self):
   with (patch.object(x,"private_government_pages",return_value=[
            {"page_url":PAGE,"page_sha256":"a"*64,"gis_links":[URL]}]),
