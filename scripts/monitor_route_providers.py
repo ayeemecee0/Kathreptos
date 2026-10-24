@@ -5,6 +5,7 @@ import json
 import re
 import time
 import urllib.request
+import urllib.parse
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -18,7 +19,7 @@ def read_settings(text):
     if set(found)!=set(DEMO):
         raise ValueError("Missing routing/geocoding configuration")
     for key,url in found.items():
-        parsed=urllib.request.urlparse(url)
+        parsed=urllib.parse.urlparse(url)
         if (parsed.scheme!="https" or not parsed.hostname or
             parsed.username or parsed.password or parsed.query or
             parsed.fragment or parsed.port):
