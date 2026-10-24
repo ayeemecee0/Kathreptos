@@ -601,7 +601,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_camera_evidence_history','INSERT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from pg_indexes where schemaname='public' and indexname like '%_fk_idx'" | grep -qx 10
+            "select count(*) >= 11 from pg_indexes where schemaname='public' and indexname like '%_fk_idx'" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | tee /tmp/verified_gis_sources_count
           grep -qx 5 /tmp/verified_gis_sources_count
