@@ -40,8 +40,9 @@ def is_exact_esri_org_link(url,identity):
     if hostname in ('www.arcgis.com','arcgis.com'):
         if parsed.path.rstrip('/').lower() in ('/home/organization.html',
              '/apps/mapviewer/index.html'):
-            vals=parse_qs(parsed.query)
-            return len(vals.get('orgid',[]))==1 and vals['orgid'][0]==orgid
+            ids=[value for k,values in parse_qs(parsed.query).items()
+                 if k.lower()=='orgid' for value in values]
+            return len(ids)==1 and ids[0]==orgid
         return False
     # Government pages sometimes link the agency-branded ArcGIS Online
     # homepage, not an individual Esri layer. Only the EXACT Esri-owned
