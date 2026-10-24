@@ -19,6 +19,7 @@ on:
       - 'scripts/smoke_analytics.cjs'
       - 'scripts/smoke_accessibility.cjs'
       - 'a11y.css'
+      - 'map.css'
       - 'analytics.html'
       - 'accountability.html'
       - 'submit.html'
