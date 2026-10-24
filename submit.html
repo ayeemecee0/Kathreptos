@@ -102,6 +102,36 @@ async function loadOwnReports(){
  for(const report of data){
  const li=document.createElement('li');
  li.textContent=new Date(report.created_at).toLocaleDateString()+' · '+report.report_status.replaceAll('_',' ')+' · Ref '+report.submission_id.slice(0,8);
+ if(report.report_status!=='withdrawn'){
+   const button=document.createElement('button');
+   button.type='button';button.textContent='Withdraw report';
+   button.setAttribute('aria-label','Withdraw private report '+report.submission_id.slice(0,8));
+   button.addEventListener('click',async()=>{
+     if(!window.confirm('Withdraw this report and revoke its research evidence?'))return;
+     button.disabled=true;
+     try{
+       const {data:withdrawn,error}=await client.rpc('withdraw_own_community_report',{p_id:report.submission_id});
+       if(error||withdrawn!==true)throw Error(error?.message||'Report not found');
+       let photoWarning='';
+       const {data:{user}}=await client.auth.getUser();
+       if(user){
+         const directory=user.id+'/'+report.submission_id;
+         const {data:files,error:listError}=await client.storage.from('katoptron-community-evidence').list(directory,{limit:20});
+         if(listError){photoWarning=' Photo removal could not be verified: '+listError.message;}
+         else if(files?.length){
+           const paths=files.filter(f=>f.name).map(f=>directory+'/'+f.name);
+           if(paths.length){
+             const {error:removeError}=await client.storage.from('katoptron-community-evidence').remove(paths);
+             if(removeError)photoWarning=' Photograph removal failed: '+removeError.message;
+           }
+         }
+       }
+       status('Report withdrawn and derived research evidence revoked.'+photoWarning);
+       await loadOwnReports();
+     }catch(error){status('Withdrawal failed: '+error.message);button.disabled=false;}
+   });
+   li.append(' ',button);
+ }
  box.append(li);
  }
 }
