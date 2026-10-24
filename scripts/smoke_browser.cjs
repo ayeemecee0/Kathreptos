@@ -115,6 +115,13 @@ const assert=require('node:assert/strict');
   await page.locator('#routeChoice').selectOption('0');
   await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.startsWith('Checked '),{timeout:25000});
   assert.ok(Number(await page.locator('#nearbyCount').textContent())>=1);
+  // A -> B -> A before either replacement evidence fetch necessarily finishes:
+  // no canceled response may overwrite the active A timeline.
+  await page.locator('#routeChoice').selectOption('1');
+  await page.locator('#routeChoice').selectOption('0');
+  await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.startsWith('Checked '),{timeout:25000});
+  assert.ok(Number(await page.locator('#nearbyCount').textContent())>=1);
+  assert.equal(await page.locator('#play').isDisabled(),false);
   assert.equal(await page.locator('#hypothetical').isChecked(),false);
   const intro=await page.locator('#timelineIntro').textContent();
   assert.ok(intro.includes('NOT a camera read-range'),intro);
