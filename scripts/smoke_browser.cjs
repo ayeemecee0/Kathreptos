@@ -97,15 +97,24 @@ const assert=require('node:assert/strict');
   await page.route('https://router.project-osrm.org/**',async route=>{
    await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
     body:JSON.stringify({code:'Ok',routes:[{distance:2000,duration:160,
-      geometry:{type:'LineString',coordinates:[[lon-.01,lat],[lon,lat],[lon+.01,lat]]}}]})});
+      geometry:{type:'LineString',coordinates:[[lon-.01,lat],[lon,lat],[lon+.01,lat]]}},
+      {distance:3200,duration:260,
+      geometry:{type:'LineString',coordinates:[[lon-.01,lat],[lon,lat+.025],[lon+.01,lat]]}}]})});
   });
   await page.locator('#from').fill(String(lat)+','+String(lon-.01));
   await page.locator('#to').fill(String(lat)+','+String(lon+.01));
   await page.locator('#planRoute').click();
   await page.waitForFunction(()=>Number(document.querySelector('#nearbyCount')?.textContent)>=1,{timeout:25000});
   assert.ok(Number(await page.locator('#observationCount').textContent())>=1);
-  assert.equal(await page.locator('#routeChoice option').count(),1);
-  assert.equal(await page.locator('#routeChoice').isDisabled(),true);
+  assert.equal(await page.locator('#routeChoice option').count(),2);
+  assert.equal(await page.locator('#routeChoice').isDisabled(),false);
+  await page.locator('#routeChoice').selectOption('1');
+  await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.startsWith('Checked '),{timeout:25000});
+  assert.ok((await page.locator('#routeDistance').textContent()).includes('3.2 km'));
+  assert.notEqual((await page.locator('#nearbyCount').textContent()).trim(),'Unknown');
+  await page.locator('#routeChoice').selectOption('0');
+  await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.startsWith('Checked '),{timeout:25000});
+  assert.ok(Number(await page.locator('#nearbyCount').textContent())>=1);
   assert.equal(await page.locator('#hypothetical').isChecked(),false);
   const intro=await page.locator('#timelineIntro').textContent();
   assert.ok(intro.includes('NOT a camera read-range'),intro);
