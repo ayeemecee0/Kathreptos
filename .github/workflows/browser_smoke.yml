@@ -16,6 +16,7 @@ on:
       - 'index.html'
       - 'route-geometry.js'
       - 'route-comparison.js'
+      - 'routing-provider.js'
       - 'config.js'
   schedule:
     - cron: '05 16 * * 1'
