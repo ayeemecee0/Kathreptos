@@ -619,6 +619,8 @@
     } catch (error) {
       if (error.name === 'AbortError' || requestId !== state.requestNumber) return;
       state.visible = [];
+      state.tiered = [];
+      state.tieredUnavailable=true;
       state.areas = [];
       updateJurisdictions();
       drawLocations();
