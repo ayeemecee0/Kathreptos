@@ -667,13 +667,28 @@
     return validCoord(...p) ? p : null;
   }
   function sleep(ms) { return new Promise(resolve => setTimeout(resolve,ms)); }
+  function providerBase(configured, fallback) {
+    // This is a PUBLIC no-secret service URL. Keep credentials server-side.
+    const raw=configured || fallback;
+    const url=new URL(raw);
+    if(url.protocol!=='https:' || url.username || url.password ||
+       url.search || url.hash || url.port)
+      throw new Error('Route/location provider configuration must be an HTTPS base URL without credentials');
+    return url.href.replace(/\/$/,'');
+  }
   async function getJson(url, timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, {signal:controller.signal,headers:{Accept:'application/json'}});
+      const res = await fetch(url, {signal:controller.signal,cache:'no-store',
+        headers:{Accept:'application/json'},referrerPolicy:'strict-origin-when-cross-origin'});
       if (!res.ok) throw new Error('External location/routing service returned HTTP '+res.status);
-      return await res.json();
+      const length=Number(res.headers.get('content-length')||0);
+      if(length>6000000)throw new Error('External provider response exceeds safety limit');
+      const payload=await res.text();
+      if(!payload || payload.length>6000000)
+        throw new Error('External provider response missing or too large');
+      return JSON.parse(payload);
     } finally { clearTimeout(timer); }
   }
   async function geocode(input) {
@@ -685,7 +700,8 @@
     const wait = Math.max(0,1100-(Date.now()-state.lastGeocodeAt));
     if (wait) await sleep(wait);
     state.lastGeocodeAt = Date.now();
-    const url = 'https://photon.komoot.io/api/?limit=5&lang=en&q=' + encodeURIComponent(q);
+    const url = providerBase(CFG.geocodingServiceBase,
+      'https://photon.komoot.io')+'/api/?limit=5&lang=en&q='+encodeURIComponent(q);
     const data = await getJson(url,13000);
     const features = (data.features || []).filter(feature => {
       const coords = feature.geometry?.coordinates;
@@ -700,7 +716,8 @@
   async function routing(from,to) {
     const a = from.point, b = to.point;
     const path = String(a[1]) + ',' + String(a[0]) + ';' + String(b[1]) + ',' + String(b[0]);
-    const url = 'https://router.project-osrm.org/route/v1/driving/' + path +
+    const url = providerBase(CFG.routingServiceBase,
+      'https://router.project-osrm.org')+'/route/v1/driving/' + path +
       '?overview=full&geometries=geojson&steps=false&alternatives=true';
     const data = await getJson(url,22000);
     if(!Routing)throw new Error('Routing verification library unavailable');
