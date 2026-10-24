@@ -10,6 +10,28 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('#coverageSpinner')?.textContent==='Live data',{timeout:30000});
   await page.waitForFunction(()=>document.querySelector('#nationalStats')?.textContent?.includes('verified camera points in'),{timeout:20000});
   assert.ok((await page.locator('#nationalStats').textContent()).includes('Coverage is incomplete'));
+  // The new corroborated tier is opt-in and must be RLS-filtered in the
+  // browser. Candidate sources themselves remain inaccessible publicly.
+  assert.equal(await page.locator('#showProvisional').isChecked(),false);
+  const tierSecurity=await page.evaluate(async()=>{
+    const c=window.KATOPTRON_CONFIG;
+    const h={apikey:c.supabasePublishableKey};
+    const view=await fetch(c.supabaseUrl+'/rest/v1/flock_public_tiered_camera_points?select=case_key,evidence_tier&limit=20',
+      {headers:h,cache:'no-store'});
+    if(!view.ok)throw Error('Tiered public read HTTP '+view.status);
+    const items=await view.json();
+    const privateEvidence=await fetch(c.supabaseUrl+
+      '/rest/v1/flock_point_evidence_attestations?select=evidence_key&limit=1',
+      {headers:h,cache:'no-store'});
+    return {items,privateEvidenceStatus:privateEvidence.status};
+  });
+  assert.ok(Array.isArray(tierSecurity.items));
+  assert.ok(tierSecurity.items.every(item=>
+    item.evidence_tier==='government_verified' ||
+    item.evidence_tier==='independently_corroborated'));
+  assert.ok(tierSecurity.privateEvidenceStatus===401 || tierSecurity.privateEvidenceStatus===403);
+  await page.locator('#showProvisional').check();
+  await page.locator('#showProvisional').uncheck();
   await page.waitForFunction(()=>document.querySelector('#stateEvidenceStatus')?.textContent?.includes('states with published'),{timeout:20000});
   assert.ok((await page.locator('#stateEvidenceStatus').textContent()).includes('evidence unknown'));
   assert.ok(await page.locator('#stateEvidenceList > li').count()>=12);
