@@ -248,6 +248,56 @@ class TestProfiles(unittest.TestCase):
  def test_duplicate_existing_record_ids_fail_before_writes(self):
   with self.assertRaises(ValueError):
    v.validate_reconciliation_delta([{"record_key":"a"},{"record_key":"a"}],{"a"})
+ def test_camera_withdrawal_requires_time_separated_backend_confirmation(self):
+  missing={"gis-peoria_az-7-aaa"}
+  with patch.object(v,"api_request",return_value={
+    "confirmed":[],"pending":1}) as rpc:
+   confirmed,pending=v.confirm_time_separated_withdrawals("peoria_az",missing)
+  self.assertEqual((confirmed,pending),(set(),1))
+  self.assertEqual(rpc.call_args.args[0],"rpc/confirm_gis_camera_withdrawals")
+  self.assertEqual(rpc.call_args.kwargs["payload"]["p_missing_keys"],sorted(missing))
+  with patch.object(v,"api_request",return_value={
+    "confirmed":["gis-peoria_az-7-aaa"],"pending":0}):
+   confirmed,pending=v.confirm_time_separated_withdrawals("peoria_az",missing)
+  self.assertEqual((confirmed,pending),(missing,0))
+ def test_camera_reappeared_discards_previous_missing_hold(self):
+  with patch.object(v,"api_request",return_value={
+    "confirmed":[],"pending":0}) as rpc:
+   self.assertEqual(v.confirm_time_separated_withdrawals("peoria_az",set()),
+                    (set(),0))
+  self.assertEqual(rpc.call_args.kwargs["payload"]["p_missing_keys"],[])
+ def test_backend_withdrawal_cannot_touch_another_camera_source(self):
+  with patch.object(v,"api_request") as rpc:
+   with self.assertRaises(ValueError):
+    v.confirm_time_separated_withdrawals(
+      "peoria_az",{"gis-monroe_wa-1-abc"})
+  rpc.assert_not_called()
+ def test_database_withdrawal_receipt_cannot_claim_unobserved_camera(self):
+  missing={"gis-peoria_az-2-a"}
+  for bad in ({"confirmed":["gis-peoria_az-99-a"],"pending":0},
+              {"confirmed":[*missing],"pending":1},
+              {"confirmed":list(missing)*2,"pending":0},
+              {"confirmed":[],"pending":-1},
+              None):
+   with patch.object(v,"api_request",return_value=bad):
+    with self.assertRaises(ValueError):
+     v.confirm_time_separated_withdrawals("peoria_az",missing)
+ def test_sync_never_immediately_withdraws_small_missing_snapshot(self):
+  source={**S,"source_key":"peoria_az"}
+  present={"record_key":"gis-peoria_az-10-a"}
+  removed={"record_key":"gis-peoria_az-11-b"}
+  with (patch.object(v,"approved_sources",return_value=[(source,P)]),
+        patch.object(v,"source_with_bounded_retries",return_value=([present],{},1)),
+        patch.object(v,"fetch_existing",return_value=[present,removed]),
+        patch.object(v,"confirm_time_separated_withdrawals",
+                     return_value=(set(),1)) as confirm,
+        patch.object(v,"publish_verified_batches",return_value=v.Counter()) as save):
+   result=v.sync()
+  self.assertEqual(result["pending_withdrawal"],1)
+  self.assertEqual(result["withdrawn"],0)
+  confirm.assert_called_once_with("peoria_az",{removed["record_key"]})
+  self.assertEqual(save.call_args.args[1],set())
+
  def test_batched_camera_publish_verifies_exact_receipts(self):
   new={"record_key":"gis-peoria_az-1-a","source_type":"official_government"}
   old={"record_key":"gis-peoria_az-2-b","source_type":"official_government"}

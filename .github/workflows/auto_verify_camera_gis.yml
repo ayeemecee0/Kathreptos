@@ -17,6 +17,7 @@ on:
       - 'supabase/migrations/031_lawrenceville_webster_flock_gis.sql'
       - 'supabase/migrations/050_newport_beach_official_flock_unit_locations.sql'
       - 'scripts/auto_verify_camera_profiles.py'
+      - 'supabase/migrations/053_two_pass_official_gis_withdrawals.sql'
       - 'scripts/test_auto_verify_camera_profiles.py'
       - '.github/workflows/auto_verify_camera_gis.yml'
 

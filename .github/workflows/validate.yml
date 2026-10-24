@@ -56,6 +56,7 @@ on:
       - 'supabase/migrations/050_newport_beach_official_flock_unit_locations.sql'
       - 'supabase/migrations/051_refresh_original_government_gis_search_links.sql'
       - 'supabase/migrations/052_original_gov_single_flock_layer_service_root_links.sql'
+      - 'supabase/migrations/053_two_pass_official_gis_withdrawals.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -402,6 +403,14 @@ jobs:
             -f supabase/migrations/051_refresh_original_government_gis_search_links.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/052_original_gov_single_flock_layer_service_root_links.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/053_two_pass_official_gis_withdrawals.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('anon','public.confirm_gis_camera_withdrawals(text,text[])','EXECUTE')" | grep -qx f
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_function_privilege('service_role','public.confirm_gis_camera_withdrawals(text,text[])','EXECUTE')" | grep -qx t
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select has_table_privilege('anon','public.pending_gis_camera_withdrawals','SELECT')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.register_original_gov_flock_source(text,text,text,text,text,text,text,text,jsonb)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \

@@ -374,6 +374,37 @@ def validate_reconciliation_delta(previous,new_keys):
     return removed
 
 
+def confirm_time_separated_withdrawals(source_key, missing_keys):
+    """Two independently completed government inventories >=12h apart.
+
+    Call even when the new inventory has no missing points, so a previously
+    disappeared pin that reappeared has its private withdrawal hold cleared.
+    The database verifies the exact reviewed source, individual published
+    record identities and observation interval; the browser never sees
+    unconfirmed withdrawals.
+    """
+    if (not isinstance(source_key,str) or
+        not re.fullmatch(r"[a-z0-9_]{2,90}",source_key) or
+        not isinstance(missing_keys,set) or len(missing_keys)>3000 or
+        any(not isinstance(k,str) or not k.startswith("gis-"+source_key+"-")
+            for k in missing_keys)):
+        raise ValueError("Invalid source-specific missing camera inventory")
+    response=api_request("rpc/confirm_gis_camera_withdrawals",
+        method="POST",payload={"p_source_key":source_key,
+                               "p_missing_keys":sorted(missing_keys)})
+    if (not isinstance(response,dict) or
+        not isinstance(response.get("confirmed"),list) or
+        type(response.get("pending")) is not int or response["pending"]<0 or
+        any(not isinstance(k,str) for k in response["confirmed"])):
+        raise ValueError("Government camera withdrawal confirmation missing")
+    approved=set(response["confirmed"])
+    if (len(approved)!=len(response["confirmed"]) or
+        not approved.issubset(missing_keys) or
+        len(approved)+response["pending"]!=len(missing_keys)):
+        raise ValueError("Government camera withdrawal confirmation inconsistent")
+    return approved,response["pending"]
+
+
 PUBLISH_BATCH_SIZE=25
 
 
@@ -503,14 +534,17 @@ def sync(dry_run=False,shard=0,shards=1):
             old=fetch_existing("gis-"+s["source_key"]+"-")
             keys={r["record_key"] for r in rows}
             missing=validate_reconciliation_delta(old,keys)
-            total.update(publish_verified_batches(rows,missing))
+            confirmed,pending=confirm_time_separated_withdrawals(
+                s["source_key"],missing)
+            total["pending_withdrawal"]+=pending
+            total.update(publish_verified_batches(rows,confirmed))
         except Exception as exc:
             total["errors"]+=1
             print("PROFILE GIS HELD:",s["source_key"],type(exc).__name__,str(exc)[:180])
     print("PROFILE GIS shard",str(shard)+"/"+str(shards),
           "sources assigned:",total["sources_assigned"])
     for k in ("sources_checked","features_checked","eligible","published",
-              "rechecked","withdrawn","errors"):
+              "rechecked","withdrawn","pending_withdrawal","errors"):
         print("PROFILE GIS",k+":",total[k])
     return total
 
