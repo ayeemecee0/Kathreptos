@@ -80,8 +80,7 @@ owner_count=$(psql -X -A -t -v ON_ERROR_STOP=1 -h "$host" -U "$user" -d "$restor
 begin;
 select set_config('request.jwt.claim.sub','$case_id',true) is not null;
 set local role authenticated;
-select count(*) from public.flock_community_submissions
- where submitter_id='$case_id'::uuid;
+select count(*) from public.flock_community_submissions;
 rollback;
 SQL
 )
