@@ -40,6 +40,21 @@ class TargetedAgencyLinks(unittest.TestCase):
                      [PAGE,'https://records.examplecity.gov/news'])
     self.assertEqual(len(called),1)
     self.assertTrue(called[0][1].startswith('https://www.bing.com/search?'))
+ def test_second_free_engine_finds_original_gov_page_when_bing_misses(self):
+    searched=[]
+    def search(item):
+        provider,url=item
+        searched.append(provider)
+        if provider=='bing-rss':
+            return provider,['https://unrelated.example.com/']
+        if provider=='ddg-html':
+            # Original government URLs returned by DDG must still pass the
+            # same independent .gov and full-page link checks.
+            return provider,['https://html.duckduckgo.com/l/?uddg='+quote(PAGE,safe=''),PAGE,BAD]
+        raise AssertionError('Unexpected provider')
+    pages=m.gov_pages(['site:.gov "orgId=ABCD12345678"'],search)
+    self.assertEqual(pages,[PAGE])
+    self.assertEqual(searched,['bing-rss','ddg-html'])
  def test_results_without_direct_publisher_link_cannot_be_approved(self):
     self.assertEqual(m.evaluate_page(C,ORG,PAGE,original(True)[0]),
         'agency_page_links_exact_esri_org_and_mentions_flock')
