@@ -47,6 +47,38 @@ def same_gov_apex(page,layer):
     return len(x)>=2 and len(y)>=2 and x[-2:]==y[-2:] and x[-2]!="gov"
 
 
+SERVICE_ROOT=re.compile(
+  r"^https://(?:[a-z0-9-]+\.)+gov/[A-Za-z0-9_/-]+/(?:MapServer|FeatureServer)/?$",
+  re.I)
+
+
+def resolve_exact_original_camera_layer(page,link):
+    """Qualify one government-linked GIS service only if it has one Flock layer."""
+    if same_gov_apex(page,link):
+        return link,link,None
+    if not isinstance(link,str) or not SERVICE_ROOT.fullmatch(link):
+        raise ValueError("Not an original government GIS camera layer or service root")
+    p=urllib.parse.urlsplit(page)
+    l=urllib.parse.urlsplit(link)
+    if (p.scheme!="https" or l.scheme!="https" or p.username or p.password
+        or l.username or l.password or p.port is not None or l.port is not None
+        or l.query or l.fragment
+        or p.hostname.split(".")[-2:]!=l.hostname.split(".")[-2:]):
+        raise ValueError("ArcGIS service not tied to original government authority")
+    clean=link.rstrip("/")
+    service=get_official_json(clean+"?f=json")
+    items=service.get("layers") if isinstance(service,dict) else None
+    if not isinstance(items,list) or len(items)>300:
+        raise ValueError("Original government GIS service listing missing")
+    matches=[(x["id"],x["name"]) for x in items if isinstance(x,dict)
+        and type(x.get("id")) is int and 0<=x["id"]<1000
+        and isinstance(x.get("name"),str) and FLOCK.fullmatch(x["name"])]
+    if len(matches)!=1:
+        raise ValueError("Government service contains zero or multiple Flock camera layers")
+    identity,name=matches[0]
+    return clean+"/"+str(identity),clean,name
+
+
 def private_government_pages():
     pages=fetch_all(api_request,"government_gis_search_queue?select=page_url,page_sha256,"
        "gis_links,candidate_status&candidate_status=eq.unverified"
@@ -124,19 +156,26 @@ def run(dry_run=False):
     seen=set()
     for source in private_government_pages():
         page=source["page_url"]
-        for url in source["gis_links"][:25]:
-            if not isinstance(url,str) or url in seen or not same_gov_apex(page,url):
+        for original_link in source["gis_links"][:25]:
+            if not isinstance(original_link,str) or original_link in seen:
                 continue
-            seen.add(url)
+            seen.add(original_link)
             try:
+                url,linked_url,layer_name=resolve_exact_original_camera_layer(
+                    page,original_link)
                 ph=urllib.parse.urlsplit(page).hostname
                 lh=urllib.parse.urlsplit(url).hostname
                 if not public_dns(ph) or not public_dns(lh):
                     raise ValueError("Original government host failed public DNS checks")
                 doc,digest=fetch_government_page(page)
-                if not direct_candidate_links(doc,page,digest,
-                     "Government GIS: "+ph,{url:{}}):
-                    raise ValueError("Original .gov disclosure has no direct Flock camera GIS hyperlink")
+                confirmations=direct_candidate_links(doc,page,digest,
+                    "Government GIS: "+ph,
+                    {url:{"layer_name":layer_name or "Flock Cameras"}})
+                if (len(confirmations)!=1 or confirmations[0]["gis_layer_url"]!=url
+                    or confirmations[0]["discovery_method"]!=(
+                        "government_page_direct_anchor_v1" if linked_url==url
+                        else "government_page_direct_service_v1")):
+                    raise ValueError("Original .gov Flock page no longer links exact camera layer or unambiguous service")
                 field,vendor,points,layer_hash,candidate=qualified_original_layer(page,url)
                 stats["qualified_live_layers"]+=1
                 if dry_run:continue
@@ -150,7 +189,7 @@ def run(dry_run=False):
                          "p_page_url":page,
                          "p_expected_old_sha":source["page_sha256"],
                          "p_current_live_sha":digest,
-                         "p_existing_layer_url":url,
+                         "p_existing_layer_url":linked_url,
                       })
                     if refreshed is not True:
                         raise ValueError("Government source evidence refresh refused")
