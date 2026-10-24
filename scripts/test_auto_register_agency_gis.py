@@ -43,12 +43,25 @@ class Register(unittest.TestCase):
   with (patch.object(a,'inspect',return_value=dict(proof)),
         patch.object(a,'api_request',side_effect=[[APPROVED],[{
           'source_key':SOURCE,'gis_layer_url':proof['layer_url'],
-          'source_status':'verified'}]]) as api,
+          'source_status':'verified'}],True]) as api,
         patch.object(a,'stage_candidate') as stage):
    r=a.run()
   self.assertEqual(r['existing_authorities_revalidated'],1)
-  self.assertEqual(api.call_count,2)
+  self.assertEqual(api.call_count,3)
+  self.assertEqual(api.call_args.kwargs['payload']['p_camera_count'],2)
+  self.assertEqual(r['fresh_original_publisher_receipts'],1)
   stage.assert_not_called()
+ def test_recheck_receipt_failure_is_held_without_repushing_camera_source(self):
+  existing={'source_key':SOURCE,'gis_layer_url':proof['layer_url'],'source_status':'verified'}
+  with (patch.object(a,'inspect',return_value=dict(proof)),
+        patch.object(a,'api_request',side_effect=[[APPROVED],[existing],False]) as api,
+        patch.object(a,'stage_candidate') as stage,
+        patch.object(a,'refresh_verified') as sync):
+   with self.assertRaisesRegex(ValueError,'unresolved'):
+    a.run(publish=True)
+  self.assertEqual(api.call_count,3)
+  stage.assert_not_called()
+  sync.assert_not_called()
  def test_revoked_source_cannot_be_reapproved_automatically(self):
   for status in ('revoked','candidate'):
    with (patch.object(a,'inspect',return_value=dict(proof)),
