@@ -111,6 +111,9 @@ def run(search=search_provider,fetch_page=fetch_government_page,day=None):
             pages=gov_pages(queries,search)
             results['government_search_results']+=len(pages)
             for page in pages:
+                if page not in seen_pages and len(seen_pages)>=MAX_GOV_FETCHES_PER_RUN:
+                    results['bounded_search_page_budget_reached']+=1
+                    break
                 try:
                     if page not in seen_pages:
                         seen_pages[page]=fetch_page(page)
