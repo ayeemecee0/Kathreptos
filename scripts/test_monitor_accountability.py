@@ -1,6 +1,6 @@
 """Read-only accountability/discovery pipeline monitoring invariants."""
 import unittest
-from monitor_public_health import assess_public_accountability
+from monitor_public_health import assess_public_accountability,assess_live_analytics
 
 def record(kind='government_program',tier='dated_program_disclosure',**updates):
     out={'event_key':'case:1','event_type':kind,'evidence_level':tier,
@@ -14,6 +14,13 @@ def role():
             'source_url':'https://www.flocksafety.com/blog/example'}
 
 class AccountabilityMonitorTests(unittest.TestCase):
+    def test_cross_checked_live_analytics(self):
+        metrics=[{'exact_government_points':275,'accountability_records':30,
+          'source_dated_programs':20,'states_with_any_documented_evidence':14,
+          'documented_signed_contracts':0}]
+        self.assertEqual(assess_live_analytics(metrics,275,30,20,14),metrics[0])
+        with self.assertRaisesRegex(ValueError,'contradict'):
+            assess_live_analytics(metrics,300,30,20,14)
     def test_source_linked_evidence(self):
         self.assertEqual(assess_public_accountability([record()],[role()],1,1),(1,1))
     def test_agenda_cannot_infer_votes(self):
