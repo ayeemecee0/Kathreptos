@@ -15,9 +15,9 @@ begin
     or has_table_privilege('authenticated','public.flock_point_evidence_cases','UPDATE')
  then raise exception 'Milestone 5 private data leak'; end if;
  for i in 1..3 loop
-  insert into public.flock_community_submissions(latitude,longitude,description,consent_to_review)
+  insert into public.flock_community_submissions(latitude,longitude,description,original_source_url,consent_to_review)
   values (38.55+i/10000.0,-121.4,
-  'Synthetic verification report used in rollback-only CI tests, never submitted to the live public queue.',true);
+  'Synthetic verification report used in rollback-only CI tests, never submitted to the live public queue.','https://example.org/ci-test',true);
  end loop;
  if (select count(*) from public.flock_community_submissions)<>3 then
   raise exception 'Incorrect report count';end if;
@@ -38,6 +38,8 @@ do $admin$
 begin
  if (select count(*) from public.flock_community_screening)<>3 then
   raise exception 'Screening trigger missed reports';end if;
+ if (select count(*) from public.flock_point_evidence_cases where source_url='https://example.org/ci-test' and classification='candidate')<>3 then raise exception 'Private automatic staging failed';end if;
+ if (select count(*) from public.flock_point_evidence_attestations where source_url='https://example.org/ci-test' and evidence_status='staged')<>3 then raise exception 'Unverified attestation staging failed';end if;
  if exists(select 1 from public.flock_point_evidence_cases c
    where c.case_key like 'tier_%' and c.classification<>'candidate'
    and c.staged_at>=now()-interval '1 minute') then
