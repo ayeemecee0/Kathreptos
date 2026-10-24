@@ -422,7 +422,7 @@
         }
       }
       await Promise.all(Array.from({length:Math.min(3,boxes.length)},worker));
-      if(state.route!==route)return;
+      if(state.route!==route || state.evidenceAbort!==controller)return;
       state.routeRecords=[...collected.values()];
       state.routeCoverage='complete';
       computeObservations();
@@ -430,7 +430,7 @@
         ' evidence region(s) across the route. Results are modeled, never actual plate reads. '+
         'Unpublished cameras may still exist.');
     } catch(e) {
-      if(state.route!==route)return;
+      if(state.route!==route || state.evidenceAbort!==controller)return;
       state.routeCoverage='unavailable';
       state.routeRecords=[];
       setText('nearbyCount','Unknown');
