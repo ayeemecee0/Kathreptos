@@ -49,6 +49,53 @@ class ArcgisOriginalPublisher(unittest.TestCase):
   self.assertEqual(len(fetches),2)
   self.assertIn('arcgis.com/sharing/rest/search',fetches[0])
   self.assertEqual(fetches[1],'https://www.arcgis.com/sharing/rest/portals/abc123456789?f=json')
+ def test_original_item_fills_org_id_missing_from_public_search(self):
+  service=LAYER.rsplit('/',1)[0]
+  itemid='a'*32
+  catalog={'results':[{'id':itemid,'type':'Feature Service','url':service,
+                        'owner':'original_publisher'}]}
+  detail={'id':itemid,'type':'Feature Service','url':service,
+          'owner':'original_publisher','orgId':'abc123456789'}
+  portal={'id':'abc123456789','name':'Government GIS (unverified claim)'}
+  requests=[]
+  def fetch(url):
+    requests.append(url)
+    if '/search?' in url:return catalog
+    if '/content/items/' in url:return detail
+    if '/portals/' in url:return portal
+    self.fail('Unexpected Esri request')
+  self.assertEqual(a.inspect_arcgis_publisher(LAYER,fetch),
+      'arcgis_org_publisher_metadata_identified_not_government_verified')
+  self.assertEqual(len(requests),3)
+ def test_original_owner_profile_fallback_only_matches_exact_username(self):
+  service=LAYER.rsplit('/',1)[0]
+  search={'results':[{'type':'Feature Service','url':service,'owner':'publisher_user'}]}
+  valid={'username':'publisher_user','orgId':'abc123456789'}
+  wrong={'username':'another_person','orgId':'abc123456789'}
+  def fetch(url):
+    if '/search?' in url:return search
+    if '/community/users/' in url:return valid
+    return {'id':'abc123456789','name':'City-sounding ArcGIS group'}
+  self.assertEqual(a.inspect_arcgis_publisher(LAYER,fetch),
+      'arcgis_org_publisher_metadata_identified_not_government_verified')
+  self.assertEqual(a.inspect_arcgis_publisher(LAYER,
+      lambda url:wrong if '/community/users/' in url else fetch(url)),
+      'arcgis_item_orgid_missing')
+ def test_mismatched_original_item_cannot_rewrite_source_ownership(self):
+  service=LAYER.rsplit('/',1)[0]
+  itemid='a'*32
+  search={'results':[{'id':itemid,'type':'Feature Service','url':service,
+                      'owner':'original_publisher'}]}
+  def fetch(url):
+    if '/search?' in url:return search
+    if '/content/items/' in url:return {'id':itemid,'type':'Feature Service',
+       'url':'https://attacker.invalid/FeatureServer','owner':'original_publisher',
+       'orgId':'abc123456789'}
+    if '/community/users/' in url:return {'username':'another_user',
+       'orgId':'abc123456789'}
+    self.fail('Mismatched owner source must not request an Esri portal')
+  self.assertEqual(a.inspect_arcgis_publisher(LAYER,fetch),
+    'arcgis_item_orgid_missing')
  def test_fake_title_or_wrong_original_layer_is_never_attributed(self):
   service=LAYER.rsplit('/',1)[0]
   for catalog in ({'results':[{'type':'Feature Service','url':'https://other/FeatureServer'}]},
