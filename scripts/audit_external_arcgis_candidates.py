@@ -98,10 +98,26 @@ def inspect_arcgis_publisher(layer_url,fetch=None):
     item=exact[0]
     orgid=item.get('orgId')
     owner=item.get('owner')
-    if not isinstance(orgid,str) or not re.fullmatch(r'[A-Za-z0-9]{8,48}',orgid):
-        return 'arcgis_item_orgid_missing'
     if not isinstance(owner,str) or not re.fullmatch(r'[A-Za-z0-9_.-]{3,90}',owner):
         return 'arcgis_item_owner_missing'
+    if not isinstance(orgid,str) or not re.fullmatch(r'[A-Za-z0-9]{8,48}',orgid):
+        # Public item *search* is an index and may omit organization fields.
+        # Prefer Esri's original individual item resource, not its display title.
+        item_id=item.get('id')
+        if isinstance(item_id,str) and re.fullmatch(r'[0-9a-fA-F]{32}',item_id):
+            detail=fetch('https://www.arcgis.com/sharing/rest/content/items/'+item_id+'?f=json')
+            if (isinstance(detail,dict) and detail.get('id')==item_id
+                and detail.get('type')=='Feature Service'
+                and detail.get('url')==service and detail.get('owner')==owner):
+                orgid=detail.get('orgId')
+    if not isinstance(orgid,str) or not re.fullmatch(r'[A-Za-z0-9]{8,48}',orgid):
+        # Some public content-item results omit orgId even when the original
+        # owner's public profile states it. Match the *exact* source owner.
+        profile=fetch('https://www.arcgis.com/sharing/rest/community/users/'+owner+'?f=json')
+        if isinstance(profile,dict) and profile.get('username')==owner:
+            orgid=profile.get('orgId')
+    if not isinstance(orgid,str) or not re.fullmatch(r'[A-Za-z0-9]{8,48}',orgid):
+        return 'arcgis_item_orgid_missing'
     # The portal may state a city, agency or nonprofit. That text is NOT a
     # link from a reviewed original .gov agency and conveys no public trust.
     portal=fetch('https://www.arcgis.com/sharing/rest/portals/'+orgid+'?f=json')
