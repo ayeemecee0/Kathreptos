@@ -502,6 +502,10 @@ jobs:
             end \$\$;
             rollback;"
           echo "Checking source privilege and reviewed GIS profile counts after rollback-only host scope test"
+          # Migration 023 intentionally leaves the El Paso source as a
+          # candidate in isolated PostgreSQL CI; migration 050 adds Newport,
+          # yielding exactly five verified sources plus that one candidate.
+          # Production independently promotes El Paso after live GIS checks.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select 'program_read',has_table_privilege('service_role','public.flock_documented_programs','SELECT')::text
              union all select 'program_insert',has_table_privilege('service_role','public.flock_documented_programs','INSERT')::text
@@ -537,7 +541,7 @@ jobs:
             "select count(*) from pg_indexes where schemaname='public' and indexname like '%_fk_idx'" | grep -qx 10
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | tee /tmp/verified_gis_sources_count
-          grep -Eq '^[5-9]$|^[1-9][0-9]+$' /tmp/verified_gis_sources_count
+          grep -qx 5 /tmp/verified_gis_sources_count
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.promote_owner_bound_gis_source(text,text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
@@ -570,7 +574,7 @@ jobs:
             "select has_column_privilege('service_role','public.flock_camera_locations','last_source_recheck_at','UPDATE')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.trusted_flock_gis_sources where source_status='verified'" | tee /tmp/verified_gis_sources_count
-          grep -Eq '^[5-9]$|^[1-9][0-9]+$' /tmp/verified_gis_sources_count
+          grep -qx 5 /tmp/verified_gis_sources_count
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('service_role','public.trusted_flock_gis_sources','UPDATE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
