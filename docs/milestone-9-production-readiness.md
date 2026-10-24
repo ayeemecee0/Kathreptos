@@ -101,3 +101,11 @@ One government-verified county source was added using a new independent first-pa
 - Other government GIS catalog links without independent original government source ownership remain unpublished. A nationwide, governed source-root registry is still necessary to generalize beyond the single pinned source; this is the highest-priority expansion work. Camera source operation and vehicle plate reads remain unknown; output is **source-documented historical locations**.
 
 All operations used existing GitHub Actions, GitHub Pages and Supabase resources; no new paid infrastructure or private user photographs.
+
+## October 24 — Generic first-party government GIS verification registry
+
+- The source-specific Alachua proof mechanism is now generalized to a curated, review-gated registry, `reviewed_first_party_gis_roots`. The automation's service role may only **read** owner-reviewed roots and invoke a source-pinned registration RPC. Arbitrary websites, unknown Esri-hosted layers, GitHub JSON edits alone and already-revoked approvals cannot self-promote.
+- [Disposable SQL release validation #499](https://github.com/ayeemecee0/Katoptron/actions/runs/40119773469) verified generic registration for a synthetic second municipality; refusal of unreviewed source keys; no public writes during source registration; and source/profile revocation after reviewed-source withdrawal. All test rows rolled back.
+- Production migration 083 applied successfully. A post-migration read-only query confirmed **one independently reviewed government GIS root**, **one original government source receipt**, **293 verified exact points**, **anonymous registration denied**, **service-role approval writes denied**, and **service-role verifier-only registration available**. Later first-party registration and profile-validation re-runs succeeded.
+- Monitoring checks reviewed agency approval independently from signed source receipts. Revalidating approved source records is not evidence that Flock cameras are currently operating or processing any particular vehicle plates.
+- Newly vetted source origins still require corroborating original agency publication. Existing third-party Esri candidates and unsourced community camera candidates remain unpublished; current government-backed point inventory did not increase during this infrastructure change. No paid services added.
