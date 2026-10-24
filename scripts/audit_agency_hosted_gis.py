@@ -69,7 +69,11 @@ def authority(source,document):
         raise ValueError('Live original-government GIS page does not link to agency mapping portal')
     return domain
 
-def inspect(source,get_page=fetch_government_page,fetch=get_official_json):
+def inspect(source,get_page=None,fetch=None):
+    # Resolve overridable transports on invocation: unit tests must never
+    # accidentally use a default-bound live network function.
+    get_page=get_page or fetch_government_page
+    fetch=fetch or get_official_json
     if source not in SOURCES:
         raise ValueError('Only pinned independently sourced government GIS pages may be fetched')
     agency=urlsplit(source['original_gis_page']).hostname
@@ -100,8 +104,12 @@ def inspect(source,get_page=fetch_government_page,fetch=get_official_json):
         raise ValueError('Agency map does not document complete exact Flock camera point-layer identity')
     ids=[f.get('name') for f in fields if isinstance(f,dict)]
     id_field=next((item for item in ID_FIELDS if item in ids),None)
+    # First-party government datasets may identify individual features with
+    # Esri's typed OBJECTID only. A second free-text CameraID field is NOT a
+    # universal requirement. Require nonempty, unique typed OBJECTIDs from
+    # two independent ArcGIS requests instead.
     if not id_field:
-        raise ValueError('Individual camera identifiers absent; layer name alone is not proof')
+        id_field=oid
     # Verify complete original set via returnIdsOnly before requesting geometry.
     idresponse=fetch(layer_url+'/query?'+urlencode({
        'where':'1=1','returnIdsOnly':'true','f':'json'}))
@@ -112,7 +120,7 @@ def inspect(source,get_page=fetch_government_page,fetch=get_official_json):
         any(type(x)!=int or x<0 for x in identities)):
         raise ValueError('Government camera inventory missing, incomplete or too large for safe audit')
     result=fetch(layer_url+'/query?'+urlencode({
-        'objectIds':','.join(map(str,sorted(identities))),'outFields':','.join((oid,id_field)),
+        'objectIds':','.join(map(str,sorted(identities))),'outFields':','.join(dict.fromkeys((oid,id_field))),
         'outSR':4326,'returnGeometry':'true','f':'json'
     }))
     entries=result.get('features') if isinstance(result,dict) else None
@@ -128,7 +136,7 @@ def inspect(source,get_page=fetch_government_page,fetch=get_official_json):
         fid,individual=attr.get(oid),attr.get(id_field)
         lat,lon=geom.get('y'),geom.get('x')
         if (type(fid)!=int or fid not in identities or fid in seen or
-            not isinstance(individual,str) or not 1<=len(individual.strip())<=100 or
+            (id_field!=oid and (not isinstance(individual,str) or not 1<=len(individual.strip())<=100)) or
             type(lat) not in (int,float) or type(lon) not in (int,float) or
             not GEO_BOUNDS[0]<=lat<=GEO_BOUNDS[2] or
             not GEO_BOUNDS[1]<=lon<=GEO_BOUNDS[3]):
@@ -141,6 +149,7 @@ def inspect(source,get_page=fetch_government_page,fetch=get_official_json):
        'layer_name':layername,
        'object_id_field':oid,
        'individual_id_field':id_field,
+       'identifier_basis':'arcgis_typed_objectid' if id_field==oid else 'named_camera_id',
        'original_page_sha256':checksum,
        'geometry_sha256':digest,
        'point_count':len(points),
