@@ -136,6 +136,27 @@ $('register').addEventListener('click',async()=>{
   status(error?'Registration failed: '+error.message:'Registration requested. Check your email if confirmation is required, then sign in.');
 });
 $('signout').addEventListener('click',async()=>{const {error}=await client.auth.signOut();status(error?error.message:'Signed out.');await syncSession();});
+// A withdrawn report may leave an orphaned private blob if the network fails.
+// Keep owner-only Storage deletion retryable; never expose a public file URL.
+async function removeOwnPhotoEvidence(submissionId){
+  if(!/^[0-9a-f-]{36}$/i.test(submissionId))throw Error('Invalid private report reference.');
+  const {data:{user},error:authError}=await client.auth.getUser();
+  if(authError||!user)throw Error('Please sign in again to delete private photos.');
+  const directory=user.id+'/'+submissionId;
+  const bucket=client.storage.from('katoptron-community-evidence');
+  const {data:files,error:listError}=await bucket.list(directory,{limit:20});
+  if(listError)throw Error('Photo lookup failed: '+listError.message);
+  if(!Array.isArray(files))throw Error('Photo inventory could not be confirmed.');
+  if(files.length>=20)throw Error('Too many items for safe automatic cleanup. Contact support.');
+  const names=files.map(f=>f.name);
+  if(names.some(name=>!['evidence.jpg','evidence.png','evidence.webp'].includes(name))){
+    throw Error('Unexpected private attachment names. Contact support.');
+  }
+  if(!names.length)return 0;
+  const {error:removeError}=await bucket.remove(names.map(name=>directory+'/'+name));
+  if(removeError)throw Error('Photo deletion failed: '+removeError.message);
+  return names.length;
+}
 async function loadOwnReports(){
  const {data,error}=await client.from('flock_community_submissions').select('submission_id,created_at,report_status,observed_on,original_source_url').order('created_at',{ascending:false}).limit(20);
  const box=$('myReports');box.replaceChildren();
@@ -215,24 +236,30 @@ async function loadOwnReports(){
        const {data:withdrawn,error}=await client.rpc('withdraw_own_community_report',{p_id:report.submission_id});
        if(error||withdrawn!==true)throw Error(error?.message||'Report not found');
        let photoWarning='';
-       const {data:{user}}=await client.auth.getUser();
-       if(user){
-         const directory=user.id+'/'+report.submission_id;
-         const {data:files,error:listError}=await client.storage.from('katoptron-community-evidence').list(directory,{limit:20});
-         if(listError){photoWarning=' Photo removal could not be verified: '+listError.message;}
-         else if(files?.length){
-           const paths=files.filter(f=>f.name).map(f=>directory+'/'+f.name);
-           if(paths.length){
-             const {error:removeError}=await client.storage.from('katoptron-community-evidence').remove(paths);
-             if(removeError)photoWarning=' Photograph removal failed: '+removeError.message;
-           }
-         }
+       try{await removeOwnPhotoEvidence(report.submission_id);}
+       catch(cleanupError){
+         photoWarning=' Photo removal could not be confirmed: '+cleanupError.message+
+           '. Use Retry photo deletion on your withdrawn report.';
        }
        status('Report withdrawn and derived research evidence revoked.'+photoWarning);
        await loadOwnReports();
      }catch(error){status('Withdrawal failed: '+error.message);button.disabled=false;}
    });
    li.append(' ',button);
+ }else{
+   const retry=document.createElement('button');
+   retry.type='button';retry.textContent='Retry photo deletion';
+   retry.setAttribute('aria-label','Retry private photo deletion for report '+report.submission_id.slice(0,8));
+   retry.addEventListener('click',async()=>{
+     retry.disabled=true;
+     try{
+       const removed=await removeOwnPhotoEvidence(report.submission_id);
+       status(removed?'Private photo deletion confirmed.':'No private photos remain on this report.');
+     }catch(error){status('Could not confirm photo deletion: '+error.message+
+       '. You may retry when the connection recovers.');}
+     finally{retry.disabled=false;}
+   });
+   li.append(' ',retry);
  }
  box.append(li);
  }
