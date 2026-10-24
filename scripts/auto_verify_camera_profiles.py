@@ -120,6 +120,9 @@ def authorize(s,p,r,external=None):
             p.get("service_evidence_mode")!="official_program_plus_vendor"):
             raise ValueError("Missing individual Flock vendor evidence policy")
     elif p.get("identity_mode")=="official_flock_layer":
+        if (p.get("camera_id_field")==s.get("expected_id_field") and
+            s.get("source_key")!="agency_alachua_fl"):
+            raise ValueError("Typed ObjectID-only camera identities require vetted first-party agency receipt")
         if (not (r or external) or not FLOCK_LAYER.fullmatch(p.get("expected_layer_name") or "") or
             not FIELD.fullmatch(p.get("camera_id_field") or "") or
             (p.get("vendor_field") is not None and not FIELD.fullmatch(p["vendor_field"])) or
@@ -288,7 +291,15 @@ def verify_points(s,p,data):
             camera_type=" ".join(vendor.split())
         else:
             identifier=a.get(p["camera_id_field"])
-            if not isinstance(identifier,str) or not 1<=len(identifier.strip())<=100:
+            if (s["source_key"]=="agency_alachua_fl" and
+                p["camera_id_field"].lower()==s["expected_id_field"].lower()):
+                # An agency-operated Flock-only layer can use its typed,
+                # twice-rechecked original ArcGIS ObjectID as the individual
+                # feature identity. This narrow exception cannot be used by
+                # arbitrary third-party map candidates.
+                if type(identifier) is not int or identifier!=oid:
+                    holds["original agency ObjectID changed"]+=1;continue
+            elif not isinstance(identifier,str) or not 1<=len(identifier.strip())<=100:
                 holds["no individual camera identifier"]+=1;continue
             # A mixed government point layer may include school/traffic
             # equipment. Filter each feature if an additional reviewed
@@ -297,7 +308,7 @@ def verify_points(s,p,data):
                 holds["not a Flock camera per original GIS field"]+=1;continue
             # Preserve earlier evidence fingerprints for unchanged published
             # sources, avoiding fictitious withdrawal/republication history.
-            if s["source_key"].startswith("autogov_"):
+            if s["source_key"].startswith("autogov_") or s["source_key"]=="agency_alachua_fl":
                 camera_type="Flock (original government-hosted GIS camera layer)"
             elif p.get("expected_layer_name","").lower()=="flock unit locations":
                 camera_type="Flock (original city Police GIS unit layer)"
