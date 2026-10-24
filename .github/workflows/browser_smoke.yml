@@ -11,6 +11,7 @@ on:
     paths:
       - '.github/workflows/browser_smoke.yml'
       - 'scripts/smoke_browser.cjs'
+      - 'scripts/smoke_mobile.cjs'
       - 'map.js'
       - 'index.html'
       - 'route-geometry.js'
@@ -47,12 +48,16 @@ jobs:
       - name: Test map and route in Chromium
         env:
           KATOPTRON_SMOKE_BASE: ${{ github.event_name == 'push' && 'http://127.0.0.1:8765/' || 'https://ayeemecee0.github.io/Katoptron/' }}
-        run: node scripts/smoke_browser.cjs
+        run: |
+          node scripts/smoke_browser.cjs
+          node scripts/smoke_mobile.cjs
       - name: Upload failing browser screenshot
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: browser-smoke-failure
-          path: katoptron-smoke-failure.png
+          path: |
+            katoptron-smoke-failure.png
+            katoptron-mobile-smoke-failure.png
           if-no-files-found: ignore
           retention-days: 7
