@@ -78,7 +78,7 @@ def check_external(candidate,links,verified):
 # ArcGIS organization metadata identifies the publisher of a hosted layer,
 # but the organization *name itself* is user-editable self-description. It
 # can rank an investigation, NEVER approve a government source or locations.
-def inspect_arcgis_publisher(layer_url,fetch=None):
+def inspect_arcgis_publisher(layer_url,fetch=None,return_identity=False):
     fetch=fetch or get_official_json
     if not LAYER_URL.fullmatch(layer_url):
         raise ValueError('Only an exact ArcGIS-hosted Flock layer may be inspected')
@@ -126,6 +126,14 @@ def inspect_arcgis_publisher(layer_url,fetch=None):
     name=portal.get('name')
     if not isinstance(name,str) or not 4<=len(name)<=200:
         return 'arcgis_org_self_description_missing'
+    if return_identity:
+        # A private in-memory provenance lead, never an owner approval. This
+        # can be matched to links on *independent original agency webpages*.
+        return {
+            'org_id':orgid,'owner':owner,'service_url':service,
+            'portal_name':name,'portal_url_key':portal.get('urlKey'),
+            'portal_base_url':portal.get('customBaseUrl'),
+        }
     return 'arcgis_org_publisher_metadata_identified_not_government_verified'
 
 
