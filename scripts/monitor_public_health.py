@@ -18,7 +18,7 @@ EXPECTED_MIN={'Monroe, WA':18,'El Paso County, CO':16,'Peoria, AZ':74,
               'Lawrenceville, GA':45,'Webster, TX':53,'Newport Beach, CA':69}
 MAX_BODY=500_000
 MAX_STALE_HOURS=72
-MIN_DOCUMENTED_GOV_PROGRAMS=13
+MIN_DOCUMENTED_GOV_PROGRAMS=20
 
 
 def get(url,headers=None):
