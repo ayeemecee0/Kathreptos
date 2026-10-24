@@ -83,6 +83,7 @@ on:
       - 'supabase/migrations/079_one_time_community_source_followup.sql'
       - 'supabase/migrations/080_revoke_withdrawn_report_reviewer_photo_access.sql'
       - 'supabase/migrations/081_first_party_agency_hosted_gis_authority.sql'
+      - 'supabase/migrations/082_agency_arcgis_objectid_casefold.sql'
       - 'scripts/test_first_party_agency_source_registration.sql'
       - 'scripts/auto_register_agency_gis.py'
       - 'scripts/test_audit_agency_hosted_gis.py'
@@ -520,6 +521,8 @@ jobs:
             -f scripts/test_community_source_followup.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/081_first_party_agency_hosted_gis_authority.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/082_agency_arcgis_objectid_casefold.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_first_party_agency_source_registration.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
