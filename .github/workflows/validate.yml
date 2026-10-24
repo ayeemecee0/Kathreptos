@@ -433,7 +433,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_public_state_evidence_index','SELECT')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            "select count(*) from public.flock_public_state_evidence_index where verified_camera_points=0 and dated_program_records>0" | grep -qx 7
+            "select count(*) from public.flock_public_state_evidence_index where verified_camera_points=0 and dated_program_records>0" | grep -qx 8
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.flock_public_state_evidence_index where terminated_program_records>0" | grep -qx 3
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
