@@ -21,6 +21,20 @@ class Areas(unittest.TestCase):
   self.assertTrue(items[0][0].startswith("https://gis.peoriaaz.gov/"))
   with self.assertRaises(ValueError):
    list(g.polygon_layers({**R,"verification_status":"revoked"}))
+ def test_government_catalog_one_transient_failure_recovers(self):
+  with (patch.object(g,"get_official_json",side_effect=[
+       {"error":{"code":503}},{"layers":[{"id":7,"name":"Flock Coverage Area"}]}]) as fetch,
+        patch.object(g.time,"sleep") as snooze):
+   out=list(g.polygon_layers(R))
+  self.assertEqual(len(out),1)
+  self.assertEqual(fetch.call_count,2)
+  snooze.assert_called_once_with(0.4)
+ def test_government_catalog_two_failures_still_fail_closed(self):
+  with (patch.object(g,"get_official_json",side_effect=[
+        {"error":{"code":503}},{"layers":None}]),
+        patch.object(g.time,"sleep")):
+   with self.assertRaisesRegex(ValueError,"after retry"):
+    list(g.polygon_layers(R))
  def test_polygon_source_coordinates_are_used_unchanged(self):
   with patch.object(g,"get_official_json",side_effect=[L,Q]):
    rows=g.verify_polygon(R,"https://gis.peoriaaz.gov/arcgis/rest/services/PM/pmPublicWorks/MapServer/5",
