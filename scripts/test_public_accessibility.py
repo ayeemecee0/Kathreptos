@@ -45,7 +45,7 @@ class AccessibilityShellTests(unittest.TestCase):
     def test_evidence_labeling(self):
         for name,phrases in {
             "analytics.html":["unknown","source-dated","not deployment","id=\"stateRows\""],
-            "accountability.html":["not proof","Original evidence","role=\"tablist\""],
+            "accountability.html":["does not prove","Original evidence","role=\"tablist\""],
             "index.html":["unknown coverage","aria-label=\"Main navigation\""],
         }.items():
             source=(ROOT/name).read_text(encoding="utf8").lower()
