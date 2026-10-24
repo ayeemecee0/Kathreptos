@@ -37,3 +37,9 @@
 .comparison-choice strong{font-size:12px;color:#eff8fa}
 .comparison-choice span{font-size:11px;color:#c0d6e4}
 .comparison-choice small{font-size:10px;line-height:1.5;color:#a5b9ca}
+
+.sidebar select{width:100%;background:#0b151f;border:1px solid #375266;
+ color:#e9f0f7;border-radius:5px;padding:11px;font-size:12px}
+.sidebar select:focus-visible{outline:2px solid #65d9b9;outline-offset:2px}
+.geocode-choice:has(select[hidden]){display:none}
+[hidden]{display:none!important}
