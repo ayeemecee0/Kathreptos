@@ -24,6 +24,19 @@ class National(unittest.TestCase):
   item=d.page_candidate(page,"CA","Flock camera government",h,'a'*64)
   self.assertEqual(item["gis_links"],["https://gis.example.gov/MapServer/0"])
   self.assertEqual(item["state_search_hint"],"CA")
+ def test_original_government_flock_camera_prose_without_safety_brand(self):
+  page="https://city.example.gov/flock"
+  doc=html('<h2>City police Flock cameras</h2>'
+      '<p>Automated license plate readers are used by our department.</p>'
+      '<a href="https://gis.city.example.gov/arcgis/rest/services/Cameras/MapServer/1">GIS map</a>')
+  item=d.page_candidate(page,"CA","Flock cameras municipal GIS",doc,'a'*64)
+  self.assertEqual(item['gis_links'],[
+      "https://gis.city.example.gov/arcgis/rest/services/Cameras/MapServer/1"])
+ def test_no_anchor_only_flock_claim(self):
+  page="https://city.example.gov/maps"
+  doc=html('<h2>Other government GIS maps</h2>'
+      '<a href="https://gis.city.example.gov/a/MapServer/1">Flock cameras</a>')
+  self.assertIsNone(d.page_candidate(page,"CA","Flock government map",doc,'a'*64))
  def test_gov_page_stages_direct_gis_service_root_without_inventing_layer(self):
   page="https://city.example.gov/flock"
   service="https://gis.city.example.gov/arcgis/rest/services/PublicSafety/MapServer"
