@@ -501,6 +501,12 @@ jobs:
               then raise exception 'Distinct layers on reviewed host incorrectly blocked'; end if;
             end \$\$;
             rollback;"
+          echo "Checking source privilege and reviewed GIS profile counts after rollback-only host scope test"
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
+            "select 'program_read',has_table_privilege('service_role','public.flock_documented_programs','SELECT')
+             union all select 'program_insert',has_table_privilege('service_role','public.flock_documented_programs','INSERT')
+             union all select 'profiles',count(*)::text from public.gis_verification_profiles where profile_status='verified'
+             union all select 'gov_roots',count(*)::text from public.gis_government_host_authorities where verification_status='verified'"
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('service_role','public.flock_documented_programs','SELECT')" | grep -qx t
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
