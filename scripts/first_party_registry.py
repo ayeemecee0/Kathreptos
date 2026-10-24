@@ -20,6 +20,13 @@ def original_domain(host):
     labels=host.split('.')
     if len(labels)<2 or any(not x or x.startswith('-') or x.endswith('-') for x in labels):
         return None
+    # A shared state/local-government namespace such as city.wa.us or
+    # county.co.us does not grant other municipalities the same authority.
+    # Compare one additional owner label for state-code and reserved .us
+    # suffixes instead of trusting the shared "wa.us"/"co.us" suffix.
+    if labels[-1]=='us' and (len(labels[-2])==2 or
+            labels[-2] in {'k12','state','pvt','fed','dni','isa','kids','nsn','lib','gen'}):
+        return '.'.join(labels[-3:]) if len(labels)>=3 else None
     return '.'.join(labels[-2:])
 
 def _url(url,layer=False):
