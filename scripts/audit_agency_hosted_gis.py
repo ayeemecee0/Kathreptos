@@ -69,7 +69,7 @@ def authority(source,document):
         raise ValueError('Live original-government GIS page does not link to agency mapping portal')
     return domain
 
-def inspect(source,get_page=None,fetch=None):
+def inspect(source,get_page=None,fetch=None,include_private_locations=False):
     # Resolve overridable transports on invocation: unit tests must never
     # accidentally use a default-bound live network function.
     get_page=get_page or fetch_government_page
@@ -143,8 +143,16 @@ def inspect(source,get_page=None,fetch=None):
             raise ValueError('Incomplete or ambiguous agency Flock camera IDs/coordinates')
         seen.add(fid)
         points.append((fid,round(lat,7),round(lon,7)))
+    # Re-fetch the authoritative ID inventory to detect edits midway
+    # through an independent full-lane point query.
+    confirmation=fetch(layer_url+'/query?'+urlencode({
+       'where':'1=1','returnIdsOnly':'true','f':'json'}))
+    if (not isinstance(confirmation,dict) or
+        sorted(confirmation.get('objectIds') or [])!=sorted(identities) or
+        confirmation.get('error')):
+        raise ValueError('Government camera identifiers changed during GIS inspection')
     digest=hashlib.sha256(json.dumps(sorted(points),separators=(',',':')).encode()).hexdigest()
-    return {
+    proof={
        'layer_url':layer_url,
        'layer_name':layername,
        'object_id_field':oid,
@@ -158,6 +166,10 @@ def inspect(source,get_page=None,fetch=None):
        # deployment and physical device confirmation remain separate questions.
        'status':'agency_host_identity_and_complete_layer_geometry_checked',
     }
+    if include_private_locations:
+        # In-memory only; never print, upload to GitHub artifacts, or cache.
+        proof['_private_locations']=[{'id':oid,'lat':lat,'lon':lon} for oid,lat,lon in points]
+    return proof
 
 def run(dry_run=True):
     stats=Counter()
