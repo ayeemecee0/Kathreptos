@@ -12,6 +12,7 @@ on:
       - '.github/workflows/browser_smoke.yml'
       - 'scripts/smoke_browser.cjs'
       - 'scripts/smoke_mobile.cjs'
+      - 'scripts/smoke_geoapify.cjs'
       - 'map.js'
       - 'index.html'
       - 'route-geometry.js'
@@ -54,6 +55,7 @@ jobs:
         run: |
           node scripts/smoke_browser.cjs
           node scripts/smoke_mobile.cjs
+          node scripts/smoke_geoapify.cjs
       - name: Upload failing browser screenshot
         if: failure()
         uses: actions/upload-artifact@v4
