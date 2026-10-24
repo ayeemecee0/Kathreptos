@@ -8,6 +8,8 @@ Does not fetch/publish camera point coordinates or create trust.
 import argparse
 from collections import Counter
 import hashlib
+import re
+import urllib.parse
 
 from auto_verify_flock_agenda import api_request
 from paged_supabase import fetch_all
@@ -72,6 +74,45 @@ def check_external(candidate,links,verified):
     return "candidate_government_link_needs_full_attestation"
 
 
+
+# ArcGIS organization metadata identifies the publisher of a hosted layer,
+# but the organization *name itself* is user-editable self-description. It
+# can rank an investigation, NEVER approve a government source or locations.
+def inspect_arcgis_publisher(layer_url,fetch=None):
+    fetch=fetch or get_official_json
+    if not LAYER_URL.fullmatch(layer_url):
+        raise ValueError('Only an exact ArcGIS-hosted Flock layer may be inspected')
+    service=layer_url.rsplit('/',1)[0]
+    lookup='https://www.arcgis.com/sharing/rest/search?'+urllib.parse.urlencode({
+        'f':'json','q':'type:"Feature Service" AND url:"'+service+'"','num':30
+    })
+    listing=fetch(lookup)
+    matches=listing.get('results') if isinstance(listing,dict) else None
+    if not isinstance(matches,list) or len(matches)>30:
+        return 'unresolved_arcgis_item_search'
+    # A coincidentally matching ArcGIS title is not a service-item identity.
+    exact=[row for row in matches if isinstance(row,dict)
+           and row.get('type')=='Feature Service' and row.get('url')==service]
+    if len(exact)!=1:
+        return 'arcgis_item_not_uniquely_attributed'
+    item=exact[0]
+    orgid=item.get('orgId')
+    owner=item.get('owner')
+    if not isinstance(orgid,str) or not re.fullmatch(r'[A-Za-z0-9]{8,48}',orgid):
+        return 'arcgis_item_orgid_missing'
+    if not isinstance(owner,str) or not re.fullmatch(r'[A-Za-z0-9_.-]{3,90}',owner):
+        return 'arcgis_item_owner_missing'
+    # The portal may state a city, agency or nonprofit. That text is NOT a
+    # link from a reviewed original .gov agency and conveys no public trust.
+    portal=fetch('https://www.arcgis.com/sharing/rest/portals/'+orgid+'?f=json')
+    if not isinstance(portal,dict) or portal.get('id')!=orgid:
+        return 'arcgis_owner_portal_unavailable'
+    name=portal.get('name')
+    if not isinstance(name,str) or not 4<=len(name)<=200:
+        return 'arcgis_org_self_description_missing'
+    return 'arcgis_org_publisher_metadata_identified_not_government_verified'
+
+
 def run():
     candidates,receipts,sources=candidate_inputs()
     links={x["gis_layer_url"] for x in receipts
@@ -95,8 +136,17 @@ def run():
                   type(exc).__name__)
         stats[outcome]+=1
         print("Private ArcGIS source audit:",outcome,candidate_id)
+        if outcome=="verified_arcgis_metadata_only_missing_original_government_link":
+            try:
+                owner_state=inspect_arcgis_publisher(url)
+            except Exception as exc:
+                owner_state="arcgis_owner_lookup_unavailable"
+                print("ArcGIS original owner lookup held:",candidate_id,type(exc).__name__)
+            stats[owner_state]+=1
+            print("ArcGIS owner provenance:",owner_state,candidate_id)
     for key in sorted(stats):
         print("External candidate audit",key+":",stats[key])
+    print("ArcGIS organization self-description is NOT original-government endorsement")
     print("Government camera authorities newly established by this audit: 0")
     print("Camera locations published by this audit: 0")
     return stats
