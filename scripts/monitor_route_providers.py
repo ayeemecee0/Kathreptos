@@ -76,8 +76,24 @@ def check_all(settings,fetch=get_json):
             results[kind]={"ok":False,"error_type":type(error).__name__}
     return results
 
+def active_mode(config):
+    match=re.search(r"locationProvider:\\s*'([^']+)'",config)
+    mode=match.group(1) if match else "demo"
+    if mode not in {"demo","geoapify"}:
+        raise ValueError("Unknown location provider mode; no silent fallback")
+    return mode
+
 def main():
-    settings=read_settings((ROOT/"config.js").read_text(encoding="utf-8"))
+    config=(ROOT/"config.js").read_text(encoding="utf-8")
+    mode=active_mode(config)
+    if mode=="geoapify":
+        # Origin-restricted browser key must be tested from the approved
+        # hosted origin, never from a headless Python request.
+        # The daily browser monitor runs scripts/smoke_geoapify_live.cjs.
+        print("Active provider: Geoapify. Run origin-verified Chromium API probe.")
+        print("Shared demo services are INACTIVE and are not being checked.")
+        return
+    settings=read_settings(config)
     for name,key in (("routing","routingServiceBase"),("geocoding","geocodingServiceBase")):
         service_type="SHARED DEMO (NO SLA)" if settings[key]==DEMO[key] else "CONFIGURED HOST (SLA NOT VERIFIED)"
         print("Provider configuration:",name,service_type)
