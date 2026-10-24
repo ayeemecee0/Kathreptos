@@ -111,31 +111,52 @@ def queries_for_identity(identity):
         urls.append('site:.gov "'+item.lower()+'"')
     return urls[:3]
 
-def bing_rss(query,search=search_provider):
-    # Search results are never a government-authority proof.
-    endpoint='https://www.bing.com/search?format=rss&q='+quote(query)
-    provider,found=search(('bing-rss',endpoint))
-    if provider!='bing-rss' or not isinstance(found,list):
-        raise ValueError('Search results unavailable or untrusted')
+def web_results(query,provider,search=search_provider):
+    """Bounded public search hints; original .gov page is always re-fetched."""
+    if provider=='bing-rss':
+        endpoint='https://www.bing.com/search?format=rss&q='+quote(query)
+    elif provider=='ddg-html':
+        endpoint='https://html.duckduckgo.com/html/?q='+quote(query)
+    else:
+        raise ValueError('Unapproved public search engine')
+    received,found=search((provider,endpoint))
+    if received!=provider or not isinstance(found,list):
+        raise ValueError('Public search results unavailable or untrusted')
     return found[:MAX_RESULTS_PER_SEARCH]
 
+def bing_rss(query,search=search_provider):
+    return web_results(query,'bing-rss',search)
+
 def gov_pages(queries,search=search_provider):
-    """Return only strict HTTPS government URLs, de-duplicated, no redirects."""
+    """Only exact original .gov HTTPS results, not search-engine snippets."""
     result=[]
     for query in queries:
-        for raw in bing_rss(query,search):
-            # Never silently discard a search-engine fragment and then treat
-            # the rewritten link as a fresh original-page evidence address.
-            if not isinstance(raw,str) or urlsplit(raw).fragment:
+        before=len(result)
+        # A missing Bing index page is a discovery gap, not proof no agency
+        # has disclosed it. Query public DuckDuckGo HTML as bounded fallback.
+        for provider in ('bing-rss','ddg-html'):
+            if provider=='ddg-html' and len(result)>before:
+                break
+            try:
+                found=web_results(query,provider,search)
+            except Exception:
                 continue
-            url=normalize_url(raw)
-            if (not url or not is_gov(url)
-                    or urlsplit(url).query or len(url)>1200):
-                continue
-            if url not in result:
-                result.append(url)
-            if len(result)>=MAX_GOV_FETCHES_PER_RUN:
-                return result
+            for raw in found:
+                if not isinstance(raw,str):
+                    continue
+                try:
+                    if urlsplit(raw).fragment:
+                        continue
+                    url=normalize_url(raw)
+                    if (not url or not is_gov(url) or
+                        urlsplit(url).query or len(url)>1200):
+                        continue
+                    if url not in result:
+                        result.append(url)
+                    if len(result)>=MAX_GOV_FETCHES_PER_RUN:
+                        return result
+                except ValueError:
+                    continue
     return result
 
 def evaluate_page(original,identity,page,document):
