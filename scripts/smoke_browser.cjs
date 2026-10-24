@@ -199,6 +199,21 @@ const assert=require('node:assert/strict');
   assert.ok(selectedRouteRequest.includes('-93.29,37.21;'),selectedRouteRequest);
   await page.locator('#from').fill('Springfield, Illinois');
   assert.equal(await page.locator('#fromMatch').isVisible(),false);
+  let throttledCalls=0;
+  await page.route('https://router.project-osrm.org/**',async route=>{
+    throttledCalls++;
+    await route.fulfill({status:429,contentType:'application/json',
+      headers:{'access-control-allow-origin':'*'},body:'{"error":"rate limited"}'});
+  });
+  await page.locator('#from').fill('38.5816,-121.4944');
+  await page.locator('#to').fill('38.6779,-121.1761');
+  await page.locator('#planRoute').click();
+  await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.includes('rate limited'),{timeout:12000});
+  assert.ok((await page.locator('#providerStatus').textContent()).includes('DEGRADED'));
+  assert.equal(await page.locator('#routeComparisonList li').count(),0);
+  await page.locator('#planRoute').click();
+  await page.waitForFunction(()=>document.querySelector('#routeStatus')?.textContent?.includes('temporarily unavailable'),{timeout:12000});
+  assert.equal(throttledCalls,1,'Cooldown must not hammer shared demos');
   assert.deepEqual(errors,[]);
   console.log('BROWSER SMOKE PASSED: 6 GIS sources, sourced programs, map filters/search, public history, route evidence, replay and reset');
  }catch(e){
