@@ -4,7 +4,7 @@
  */
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
-const mockSdk=String.raw\`
+const mockSdk=String.raw`
 (()=>{
 'use strict';
 const reviewerMode=location.pathname.includes('community-review.html');
@@ -81,7 +81,7 @@ const api={
 };
 window.supabase={createClient:()=>api};
 window.__QA={reports,activity};
-})();\`;
+})();`;
 (async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const base=process.env.KATOPTRON_SMOKE_BASE||'http://127.0.0.1:8765/';
