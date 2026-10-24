@@ -83,23 +83,23 @@ reset role;
 update public.flock_point_evidence_attestations set latitude=35.13000
 where evidence_key='proof_beta0000000';
 set role anon;
-do $
+do $tier_test$
 begin
  if (select count(*) from public.flock_public_tiered_camera_points) <> 1 then
    raise exception 'Distant corroboration must not qualify a provisional point';
  end if;
-end $;
+end $tier_test$;
 reset role;
 update public.flock_point_evidence_attestations
   set latitude=35.10002,last_checked_at=now()-interval '181 days'
 where evidence_key='proof_beta0000000';
 set role anon;
-do $
+do $tier_test$
 begin
  if (select count(*) from public.flock_public_tiered_camera_points) <> 1 then
    raise exception 'Stale corroboration must not keep a provisional point public';
  end if;
-end $;
+end $tier_test$;
 reset role;
 update public.flock_point_evidence_attestations set last_checked_at=now()
 where evidence_key='proof_beta0000000';
