@@ -39,6 +39,7 @@
 <label>Original supporting source URL (optional)<input id="source" type="url" maxlength="1600" placeholder="https://..."></label>
 <label>What did you observe? (40–1500 characters)<textarea id="description" minlength="40" maxlength="1500" required placeholder="Describe why you believe this is a Flock Safety camera, the original source, and what remains uncertain."></textarea></label>
 <label>Evidence photograph (optional, JPG/PNG/WebP; maximum 3 MB)<input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+<label class="check"><input type="checkbox" id="publicationConsent"><span>Optional: If my report is independently verified and approved, I permit this report's camera coordinates and evidence source URL to appear publicly. My account identity will not be published. Leaving this unchecked keeps my submitted case private.</span></label>
 <label class="check"><input type="checkbox" id="consent" required><span>I confirm this is a good-faith report and consent to its private review. I have excluded personal information and understand it will not automatically appear on the public map.</span></label>
 <button id="send" type="submit">Submit private report</button>
 <p><small>Limit: 3 submissions per account per 24 hours. Coordinates and account ID are retained privately for review. You can see your own submission status, but other contributors cannot see it.</small></p>
@@ -119,7 +120,8 @@ $('reportForm').addEventListener('submit',async event=>{
     const photo=originalPhoto?await sanitizePhoto(originalPhoto):null;
     const {data:receipt,error}=await client.from('flock_community_submissions').insert({
       latitude:lat,longitude:lon,description,original_source_url:source?(new URL(source).href):null,
-      observed_on:$('observed').value||null,consent_to_review:true
+      observed_on:$('observed').value||null,consent_to_review:true,
+      publication_consent:$('publicationConsent').checked
     }).select('submission_id').single();
     if(error)throw error;
     let uploadMessage='';
