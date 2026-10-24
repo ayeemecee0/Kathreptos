@@ -26,3 +26,14 @@
 .mobile-map-link:focus-visible{outline:3px solid #a0e8de;outline-offset:3px}
 #map:focus{outline:2px solid #7bdac3;outline-offset:-2px}
 }
+
+.route-compare{margin-top:19px;border-top:1px solid #2a3a49;padding-top:14px}
+.route-compare h3{font-size:12px;font-weight:750;color:#dceaf0;margin:3px 0 8px}
+.route-compare ol{margin:12px 0;padding:0;list-style:none;display:grid;gap:8px}
+.route-compare li{min-width:0}
+.comparison-choice{width:100%;text-align:left;background:#102433;color:#d7e5ef;border:1px solid #38536b;border-radius:7px;padding:11px 12px;display:grid;gap:4px;cursor:pointer}
+.comparison-choice:hover,.comparison-choice:focus-visible{border-color:#70aacc}
+.comparison-choice.selected{border-color:#65d9b9;background:#153238;box-shadow:inset 3px 0 #65d9b9}
+.comparison-choice strong{font-size:12px;color:#eff8fa}
+.comparison-choice span{font-size:11px;color:#c0d6e4}
+.comparison-choice small{font-size:10px;line-height:1.5;color:#a5b9ca}
