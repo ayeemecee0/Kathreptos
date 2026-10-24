@@ -44,7 +44,7 @@ class GovernmentCrawler(unittest.TestCase):
         patch.object(d,'get_seed_pages',return_value=([(PAGE,'Example, ST')],{PAGE})),
         patch.object(d,'fetch_government_page',return_value=(document,'a'*64)),
         patch.object(d,'stage') as stage_leads,
-        patch('discover_nationwide_gis.stage') as queue):
+        patch.object(d,'stage_same_gov_flock_page') as queue):
    result=d.scan(dry_run=False)
   self.assertEqual(result['original_gov_pages_queued'],1)
   stage_leads.assert_called_once()
@@ -61,7 +61,7 @@ class GovernmentCrawler(unittest.TestCase):
         patch.object(d,'get_seed_pages',return_value=([(PAGE,'Example, ST')],{PAGE})),
         patch.object(d,'fetch_government_page',return_value=(external,'b'*64)),
         patch.object(d,'stage') as stage_leads,
-        patch('discover_nationwide_gis.stage') as queue):
+        patch.object(d,'stage_same_gov_flock_page') as queue):
    result=d.scan(dry_run=False)
   self.assertEqual(result['original_gov_pages_queued'],0)
   stage_leads.assert_called_once()
