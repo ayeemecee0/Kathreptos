@@ -187,15 +187,16 @@ def run(dry_run=False,publish=False):
             # evidence hold; an unknown HTTP 400, permission failure, or
             # registration bug must not count as a successful verification.
             body=exc.read(1600).decode("utf8","replace")
-            if ("Possible already published government camera" in body
-                or "Not a distinct approved-host layer" in body):
+            duplicate=("Possible already published government camera" in body
+                       or "Not a distinct approved-host layer" in body)
+            if duplicate:
                 result["duplicate_or_existing_held"]+=1
             else:
                 result["errors"]+=1
             result["held"]+=1
             print("Government layer NOT registered: source_hash",marker,
                   "HTTP",exc.code,"reason",
-                  "possible_duplicate" if result["duplicate_or_existing_held"] else "database_refusal")
+                  "possible_duplicate" if duplicate else "database_refusal")
         except ValueError as exc:
             result["held"]+=1
             print("Government source evidence held: source_hash",marker,
