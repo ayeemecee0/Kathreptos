@@ -7,6 +7,7 @@ Does not fetch/publish camera point coordinates or create trust.
 """
 import argparse
 from collections import Counter
+import hashlib
 
 from auto_verify_flock_agenda import api_request
 from paged_supabase import fetch_all
@@ -84,14 +85,16 @@ def run():
         if not LAYER_URL.fullmatch(url):
             continue
         stats["external_candidates"]+=1
+        # Logs of a public repository must not disclose unpublished research URLs.
+        candidate_id=hashlib.sha256(url.encode("utf8")).hexdigest()[:12]
         try:
             outcome=check_external(candidate,links,verified)
         except Exception as exc:
             outcome="unreachable_or_unparseable_metadata"
-            print("ArcGIS candidate metadata held:",url,
-                  type(exc).__name__,str(exc)[:100])
+            print("ArcGIS candidate metadata held:",candidate_id,
+                  type(exc).__name__)
         stats[outcome]+=1
-        print("Private ArcGIS source audit:",outcome,url)
+        print("Private ArcGIS source audit:",outcome,candidate_id)
     for key in sorted(stats):
         print("External candidate audit",key+":",stats[key])
     print("Government camera authorities newly established by this audit: 0")
