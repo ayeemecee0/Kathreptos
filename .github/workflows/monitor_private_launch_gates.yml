@@ -1,0 +1,44 @@
+name: Guard private Storage and discovery conversion
+
+on:
+  schedule:
+    - cron: '42 16 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/monitor_private_launch_gates.py'
+      - 'scripts/test_monitor_private_launch_gates.py'
+      - '.github/workflows/monitor_private_launch_gates.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-private-storage-discovery-health
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    env:
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Confirm existing server-only monitoring credential
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || {
+            echo "::error::Missing private monitoring credential"
+            exit 1
+          }
+      - name: Test private bucket guards and count-only telemetry
+        run: python -m unittest discover -s scripts -p 'test_monitor_private_launch_gates.py' -v
+      - name: Check actual private Storage and national discovery conversion
+        run: python scripts/monitor_private_launch_gates.py
