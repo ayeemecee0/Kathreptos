@@ -43,3 +43,10 @@
 .sidebar select:focus-visible{outline:2px solid #65d9b9;outline-offset:2px}
 .geocode-choice:has(select[hidden]){display:none}
 [hidden]{display:none!important}
+
+/* Prevent large desktop navigation from stretching the document width.
+   Horizontal scrolling belongs within navigation, not the page viewport. */
+.masthead{max-width:100%;min-width:0}
+.masthead nav{min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.masthead nav a{flex-shrink:0}
+.workspace,.map-panel,.map-toolbar{min-width:0}
