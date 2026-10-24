@@ -29,7 +29,7 @@ values
 update public.flock_point_evidence_attestations set
  evidence_status='reviewed', reviewed_at=now(),
  review_explanation='Independently reviewed source provenance and device identity are supported for this artificial CI fixture.'
-where evidence_key in ('proof_alpha000000','proof_gamma000000','proof_gov00000000');
+where evidence_key in ('proof_alpha000000','proof_gamma000000');
 update public.flock_point_evidence_cases set
  classification='independently_corroborated', reviewed_at=now(),
  review_explanation='Artificial test case has a vetted map source, but no independently checked second information source.'
@@ -50,7 +50,7 @@ begin
 end $$;
 reset role;
 
-update public.flock_point_evidence_attestations set authority_url='https://example.gov/official-map'
+update public.flock_point_evidence_attestations set authority_url='https://example.gov/official-map', evidence_status='reviewed', reviewed_at=now(), review_explanation='Authenticated government ArcGIS organization affiliation confirmed by independent municipal records and source geometry.'
 where evidence_key='proof_gov00000000';
 set role anon;
 do $$
