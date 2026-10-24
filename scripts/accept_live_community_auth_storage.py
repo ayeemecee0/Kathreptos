@@ -28,12 +28,21 @@ def call(method,path,key,payload=None,mime="application/json",expect=(200,201,20
     body=None if payload is None else (
         bytes(payload) if isinstance(payload,(bytes,bytearray)) else
         json.dumps(payload,separators=(",",":")).encode())
-    req=urllib.request.Request(BASE+path,data=body,method=method,headers={
-        "apikey":PUBLISHABLE if key==PUBLISHABLE else key,
-        "Authorization":"Bearer "+key,
+    # Opaque sb_secret_/sb_publishable_ keys are API keys, not JWTs.
+    # Real user Auth access tokens must instead be sent as Bearer JWTs
+    # alongside the project's browser-safe publishable apikey.
+    privileged=key==os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    api_key=key if privileged else PUBLISHABLE
+    headers={
+        "apikey":api_key,
         "Content-Type":mime,"Accept":"application/json",
         "User-Agent":"Katoptron-private-acceptance/1.0"
-    })
+    }
+    if key.startswith("eyJ") and not privileged:
+        headers["Authorization"]="Bearer "+key
+    elif privileged and key.startswith("eyJ"):
+        headers["Authorization"]="Bearer "+key
+    req=urllib.request.Request(BASE+path,data=body,method=method,headers=headers)
     try:
         with urllib.request.urlopen(req,timeout=22) as response:
             if response.status not in expect or response.geturl()!=BASE+path:
