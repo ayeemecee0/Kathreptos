@@ -103,7 +103,7 @@ $('reportForm').addEventListener('submit',async event=>{
     const photo=$('photo').files[0];
     if(photo && (!['image/jpeg','image/png','image/webp'].includes(photo.type)||photo.size>3145728))throw Error('Photo must be JPG, PNG or WebP and no larger than 3 MB.');
     const {data:receipt,error}=await client.from('flock_community_submissions').insert({
-      latitude:lat,longitude:lon,description,original_source_url:source||null,
+      latitude:lat,longitude:lon,description,original_source_url:source?(new URL(source).href):null,
       observed_on:$('observed').value||null,consent_to_review:true
     }).select('submission_id').single();
     if(error)throw error;
