@@ -43,11 +43,24 @@ class AgencyPath(unittest.TestCase):
   self.assertEqual(out['individual_id_field'],'CameraID')
   self.assertEqual(out['status'],'agency_host_identity_and_complete_layer_geometry_checked')
   self.assertNotIn('points',out)
+ def test_first_party_source_objectid_only_is_sufficient_feature_identity(self):
+  original={**LAYER,'fields':LAYER['fields'][:1]}
+  original_features={'features':[
+   {'attributes':{'OBJECTID':2},'geometry':{'x':-82.3,'y':29.6}},
+   {'attributes':{'OBJECTID':7},'geometry':{'x':-82.35,'y':29.65}},
+  ]}
+  with (patch.object(a,'public_dns',return_value=True),
+        patch.object(a,'fetch_government_page',return_value=(document(),'a'*64)),
+        patch.object(a,'get_official_json',side_effect=[SERVICE,original,IDS,original_features])):
+   out=a.inspect(SOURCE)
+  self.assertEqual(out['individual_id_field'],'OBJECTID')
+  self.assertEqual(out['identifier_basis'],'arcgis_typed_objectid')
+  self.assertEqual(out['point_count'],2)
  def test_rejects_partial_or_wrong_camera_inventories(self):
   variations=[
    [SERVICE,{**LAYER,'geometryType':'esriGeometryPolygon'},IDS,FEATURES],
    [SERVICE,{**LAYER,'name':'Traffic Cameras'},IDS,FEATURES],
-   [SERVICE,{**LAYER,'fields':LAYER['fields'][:1]},IDS,FEATURES],
+   [SERVICE,{**LAYER,'fields':[{'name':'CameraID','type':'esriFieldTypeString'}]},IDS,FEATURES],
    [SERVICE,LAYER,IDS,{'features':FEATURES['features'][:1]}],
    [SERVICE,LAYER,IDS,{'features':[FEATURES['features'][0]]*2}],
    [SERVICE,LAYER,IDS,{'features':[
