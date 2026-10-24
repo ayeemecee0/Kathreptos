@@ -266,6 +266,25 @@ def fetch_public_accountability(key):
     positions=json.loads(get(base+'/flock_individual_public_positions?select=position_key,person_name,record_kind,source_kind,original_government_url&limit=500',{'apikey':key}))
     return events,roles,positions
 
+
+def assess_live_analytics(metrics,exact_points,accountability_count,program_count,states_count):
+    """Analytics is strictly a second view over the same RLS-filtered sources."""
+    if not isinstance(metrics,list) or len(metrics)!=1 or not isinstance(metrics[0],dict):
+        raise ValueError('Public evidence analytics overview missing')
+    row=metrics[0]
+    expectations={
+      'exact_government_points':exact_points,
+      'accountability_records':accountability_count,
+      'source_dated_programs':program_count,
+      'states_with_any_documented_evidence':states_count,
+    }
+    for key,expected in expectations.items():
+        if type(row.get(key)) is not int or row[key]!=expected:
+            raise ValueError('Public analytics contradict independently queried '+key)
+    if row.get('documented_signed_contracts',0)<0:
+        raise ValueError('Invalid published signed-contract count')
+    return row
+
 def run(site=SITE):
     if not site.startswith('https://'):
         raise ValueError('Health checks must use live HTTPS website')
@@ -278,6 +297,7 @@ def run(site=SITE):
       ('privacy.html','Privacy and data handling'),
       ('methodology.html','Camera evidence methodology'),
       ('accountability.html','Government accountability'),
+      ('analytics.html','Public evidence analytics'),
     ):
         if anchor not in get(urllib.parse.urljoin(site,path)):
             raise ValueError('Deployed public page or route runtime missing: '+path)
@@ -299,6 +319,11 @@ def run(site=SITE):
         '&limit=65',{'apikey':key}))
     states=assess_state_evidence_index(footprint,counts,
        totals['documented_government_programs'])
+    analytics_url=PUBLIC_API.replace('/flock_camera_locations','/flock_analytics_overview')
+    analytics=json.loads(get(analytics_url+'?select=*',{'apikey':key}))
+    live_analytics=assess_live_analytics(analytics,sum(counts.values()),
+       len(events),totals['documented_government_programs'],states)
+    print('LIVE ANALYTICS PASS: cross-checked public evidence points, published records, programs, states')
     areas=fetch_public_coverage_areas(key)
     visible_areas=assess_public_area_provenance(
         areas,totals['verified_area_polygons'])
