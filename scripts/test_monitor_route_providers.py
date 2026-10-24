@@ -5,6 +5,12 @@ import monitor_route_providers as m
 CONFIG="""  geocodingServiceBase: 'https://photon.komoot.io',
   routingServiceBase: 'https://router.project-osrm.org'"""
 class ProviderHealthTests(unittest.TestCase):
+ def test_live_geoapify_is_not_misreported_as_demo_health(self):
+  self.assertEqual(m.active_mode("locationProvider: 'geoapify'"),"geoapify")
+  self.assertEqual(m.active_mode("locationProvider: 'demo'"),"demo")
+  with self.assertRaises(ValueError):
+   m.active_mode("locationProvider: 'unknown'")
+
  def test_required_urls_are_explicit_https(self):
   c=m.read_settings(CONFIG)
   self.assertEqual(c["routingServiceBase"],"https://router.project-osrm.org")
