@@ -7,7 +7,7 @@ Requires GIS service listing, stable object IDs, Flock-specific point-layer
 metadata and whole-source bounded API checks. Does not publish automatically.
 """
 from collections import Counter
-from urllib.parse import urlsplit, urlencode
+from urllib.parse import urlsplit, urlencode, urljoin
 import hashlib
 import json
 import re
@@ -56,12 +56,16 @@ def authority(source,document):
         raise ValueError('No matched independent original-agency GIS hostname provenance')
     # Generic original GIS page proves agency publisher; a link to its own
     # map portal proves agency-operated GIS system. NO proof of Flock layer yet.
-    if not any(
-       normalized_url(source['public_gis_anchor']).rstrip('/')==
-         normalized_url(__import__('urllib.parse',fromlist=['urljoin']).urljoin(
-            source['original_gis_page'],href or '')).rstrip('/')
-       for href,label in document.anchors if isinstance(href,str)
-    ):
+    expected=normalized_url(source['public_gis_anchor'])
+    if not expected:
+        raise ValueError('Expected original agency GIS portal URL is not a valid HTTPS URL')
+    linked=set()
+    for href,label in document.anchors:
+        if isinstance(href,str):
+            candidate=normalized_url(urljoin(source['original_gis_page'],href))
+            if candidate:
+                linked.add(candidate.rstrip('/'))
+    if expected.rstrip('/') not in linked:
         raise ValueError('Live original-government GIS page does not link to agency mapping portal')
     return domain
 
