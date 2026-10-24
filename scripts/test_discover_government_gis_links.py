@@ -38,6 +38,34 @@ class GovernmentCrawler(unittest.TestCase):
    d.stage([row])
   self.assertIn('government_gis_disclosure_leads',api.call_args.args[0])
   self.assertNotIn('trusted_flock_gis_sources',api.call_args.args[0])
+ def test_same_gov_original_camera_link_reaches_restricted_verification_queue(self):
+  document=self.document(HTML)
+  with (patch.object(d,'load_approved_domains',return_value={}),
+        patch.object(d,'get_seed_pages',return_value=([(PAGE,'Example, ST')],{PAGE})),
+        patch.object(d,'fetch_government_page',return_value=(document,'a'*64)),
+        patch.object(d,'stage') as stage_leads,
+        patch('discover_nationwide_gis.stage') as queue):
+   result=d.scan(dry_run=False)
+  self.assertEqual(result['original_gov_pages_queued'],1)
+  stage_leads.assert_called_once()
+  queued=queue.call_args.args[0]
+  self.assertEqual(queued['page_sha256'],'a'*64)
+  self.assertEqual(queued['gis_links'],[
+    'https://gis.city.example.gov/arcgis/rest/services/Flock/MapServer/4'])
+  self.assertNotIn('trusted_flock_gis_sources',str(queued))
+ def test_third_party_esri_disclosure_stays_out_of_autoqueue(self):
+  external=self.document('<h1>Flock Safety ALPR cameras</h1>'
+      '<a href="https://services.arcgis.com/Example/arcgis/rest/services/Flock/FeatureServer/4">'
+      'Flock GIS cameras</a>')
+  with (patch.object(d,'load_approved_domains',return_value={}),
+        patch.object(d,'get_seed_pages',return_value=([(PAGE,'Example, ST')],{PAGE})),
+        patch.object(d,'fetch_government_page',return_value=(external,'b'*64)),
+        patch.object(d,'stage') as stage_leads,
+        patch('discover_nationwide_gis.stage') as queue):
+   result=d.scan(dry_run=False)
+  self.assertEqual(result['original_gov_pages_queued'],0)
+  stage_leads.assert_called_once()
+  queue.assert_not_called()
  def test_unverified_custom_domain_not_approved(self):
   a={'example.com':{'domain':'example.com','allow_www':False}}
   self.assertIsNone(d.normalized_url('http://example.com/page'))
