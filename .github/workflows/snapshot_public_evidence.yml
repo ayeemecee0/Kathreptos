@@ -1,0 +1,42 @@
+name: Archive public evidence snapshot (no private data)
+
+on:
+  schedule:
+    - cron: '45 10 * * 0'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/snapshot_public_evidence.py'
+      - 'scripts/test_snapshot_public_evidence.py'
+      - '.github/workflows/snapshot_public_evidence.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-public-evidence-snapshot
+  cancel-in-progress: true
+
+jobs:
+  public-snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Unit test the public-data allowlist and integrity
+        run: python -m unittest discover -s scripts -p 'test_snapshot_public_evidence.py' -v
+      - name: Fetch and reconcile published evidence only
+        run: python scripts/snapshot_public_evidence.py --output .evidence/public-evidence-snapshot.json
+      - name: Retain short-lived public evidence archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: katoptron-public-evidence-snapshot
+          path: .evidence/public-evidence-snapshot.json
+          retention-days: 7
+          if-no-files-found: error
