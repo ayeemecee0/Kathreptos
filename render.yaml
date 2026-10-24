@@ -6,10 +6,11 @@ services:
     name: katoptron-routing-gateway
     runtime: docker
     plan: starter
+    region: oregon
     dockerfilePath: ./infra/routing-gateway/Dockerfile
     dockerContext: ./infra/routing-gateway
     healthCheckPath: /healthz
-    autoDeploy: false
+    autoDeployTrigger: off
     envVars:
       - key: PORT
         value: "10000"
