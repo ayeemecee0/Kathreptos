@@ -33,6 +33,15 @@
 <section class="report-panel" id="reportPanel" hidden><h2>Private evidence report</h2>
 <p id="sessionLabel"></p><button type="button" id="signout">Sign out</button>
 <form id="reportForm">
+<div class="coordinate-shortcut" aria-labelledby="coordinateShortcutTitle">
+  <h3 id="coordinateShortcutTitle">Step 1 · Where is the possible camera?</h3>
+  <p class="report-note">If you've copied a latitude and longitude pair from a map, paste both numbers here. No location search or third-party request is made. Don't enter a personal home address or guess a camera location.</p>
+  <label for="coordinates">Paste coordinates (latitude, longitude)
+    <input id="coordinates" type="text" inputmode="text" autocomplete="off" maxlength="80" placeholder="38.5816, -121.4944" aria-describedby="coordinateHelp">
+  </label>
+  <button id="applyCoordinates" type="button">Fill latitude and longitude</button>
+  <p id="coordinateHelp" class="report-note" role="status">Example format: 38.5816, -121.4944. You can also type the two fields below yourself.</p>
+</div>
 <label>Latitude (approximate camera position)<input id="lat" type="number" step="any" min="17" max="72" required placeholder="38.58"></label>
 <label>Longitude<input id="lon" type="number" step="any" min="-180" max="-64" required placeholder="-121.49"></label>
 <label>When observed (optional)<input id="observed" type="date"></label>
@@ -94,6 +103,25 @@ async function syncSession(){
   $('sessionLabel').textContent=user?'Signed in as '+(user.email||'contributor'):'';
   if(user)await loadOwnReports();
 }
+// Coordinate helper is local-only. It does not geocode, contact a mapping
+// provider, or persist a contributor's still-private camera location.
+$('applyCoordinates').addEventListener('click',()=>{
+  const raw=$('coordinates').value.trim();
+  const match=raw.match(/^([+-]?(?:\\d{1,2})(?:\\.\\d+)?),\\s*([+-]?(?:\\d{1,3})(?:\\.\\d+)?)$/);
+  if(!match){
+    $('coordinateHelp').textContent='Use two decimal numbers separated by a comma, like 38.5816, -121.4944.';
+    return;
+  }
+  const latitude=Number(match[1]),longitude=Number(match[2]);
+  if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||
+      latitude<17||latitude>72||longitude< -180||longitude> -64){
+    $('coordinateHelp').textContent='Coordinates must be within the supported U.S. bounds. Check both numbers and try again.';
+    return;
+  }
+  $('lat').value=String(latitude);
+  $('lon').value=String(longitude);
+  $('coordinateHelp').textContent='Coordinates entered below. Confirm they describe the camera, not a person or your home.';
+});
 $('authForm').addEventListener('submit',async event=>{
   event.preventDefault();
   const {error}=await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
