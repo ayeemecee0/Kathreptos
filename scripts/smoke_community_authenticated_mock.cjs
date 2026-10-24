@@ -112,8 +112,19 @@ window.__QA={reports,activity};
    await page.locator('#password').fill('another-safe-mock-password');
    await page.locator('#authForm button[type=submit]').click();
    await page.locator('#reportPanel').waitFor({state:'visible',timeout:12000});
-   await page.locator('#lat').fill('38.5');
-   await page.locator('#lon').fill('-121.5');
+   // Camera coordinates are accepted as one local-only comma-separated pair,
+   // with no map lookup or third-party geocoder request.
+   await page.locator('#coordinates').fill('38.5 -121.5');
+   await page.locator('#applyCoordinates').click();
+   assert.ok((await page.locator('#coordinateHelp').textContent()).includes('separated by a comma'));
+   assert.equal(await page.locator('#lat').inputValue(),'');
+   await page.locator('#coordinates').fill('81, -121.5');
+   await page.locator('#applyCoordinates').click();
+   assert.ok((await page.locator('#coordinateHelp').textContent()).includes('supported U.S. bounds'));
+   await page.locator('#coordinates').fill('38.5, -121.5');
+   await page.locator('#applyCoordinates').click();
+   assert.equal(await page.locator('#lat').inputValue(),'38.5');
+   assert.equal(await page.locator('#lon').inputValue(),'-121.5');
    await page.locator('#description').fill(
      'This intentionally fictional QA camera report tests private evidence intake and does not represent a real device.');
    await page.locator('#source').fill('https://example.org/mock-review-proof');
