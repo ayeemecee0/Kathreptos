@@ -51,7 +51,11 @@ def call(method,path,key,payload=None,mime="application/json",expect=(200,201,20
             if len(b)>749_999:raise CheckFailed("Oversized API response")
             return json.loads(b) if b else None
     except urllib.error.HTTPError as ex:
-        raise CheckFailed("API "+method+" failed with HTTP "+str(ex.code)) from None
+        category=("auth-admin" if path.startswith("/auth/v1/admin/") else
+                  "auth-password" if path.startswith("/auth/v1/token") else
+                  "storage" if path.startswith("/storage/") else
+                  "review" if "/rpc/" in path else "data")
+        raise CheckFailed("API "+category+" "+method+" failed with HTTP "+str(ex.code)) from None
     except urllib.error.URLError:
         raise CheckFailed("API unavailable") from None
 
@@ -103,7 +107,7 @@ def run():
         # Return data from PostgREST requires Prefer: return=representation.
         # Handle the response-less POST by separately reading via owner RLS.
         listing=query("flock_community_submissions","submission_id,publication_consent",
-            "submitter_id=eq."+owner["id"],owner["token"])
+            "limit=10",owner["token"])
         require(len(listing)==1 and listing[0]["publication_consent"] is False,
                 "Real contributor private insertion/receipt failed")
         case=listing[0]["submission_id"]
