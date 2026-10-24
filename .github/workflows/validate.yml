@@ -63,6 +63,9 @@ on:
       - 'supabase/migrations/057_programme_polygon_source_revalidation.sql'
       - 'supabase/migrations/058_tiered_independent_evidence_paths.sql'
       - 'supabase/migrations/059_reconcile_trusted_evidence_without_self_approval.sql'
+      - 'supabase/migrations/060_private_community_submissions.sql'
+      - 'scripts/test_community_submission_security.sql'
+      - 'submit.html'
       - 'scripts/test_tiered_source_bridge.sql'
       - 'privacy.html'
       - 'methodology.html'
@@ -437,6 +440,10 @@ jobs:
             -f supabase/migrations/059_reconcile_trusted_evidence_without_self_approval.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_tiered_source_bridge.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/060_private_community_submissions.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f scripts/test_community_submission_security.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.withdraw_programme_area_after_link_loss(text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
