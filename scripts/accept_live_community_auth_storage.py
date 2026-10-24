@@ -14,6 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from uuid import UUID
+from datetime import datetime,timezone,timedelta
 
 BASE="https://bpvkapswslmgfazbzpsv.supabase.co"
 BUCKET="katoptron-community-evidence"
@@ -68,6 +69,57 @@ def query(table,select,filter_path,key):
     require(isinstance(result,list),"Unexpected records response")
     return result
 
+
+def cleanup_recent_orphaned_qa_photo(secret):
+    """Remove only very recent orphaned QA evidence with absent Auth and case.
+
+    This is recovery for an earlier failed test, NOT a general Storage janitor.
+    Never touch an object that belongs to an existing account or report.
+    """
+    root=call("POST","/storage/v1/object/list/"+BUCKET,secret,
+              {"prefix":"","limit":100})
+    require(isinstance(root,list) and len(root)<100,"QA cleanup bucket root too large")
+    cleaned=0
+    for folder in root:
+        name=folder.get("name","")
+        try:UUID(name)
+        except (ValueError,TypeError,AttributeError):continue
+        cases=call("POST","/storage/v1/object/list/"+BUCKET,secret,
+                   {"prefix":name,"limit":100})
+        require(isinstance(cases,list) and len(cases)<100,"QA cleanup folder too large")
+        for entry in cases:
+            caseid=entry.get("name","")
+            try:UUID(caseid)
+            except (ValueError,TypeError,AttributeError):continue
+            photos=call("POST","/storage/v1/object/list/"+BUCKET,secret,
+                {"prefix":name+"/"+caseid,"limit":20})
+            if not isinstance(photos,list) or len(photos)!=1:
+                continue
+            photo=photos[0]
+            if photo.get("name")!="evidence.png":continue
+            created=photo.get("created_at")
+            if not isinstance(created,str):continue
+            try:stamp=datetime.fromisoformat(created.replace("Z","+00:00"))
+            except ValueError:continue
+            age=datetime.now(timezone.utc)-stamp
+            if not timedelta(seconds=0)<=age<=timedelta(minutes=60):continue
+            registered=query("flock_community_submissions","submission_id",
+                "submission_id=eq."+caseid,secret)
+            if registered:continue
+            try:
+                call("GET","/auth/v1/admin/users/"+name,secret)
+                continue
+            except CheckFailed as ex:
+                if "HTTP 404" not in str(ex):raise
+            target=name+"/"+caseid+"/evidence.png"
+            call("DELETE","/storage/v1/object/"+BUCKET,secret,
+                 {"prefixes":[target]},expect=(200,204))
+            remaining=call("POST","/storage/v1/object/list/"+BUCKET,secret,
+                {"prefix":name+"/"+caseid,"limit":20})
+            require(not remaining,"Old QA photo object deletion not confirmed")
+            cleaned+=1
+    if cleaned:print("RECOVERY PASS: orphaned recent disposable QA Storage object deleted.")
+
 def run():
     require(os.getenv("GITHUB_ACTIONS")=="true" and
             os.getenv("GITHUB_REPOSITORY")=="ayeemecee0/Katoptron" and
@@ -76,6 +128,7 @@ def run():
     secret=os.environ.get("SUPABASE_SERVICE_ROLE_KEY","")
     require(secret.startswith(("sb_secret_","eyJ")),"Missing CI server credential")
     prefix=secrets.token_hex(12)
+    cleanup_recent_orphaned_qa_photo(secret)
     users=[]
     case=None
     path=None
@@ -163,7 +216,8 @@ def run():
     finally:
         # Fail closed. Cleanup uses known exact test-created identifiers only.
         if path:
-            try:call("DELETE","/storage/v1/object/"+BUCKET+"/"+path,secret,expect=(200,204))
+            try:call("DELETE","/storage/v1/object/"+BUCKET,secret,
+                     {"prefixes":[path]},expect=(200,204))
             except Exception:failures.append("private photo cleanup")
         if case:
             try:call("DELETE","/rest/v1/flock_community_review_history?"
