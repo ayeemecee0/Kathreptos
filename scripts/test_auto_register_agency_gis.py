@@ -12,6 +12,11 @@ proof={
   '_private_locations':[{'id':1,'lat':29.6,'lon':-82.3},
                         {'id':2,'lat':29.61,'lon':-82.32}],
 }
+APPROVED={**{k:a.SOURCES[0][k] for k in ('bounds_south','bounds_west','bounds_north','bounds_east')},
+  'source_key':SOURCE,'agency_page_url':a.SOURCES[0]['original_gis_page'],
+  'agency_portal_url':a.SOURCES[0]['public_gis_anchor'],
+  'gis_layer_url':proof['layer_url'],
+  'jurisdiction_label':a.SOURCES[0]['jurisdiction'],'review_status':'verified'}
 class Register(unittest.TestCase):
  def test_dryrun_verifies_without_database_request(self):
   with (patch.object(a,'inspect',return_value=dict(proof)) as probe,
@@ -24,7 +29,7 @@ class Register(unittest.TestCase):
   api.assert_not_called();stage.assert_not_called()
  def test_qualified_first_party_source_cannot_skip_private_staging(self):
   with (patch.object(a,'inspect',return_value=dict(proof)),
-        patch.object(a,'api_request',side_effect=[[],True]) as api,
+        patch.object(a,'api_request',side_effect=[[APPROVED],[],True]) as api,
         patch.object(a,'stage_candidate') as stage):
    r=a.run()
   self.assertEqual(r['new_authorities_registered'],1)
@@ -36,20 +41,20 @@ class Register(unittest.TestCase):
   self.assertEqual(api.call_args.kwargs['payload']['p_source_key'],SOURCE)
  def test_rechecks_existing_authority_without_duplicate_registration(self):
   with (patch.object(a,'inspect',return_value=dict(proof)),
-        patch.object(a,'api_request',return_value=[{
+        patch.object(a,'api_request',side_effect=[[APPROVED],[{
           'source_key':SOURCE,'gis_layer_url':proof['layer_url'],
-          'source_status':'verified'}]) as api,
+          'source_status':'verified'}]]) as api,
         patch.object(a,'stage_candidate') as stage):
    r=a.run()
   self.assertEqual(r['existing_authorities_revalidated'],1)
-  self.assertEqual(api.call_count,1)
+  self.assertEqual(api.call_count,2)
   stage.assert_not_called()
  def test_revoked_source_cannot_be_reapproved_automatically(self):
   for status in ('revoked','candidate'):
    with (patch.object(a,'inspect',return_value=dict(proof)),
-         patch.object(a,'api_request',return_value=[{
+         patch.object(a,'api_request',side_effect=[[APPROVED],[{
            'source_key':SOURCE,'gis_layer_url':proof['layer_url'],
-           'source_status':status}]),
+           'source_status':status}]]),
          patch.object(a,'stage_candidate') as stage):
     with self.assertRaisesRegex(ValueError,'unresolved'):
      a.run()
@@ -62,5 +67,15 @@ class Register(unittest.TestCase):
    r=a.run(publish=True)
   self.assertEqual(r['verified_points_published_or_rechecked'],2)
   sync.assert_called_once()
+
+ def test_missing_independent_review_blocks_registration(self):
+  for response in ([],[{**APPROVED,'review_status':'revoked'}],
+                   [{**APPROVED,'gis_layer_url':'https://bad.example/FeatureServer/0'}]):
+   with (patch.object(a,'inspect',return_value=dict(proof)),
+         patch.object(a,'api_request',return_value=response),
+         patch.object(a,'stage_candidate') as stage):
+    with self.assertRaisesRegex(ValueError,'unresolved'):
+     a.run()
+   stage.assert_not_called()
 
 if __name__=='__main__':unittest.main()
