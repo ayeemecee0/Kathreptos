@@ -847,6 +847,12 @@
       throw error;
     }
   }
+  function locationProviderMode() {
+    const mode=CFG.locationProvider||'demo';
+    if(!['demo','geoapify'].includes(mode))
+      throw new Error('Unknown location provider; refusing an undocumented fallback');
+    return mode;
+  }
   async function geocodeCandidates(input,signal) {
     const coord=coordinateInput(input);
     if(coord)return [{point:coord,label:input+' (coordinates)'}];
@@ -856,7 +862,7 @@
     const wait=Math.max(0,1100-(Date.now()-state.lastGeocodeAt));
     if(wait)await sleep(wait);
     state.lastGeocodeAt=Date.now();
-    const useFree=CFG.locationProvider==='geoapify';
+    const useFree=locationProviderMode()==='geoapify';
     if(useFree&&!Geoapify)throw new Error('Geoapify adapter unavailable');
     const url=useFree?Geoapify.geocodeUrl(q,CFG)
       :providerBase(CFG.geocodingServiceBase,'https://photon.komoot.io')+
@@ -927,7 +933,7 @@
   }
   async function routing(from,to,signal) {
     if(!Routing)throw new Error('Routing verification library unavailable');
-    if(CFG.locationProvider==='geoapify') {
+    if(locationProviderMode()==='geoapify') {
       if(!Geoapify)throw new Error('Geoapify adapter unavailable');
       const urls=Geoapify.routeUrls(from,to,CFG);
       // Two real routes using separately declared fastest/balanced and shortest
