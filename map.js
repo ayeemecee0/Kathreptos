@@ -405,9 +405,13 @@
     });
     if (!response.ok) throw new Error('Camera API HTTP ' + response.status);
     const rows = await response.json();
-    if (!Array.isArray(rows)) throw new Error('Unexpected camera API response');
-    return rows.filter(x => x && validCoord(Number(x.latitude),Number(x.longitude)) &&
-      (x.location_accuracy === 'exact' || x.location_accuracy === 'approximate'));
+    if (!Array.isArray(rows) || rows.length>=MAX_VISIBLE)
+      throw new Error('Camera evidence page incomplete or source density exceeds limit');
+    if(rows.some(x=>!x || !validCoord(Number(x.latitude),Number(x.longitude)) ||
+      !['exact','approximate'].includes(x.location_accuracy) ||
+      typeof x.record_key!=='string' || !x.record_key))
+      throw new Error('Camera API returned malformed evidence; no complete-coverage claim possible');
+    return rows;
   }
   function publicTieredUrl(bounds) {
     const query=new URLSearchParams({
