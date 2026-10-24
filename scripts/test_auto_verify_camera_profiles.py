@@ -24,6 +24,38 @@ class TestProfiles(unittest.TestCase):
   with self.assertRaises(ValueError):v.authorize(S,P,None)
   with self.assertRaises(ValueError):v.authorize({**S,"source_status":"candidate"},P,R)
   with self.assertRaises(ValueError):v.authorize({**S,"gis_layer_url":"https://evil.gov/MapServer/1"},P,R)
+ def test_authenticated_agency_owned_flock_oid_only_path(self):
+  source={**S,'source_key':'agency_alachua_fl',
+    'gis_layer_url':'https://maps.alachuacounty.us/server/rest/services/Hosted/Flock_Cameras/FeatureServer/0',
+    'government_evidence_url':'https://growth-management.alachuacounty.us/GIS',
+    'jurisdiction_label':'Alachua County, FL',
+    'bounds_south':29.0,'bounds_north':30.4,
+    'bounds_west':-83.5,'bounds_east':-81.9}
+  root={**R,'authority_key':'agency_alachua_fl',
+    'government_gis_host':'maps.alachuacounty.us',
+    'official_government_page':source['government_evidence_url'],
+    'allowed_layer_path':'/server/rest/services/Hosted/Flock_Cameras/FeatureServer/0',
+    'jurisdiction_label':'Alachua County, FL'}
+  policy={**P,'source_key':'agency_alachua_fl','camera_id_field':'OBJECTID'}
+  original={'name':'Flock Cameras','type':'Feature Layer',
+    'geometryType':'esriGeometryPoint',
+    'fields':[{'name':'OBJECTID','type':'esriFieldTypeOID'}]}
+  listing={'layers':[{'id':0,'name':'Flock Cameras'}]}
+  self.assertTrue(v.authorize(source,policy,root))
+  v.check_metadata(source,policy,listing,original)
+  rows,held,total=v.verify_points(source,policy,{'features':[
+    {'attributes':{'OBJECTID':11},'geometry':{'x':-82.3,'y':29.6}},
+    {'attributes':{'OBJECTID':12},'geometry':{'x':-82.32,'y':29.62}},
+  ]})
+  self.assertEqual((len(rows),total,sum(held.values())),(2,2,0))
+  self.assertEqual(rows[0]['source_type'],'official_government')
+  with self.assertRaisesRegex(ValueError,'receipt'):
+   v.authorize({**source,'source_key':'unverified_external'},
+       {**policy,'source_key':'unverified_external'},root)
+  with self.assertRaises(ValueError):
+   v.verify_points(source,policy,{'features':[
+     {'attributes':{'OBJECTID':12.5},'geometry':{'x':-82.3,'y':29.6}},
+   ]})
  def test_metadata_requires_original_flock_only_point_layer(self):
   v.check_metadata(S,P,SERVICE,L)
   with self.assertRaises(ValueError):
