@@ -211,7 +211,7 @@ async function load(){
  try{
   if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey)throw Error('Missing public connection configuration');
   const [events,roles]=await Promise.all([
-   fetchRows('flock_accountability_events'),
+   fetchRows('flock_accountability_directory'),
    fetchRows('flock_accountability_roles','role_key,person_name,role_title,organization_name,role_category,source_publisher,source_type,source_url,source_date,evidence_description,reviewed_at,last_checked_at')
   ]);
   const seen=new Set(); evidence.length=0;
