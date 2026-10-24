@@ -32,7 +32,7 @@ set local role anon;
 do $$
 begin
  if not has_table_privilege('anon','public.flock_accountability_events','SELECT')
-    or not has_table_privilege('anon','public.flock_accountability_roles','SELECT') then
+    or not has_column_privilege('anon','public.flock_accountability_roles','person_name','SELECT') then
    raise exception 'Public accountability feeds inaccessible';end if;
  if has_table_privilege('anon','public.flock_accountability_roles','UPDATE') then
    raise exception 'Public personnel edits possible';end if;
