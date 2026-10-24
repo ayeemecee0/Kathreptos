@@ -34,6 +34,10 @@ Katoptron is a public evidence-first beta. Full production requires evidence int
 - **P1: routing outage, stale source provenance, broken signup.** Show 'unavailable/unknown'; keep the rest of the evidence map read-only; inspect GitHub Actions, provider response codes and Supabase logs; investigate per-source before publication.
 - **P2: documentation/UI regression, noncritical delayed discovery.** Record in GitHub Issue tracker, repair with test and independent source recheck. Continue spending about 10% of engineering effort on discovery, stale source validation and evidence maintenance.
 
+## Free-tier confidential recovery procedure
+
+A [private backup and local restore runbook](./free-tier-private-backup-recovery.md) now documents Supabase Free-plan logical exports and the separate Storage object backup requirement. The published-data GitHub archive cannot restore private account records, and **no private production backup or real restore drill has been performed yet**. Owner-controlled local encryption and credentials are required.
+
 ## Rollback and recovery
 
 - Static frontend regression: revert to last verified GitHub `main` revision, wait for a verified GitHub Pages deployment, rerun browser/health checks.
