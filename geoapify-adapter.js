@@ -63,9 +63,16 @@ function routingAsOsrm(responses){
      if(!Array.isArray(line[i])||line[i].length<2||
         !Number.isFinite(line[i][0])||!Number.isFinite(line[i][1]))
       throw new Error('Invalid route coordinates');
-     if(coords.length && i===0 &&
-       coords[coords.length-1][0]===line[i][0] &&
-       coords[coords.length-1][1]===line[i][1])continue;
+     if(coords.length && i===0){
+       // A Geoapify MultiLineString is a sequence of actual road segments.
+       // Never fabricate a straight-line bridge between disconnected parts.
+       const prev=coords[coords.length-1],next=line[i];
+       const latitude=(prev[1]+next[1])*Math.PI/360;
+       const seam=Math.hypot((prev[0]-next[0])*Math.cos(latitude),prev[1]-next[1])*111320;
+       if(seam>3)throw new Error('Geoapify returned disconnected road geometry');
+       // Ignore duplicate boundary vertices within harmless rounding error.
+       if(seam<0.01)continue;
+     }
      coords.push([line[i][0],line[i][1]]);
     }
    }
