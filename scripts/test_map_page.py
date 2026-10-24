@@ -50,6 +50,8 @@ class MapPageTests(unittest.TestCase):
         self.assertIn('nationalStats',self.ids)
         self.assertIn('flock_documented_coverage_areas',self.script)
         self.assertIn('officialAreaPopup',self.script)
+        self.assertIn('function sourceFreshness(record)',self.script)
+        self.assertIn('Original-source check: OVERDUE',self.script)
         self.assertIn('government-endorsed EXTERNAL ArcGIS point',self.script)
         self.assertIn('government-operated GIS point',self.script)
         self.assertIn('./config.js',self.src)

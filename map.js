@@ -17,6 +17,16 @@
 
   function setText(id, value) { $(id).textContent = String(value); }
   function shortDate(value) { return value ? String(value).slice(0, 10) : 'Date not documented'; }
+  function sourceFreshness(record) {
+    const value=record.last_source_recheck_at || record.last_confirmed_on;
+    if(!value) return 'unknown';
+    const ms=Date.parse(value);
+    if(!Number.isFinite(ms) || ms>Date.now()+15*60*1000)return 'unknown';
+    // Dates without a clock time are evidence dates, not evidence of a
+    // successful live fetch within the last 72 hours.
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(value)))return 'unknown';
+    return Date.now()-ms>72*60*60*1000?'overdue':'recent';
+  }
   function validCoord(lat, lon) {
     return Number.isFinite(lat) && Number.isFinite(lon) &&
       lat >= 17 && lat <= 72 && lon >= -180 && lon <= -64;
@@ -41,6 +51,12 @@
     add('span', record.jurisdiction_label);
     add('small', record.evidence_summary);
     add('small', 'Source last checked: ' + shortDate(record.last_source_recheck_at || record.last_confirmed_on));
+    const freshness=sourceFreshness(record);
+    add('small',freshness==='recent'
+      ? 'Original-source check: within 72 hours; camera operation still unknown'
+      : freshness==='overdue'
+        ? 'Original-source check: OVERDUE (more than 72 hours). Treat current placement as uncertain.'
+        : 'Original-source check: current freshness unavailable; camera operation and current placement unconfirmed.');
     add('small', 'Published evidence: ' + shortDate(record.published_at));
     // Distinguish a government's OWN GIS host from an externally hosted
     // Esri layer that the agency independently endorses. Neither statement
@@ -572,13 +588,18 @@
     if (!state.map) return;
     state.pointLayer.clearLayers();
     state.areaLayer.clearLayers();
-    let exact = 0, areas = 0;
+    let exact = 0, areas = 0, overdue = 0, unknownFreshness = 0;
     for (const record of state.visible) {
       if (!recordMatchesFilters(record)) continue;
       const p = [Number(record.latitude), Number(record.longitude)];
       if (record.location_accuracy === 'exact' && $('showExact').checked) {
         exact += 1;
-        L.circleMarker(p, {radius:6,color:'#0c292e',weight:2,fillColor:'#40d8bc',fillOpacity:1})
+        const freshness=sourceFreshness(record);
+        if(freshness==='overdue')overdue++;
+        if(freshness==='unknown')unknownFreshness++;
+        L.circleMarker(p, {radius:6,color:'#0c292e',weight:2,
+          fillColor:freshness==='recent'?'#40d8bc':'#cba16e',
+          fillOpacity:freshness==='recent'?1:.8})
           .bindPopup(popupFor(record)).addTo(state.pointLayer);
       } else if (record.location_accuracy === 'approximate' && $('showApprox').checked) {
         const radius = Number(record.uncertainty_radius_m);
@@ -606,8 +627,13 @@
     }
     setText('exactCount', exact);
     setText('areaCount', areas);
+    const freshnessWarning=(overdue||unknownFreshness)
+      ? ' '+overdue+' point source(s) overdue, '+unknownFreshness+
+        ' with unknown check freshness; orange pins require caution.'
+      : '';
     setText('filterStatus',exact+areas+' verified map entries displayed after filters. '+
-      'Location precision is source-specific; zero displayed does not mean no cameras.');
+      'Location precision is source-specific; zero displayed does not mean no cameras.'+
+      freshnessWarning);
     // Never apply map UI filters to the full-route evidence queries.
   }
   function rad(n) { return n * Math.PI / 180; }
