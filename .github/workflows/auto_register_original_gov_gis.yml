@@ -11,6 +11,7 @@ on:
       - 'scripts/test_auto_register_original_gov_gis.py'
       - '.github/workflows/auto_register_original_gov_gis.yml'
       - 'supabase/migrations/039_automatic_first_party_government_gis_sources.sql'
+      - 'supabase/migrations/052_original_gov_single_flock_layer_service_root_links.sql'
 permissions:
   contents: read
 concurrency:
