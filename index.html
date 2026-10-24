@@ -93,7 +93,8 @@
      <ol id="routeComparisonList" aria-label="Driving-route evidence comparison"></ol>
      <p class="micro">Each route is independently searched across its full corridor. Counts describe documented points within 120 meters of the road, not read range, detection likelihood, active cameras, or surveillance-free travel.</p>
    </section>
-   <p class="micro">Addresses are sent directly from your browser to external geocoding and routing services. Katoptron does not store them. A publicly hosted demo router is used during beta.</p>
+   <p id="providerStatus" class="micro" role="status">PROVIDER STATUS · Shared public routing/geocoding demos. Availability is not guaranteed and production hosting is not yet provisioned.</p>
+   <p class="micro">Addresses are sent directly from your browser to external geocoding and routing services with no referrer or cookies. Katoptron does not store them. Failed requests never imply a surveillance-free route.</p>
   </section>
   <section class="sidebar-section simulation-section" aria-labelledby="simulation-heading">
     <div class="section-heading"><h2 id="simulation-heading">Simulation controls</h2><span class="stage">02 / REPLAY</span></div>
@@ -132,6 +133,7 @@
 <script src="./config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./route-geometry.js"></script>
+<script src="./routing-provider.js"></script>
 <script src="./routing-routes.js"></script>
 <script src="./route-comparison.js"></script>
 <script src="./map.js"></script>
