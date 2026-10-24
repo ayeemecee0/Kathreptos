@@ -81,6 +81,7 @@ on:
       - 'supabase/migrations/075_private_review_fk_indexes.sql'
       - 'supabase/migrations/076_rolling_community_rate_limit.sql'
       - 'supabase/migrations/079_one_time_community_source_followup.sql'
+      - 'supabase/migrations/080_revoke_withdrawn_report_reviewer_photo_access.sql'
       - 'scripts/test_community_source_followup.sql'
       - 'scripts/test_release_security_invariants.sql'
       - 'scripts/rehearse_ci_application_restore.sh'
