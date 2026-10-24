@@ -183,6 +183,9 @@ def scan(dry_run=False):
     seeds,trusted=get_seed_pages(approved)
     counters=Counter()
     links={}
+    # Connect the government-link lead ledger to the already restricted .gov
+    # registration queue. No source trust or camera location is granted here.
+    queue_pages={}
     for page,jurisdiction in seeds:
         try:
             p=urllib.parse.urlsplit(page)
@@ -199,8 +202,29 @@ def scan(dry_run=False):
                     except Exception:
                         counters['subpages_held']+=1
             for doc,checksum,url,method in pages:
-                for item in gis_candidate_links(doc,url,p.hostname,method,jurisdiction,checksum):
+                items=gis_candidate_links(doc,url,p.hostname,method,jurisdiction,checksum)
+                for item in items:
                     links[(item['disclosure_url'],item['gis_layer_url'])]=item
+                # Only a freshly fetched .gov page's EXACT same-apex .gov
+                # links may enter the existing nationwide GIS queue. A
+                # custom-domain or external Esri layer remains a private
+                # investigation lead, never an automatic government root.
+                from auto_register_original_gov_gis import same_gov_apex
+                from discover_nationwide_gis import CAMERAS
+                if (items and urllib.parse.urlsplit(url).hostname.endswith('.gov')
+                    and FLOCK.search(' '.join(doc.text)[:MAX_BYTES])
+                    and CAMERAS.search(' '.join(doc.text)[:MAX_BYTES])):
+                    direct=sorted({row['gis_layer_url'] for row in items
+                                   if same_gov_apex(url,row['gis_layer_url'])})
+                    if direct:
+                        excerpt=' '.join(' '.join(doc.text).split())[:580]
+                        queue_pages[url]={
+                            'page_url':url,'state_search_hint':'Original government GIS disclosure',
+                            'discovery_query':'Original government Flock camera point GIS link',
+                            'page_sha256':checksum,'gis_links':direct[:25],
+                            'evidence_excerpt':excerpt if len(excerpt)>=12 else
+                                'Original government webpage discloses Flock Safety camera map.'
+                        }
             counters['pages_checked']+=1
         except Exception as exc:
             counters['pages_held']+=1
@@ -209,9 +233,16 @@ def scan(dry_run=False):
     candidates=list(links.values())
     if not dry_run and candidates:
         stage(candidates)
+    if not dry_run and queue_pages:
+        # Use nationwide queue's existing owner-restricted insert/refresh RPC;
+        # the verifier still re-fetches the source and checks all camera IDs.
+        from discover_nationwide_gis import stage as stage_original_page
+        for item in queue_pages.values():
+            stage_original_page(item)
+    counters['original_gov_pages_queued']=len(queue_pages)
     counters['gis_links_found']=len(candidates)
     counters['submitted']=0 if dry_run else len(candidates)
-    for key in ('pages_checked','pages_held','subpages_held','gis_links_found','submitted'):
+    for key in ('pages_checked','pages_held','subpages_held','gis_links_found','original_gov_pages_queued','submitted'):
         print('Government GIS link discovery',key+':',counters[key])
     print('Newly authorized sources from unreviewed government links: 0')
     print('Camera coordinates auto-published by this crawler: 0')
