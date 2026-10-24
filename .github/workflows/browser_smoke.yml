@@ -58,7 +58,7 @@ jobs:
           node scripts/smoke_mobile.cjs
           node scripts/smoke_geoapify.cjs
       - name: Verify live free Geoapify from the authorized GitHub Pages origin
-        if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push'
         env:
           KATOPTRON_SMOKE_BASE: https://ayeemecee0.github.io/Katoptron/
         run: node scripts/smoke_geoapify_live.cjs
