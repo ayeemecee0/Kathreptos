@@ -60,3 +60,19 @@ This is a real evidence bottleneck, not a code failure. Org names are self-asser
 ## Secondary maintenance finding
 
 [Government deployment polygon workflow #6](https://github.com/ayeemecee0/Katoptron/actions/runs/40132616090) remains red because the original Newport Beach GIS service-root catalog still does not return a valid layer listing after a bounded retry. This affects the optional original deployment-polygon crawler, not the independently verified public GIS camera point inventory. The persistent source issue is tracked at [GitHub issue #1](https://github.com/ayeemecee0/Katoptron/issues/1). Previously published camera points must not be revoked solely on this separate polygon discovery failure.
+
+## October 24 targeted original-government publisher evidence expansion
+
+The [targeted publisher search #7](https://github.com/ayeemecee0/Katoptron/actions/runs/40134228772) added exact `ArcGIS Feature Service` item-link verification as a separate independent government evidence path, in addition to existing government links to the publisher organization itself. Esri item ID, type, original service URL and individual item owner must all be confirmed from the original publisher before a matching link on a freshly fetched original `.gov` HTML page can even count as a government-association **research lead**.
+
+The search now uses bounded Bing RSS with independent DuckDuckGo fallback, rotating three private Esri candidate sources per run (twice weekly), refusing non-government search results, redirects, false item IDs and over-budget crawling. Live audit checked **three uniquely identified original Esri Feature Service items** and encountered **four original government search results**; **none** linked the exact independent candidate publisher. One original government page could not be fetched. Zero cameras published; verified point baseline remains **293**. This proves the remaining original government endorsement obstacle is real, rather than silently declaring a publisher official based on its Esri account name.
+
+The workflow outputs short hashes rather than the private candidate URLs or geographic coordinates; its source and item ownership checks have offline regressions. Other official agency source research and first-party GIS registry approvals remain separate. Search snippets and Esri organization display names are never agency approval.
+
+## October 24 periodic original-publisher evidence integrity
+
+A new owner-bound [original government GIS recheck #12](https://github.com/ayeemecee0/Katoptron/actions/runs/40134625191) passed against the existing approved Alachua source. It independently re-fetched the government's GIS page/portal, confirmed complete stable original ArcGIS ObjectIDs and features, and updated a private append-only recheck receipt (migration 084). The live database confirmed **one recheck-history event**, a fresh original publisher proof, and **293** canonical points. The RLS/privilege probe verified anonymous users and contributors cannot read or advance these receipts; only the existing server-side verification role can invoke the narrowly scoped refresher.
+
+The daily [private data health monitor #8](https://github.com/ayeemecee0/Katoptron/actions/runs/40134746504) passed after adding a separate **21-day stale original-publisher warning**. Camera geometry freshness does not substitute for original government publisher evidence freshness. A failed original page load does *not* silently revoke camera history on a single transient outage; it prevents the independent provenance timestamp from advancing and eventually triggers an operational alert.
+
+**Nationwide approval remains evidence-gated.** These features reduce the verification tooling bottleneck and make stale attribution observable but do not invent original government endorsements for the seven pending third-party hosted ArcGIS sources.
