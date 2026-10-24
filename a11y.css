@@ -1,0 +1,18 @@
+/* Katoptron shared keyboard, motion and small-screen accessibility layer. */
+.skip-link{position:absolute;z-index:20000;left:10px;top:10px;
+padding:12px 16px;background:#e7f6fa;color:#06202b!important;
+border:2px solid #06202b;border-radius:5px;text-decoration:none!important;
+transform:translateY(-200%);font-weight:750;font-size:14px}
+.skip-link:focus,.skip-link:focus-visible{transform:translateY(0);outline:3px solid #69bfe5;outline-offset:2px}
+:focus-visible{outline:3px solid #82d8e5!important;outline-offset:3px}
+:focus:not(:focus-visible){outline:none}
+button,input,select,textarea,a{touch-action:manipulation}
+[aria-disabled="true"],button:disabled{cursor:not-allowed}
+@media(max-width:810px){
+  .masthead nav{scrollbar-width:thin;white-space:nowrap}
+  .masthead nav a{display:inline-flex;min-height:42px;align-items:center}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+ transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
