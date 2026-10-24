@@ -30,6 +30,16 @@ class AgencyPath(unittest.TestCase):
   p=Anchors();p.feed('<a href="https://maps.example.com/">GIS</a>')
   with self.assertRaisesRegex(ValueError,'does not link'):
    a.authority(SOURCE,p)
+ def test_state_suffix_not_an_owner_identity_shared_across_cities(self):
+  original={**SOURCE,
+    'original_gis_page':'https://gis.springfield.wa.us/GIS',
+    'public_gis_anchor':'https://maps.springfield.wa.us/',
+    'layer':'https://gis.othercity.wa.us/arcgis/rest/services/Flock/MapServer/0'}
+  d=Anchors()
+  d.feed('<h1>Springfield GIS</h1><a href="https://maps.springfield.wa.us/">City map</a>')
+  with self.assertRaisesRegex(ValueError,'original-agency'):
+   a.authority(original,d)
+  self.assertEqual(a.apex('maps.springfield.wa.us'),'springfield.wa.us')
  def test_bogus_external_service_cannot_inherit_government_authentication(self):
   src={**SOURCE,'layer':'https://services.arcgis.com/Evil/arcgis/rest/services/Flock/FeatureServer/0'}
   with self.assertRaisesRegex(ValueError,'original-agency'):
