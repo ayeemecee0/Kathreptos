@@ -33,6 +33,18 @@ async function load(){
     const link=document.createElement('a');link.textContent='Original evidence URL';link.href=r.original_source_url;
     link.target='_blank';link.rel='noopener noreferrer';article.append(link);
   }
+  const evidenceButton=document.createElement('button');evidenceButton.type='button';evidenceButton.textContent='View private photos';
+  evidenceButton.addEventListener('click',async()=>{
+    evidenceButton.disabled=true;
+    const {data:paths,error}=await api.rpc('community_report_attachment_paths',{p_report:r.submission_id});
+    if(error){say('Evidence access failed: '+error.message);evidenceButton.disabled=false;return;}
+    if(!paths.length){say('No photos attached to this report.');evidenceButton.disabled=false;return;}
+    for(const item of paths){
+      const signed=await api.storage.from('katoptron-community-evidence').createSignedUrl(item.object_path,120);
+      if(signed.error){say('Could not authorize photograph: '+signed.error.message);continue;}
+      const a=document.createElement('a');a.href=signed.data.signedUrl;a.textContent='Open evidence photo';a.target='_blank';a.rel='noopener noreferrer';article.append(a);
+    }
+  });article.append(evidenceButton);
   for(const [label,value] of [['Needs evidence','needs_evidence'],['Reject','rejected'],['Incorporate into research','incorporated']]){
     const button=document.createElement('button');button.type='button';button.textContent=label;
     button.addEventListener('click',async()=>{
