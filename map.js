@@ -6,6 +6,7 @@
   const CFG = window.KATOPTRON_CONFIG;
   const Geo = window.KatoptronRouteGeometry;
   const Routing = window.KatoptronRouting;
+  const Comparison = window.KatoptronRouteComparison;
   const MAX_VISIBLE = 1200;
   const CAMERA_NEAR_ROUTE_M = 120; // Demonstration proximity threshold, NOT a device read range.
   const USA_CENTER = [39, -98];
@@ -14,7 +15,7 @@
     visible: [], tiered: [], tieredUnavailable: false, areas: [], programs: [], agendaMentions: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
     observations: [], replayTimer: null,
     abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null,
-    routeChoices: [], routeRequest: 0, evidenceAbort: null
+    routeChoices: [], routeComparisons: [], routeRequest: 0, evidenceAbort: null
   };
 
   function setText(id, value) { $(id).textContent = String(value); }
@@ -446,63 +447,134 @@
     // Provisional locations never silently become "verified camera encounters".
     return official.concat(tiered.filter(row=>row.evidence_tier==='government_verified'));
   }
-  async function loadRouteEvidence(route) {
-    state.evidenceAbort?.abort();
-    const controller=new AbortController();
-    state.evidenceAbort=controller;
-    state.routeCoverage='checking';
+  // Each OSRM alternative must independently finish its entire corridor scan.
+  // Aborted, incomplete or overloaded evidence is UNKNOWN, never zero cameras.
+  async function collectRouteEvidence(route,signal) {
+    if(!Geo||!Comparison)throw new Error('Route evidence verification library unavailable');
+    const boxes=Geo.corridorBoxes(route.points);
+    const collected=new Map();
+    let next=0;
+    async function worker() {
+      while(next<boxes.length) {
+        if(signal.aborted)throw new Error('Route evidence check canceled');
+        const box=boxes[next++];
+        const rows=await routeCameraRows(box,signal);
+        if(rows.length>=MAX_VISIBLE)
+          throw new Error('Camera evidence density exceeds corridor query limit');
+        for(const row of rows)collected.set(row.record_key,row);
+      }
+    }
+    await Promise.all(Array.from({length:Math.min(3,boxes.length)},()=>worker()));
+    if(signal.aborted)throw new Error('Route evidence check canceled');
+    const records=[...collected.values()];
+    const summary=Comparison.summarize(route,records,Geo,CAMERA_NEAR_ROUTE_M);
+    return {status:'complete',records,summary,checkedRegions:boxes.length};
+  }
+  function renderRouteComparisons() {
+    const list=$('routeComparisonList');
+    list.replaceChildren();
+    let completed=0,failed=0;
+    state.routeChoices.forEach((route,index)=>{
+      const evidence=state.routeComparisons[index]||{status:'checking'};
+      const selected=route===state.route;
+      if(evidence.status==='complete')completed++;
+      if(evidence.status==='unavailable')failed++;
+      const item=document.createElement('li');
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='comparison-choice'+(selected?' selected':'');
+      button.setAttribute('aria-pressed',String(selected));
+      button.addEventListener('click',()=>selectRoute(index));
+      const heading=document.createElement('strong');
+      heading.textContent='Route '+(index+1)+(selected?' · Selected':'');
+      const meta=document.createElement('span');
+      meta.textContent=kmString(route.distance)+' · about '+Math.round(route.duration/60)+' min';
+      const result=document.createElement('small');
+      if(evidence.status==='complete') {
+        const x=evidence.summary;
+        result.textContent=x.nearby+' documented camera point(s) within the illustrative '+
+          CAMERA_NEAR_ROUTE_M+' m street-proximity band · '+
+          x.approx+' approximate area(s) · '+x.overdue+' stale / '+
+          x.unknown+' unknown source-check timestamp(s)';
+      }else if(evidence.status==='unavailable') {
+        result.textContent='EVIDENCE UNKNOWN · corridor could not be fully checked. '+
+          'No absence-of-surveillance claim.';
+      }else result.textContent='Checking the full route corridor… camera evidence unknown';
+      button.append(heading,meta,result);
+      item.append(button);list.append(item);
+    });
+    const total=state.routeChoices.length;
+    setText('comparisonStatus',total
+      ? completed+'/'+total+' driving routes completely checked against the PUBLISHED inventory'+
+        (failed?'; '+failed+' route(s) unavailable':'')+
+        '. Differences in documented points do not predict detection or establish a safer route. Unpublished cameras may exist.'
+      : 'Plan a route to compare independently checked alternatives. Camera inventory remains incomplete.');
+  }
+  function displaySelectedRouteEvidence() {
+    if(!state.route)return;
+    const index=state.routeChoices.indexOf(state.route);
+    const evidence=state.routeComparisons[index]||{status:'checking'};
+    stopReplay();
+    state.simLayer?.clearLayers();
     state.routeRecords=[];
     state.observations=[];
-    state.simLayer?.clearLayers();
     $('play').disabled=true;
-    setText('timelineBadge','EVIDENCE CHECK IN PROGRESS');
-    setText('timelineIntro','All published camera evidence must be checked across this route before estimating potential encounters.');
     $('timelineEvents').replaceChildren();
-    setText('nearbyCount','…');
-    setText('observationCount','…');
-    setText('routeStatus','Checking verified camera evidence across the ENTIRE driving route…');
-    try {
-      if (!Geo) throw new Error('Route geometry library unavailable');
-      const boxes=Geo.corridorBoxes(route.points);
-      const collected=new Map();
-      // Bounded, small concurrent requests; never silently claim no cameras
-      // if any corridor portion fails or hits the query record limit.
-      let next=0;
-      async function worker() {
-        while(next<boxes.length) {
-          const box=boxes[next++];
-          const rows=await routeCameraRows(box,controller.signal);
-          if(rows.length>=MAX_VISIBLE)
-            throw new Error('Camera evidence density exceeds this corridor query limit; analysis incomplete');
-          for(const row of rows) collected.set(row.record_key,row);
-        }
-      }
-      await Promise.all(Array.from({length:Math.min(3,boxes.length)},worker));
-      if(state.route!==route || state.evidenceAbort!==controller)return;
-      state.routeRecords=[...collected.values()];
+    if(evidence.status==='complete') {
       state.routeCoverage='complete';
+      state.routeRecords=evidence.records;
       computeObservations();
-      setText('routeStatus','Checked '+boxes.length+
-        ' evidence region(s) across the route. Results are modeled, never actual plate reads. '+
+      setText('routeStatus','Checked '+evidence.checkedRegions+
+        ' evidence region(s) across this route. Results model published records only. '+
         'Unpublished cameras may still exist.');
-    } catch(e) {
-      if(state.route!==route || state.evidenceAbort!==controller)return;
+      $('play').disabled=false;
+    }else if(evidence.status==='unavailable') {
       state.routeCoverage='unavailable';
-      state.routeRecords=[];
       setText('nearbyCount','Unknown');
       setText('observationCount','Unknown');
       setText('timelineBadge','DATA INCOMPLETE');
-      setText('timelineIntro','Some or all of this journey could not be checked against published records. '+
-        'Do not infer that there are no Flock cameras. '+e.message);
-      $('timelineEvents').replaceChildren();
-      $('play').disabled=true;
-      setText('routeStatus','Verified camera coverage unavailable: '+e.message+
-        '. Road route remains visible, but detection estimates are disabled.');
-    } finally {
-      if(state.evidenceAbort===controller) state.evidenceAbort=null;
+      setText('timelineIntro','Camera evidence could not be checked across the entire selected route. '+
+        'No absence of cameras may be inferred. '+evidence.error);
+      setText('routeStatus','Evidence unavailable for this alternative. Other alternatives may still be checked.');
+    }else{
+      state.routeCoverage='checking';
+      setText('nearbyCount','…');
+      setText('observationCount','…');
+      setText('timelineBadge','EVIDENCE CHECK IN PROGRESS');
+      setText('timelineIntro','Checking published camera evidence across this full driving alternative; '+
+        'unknown results are never treated as zero.');
+      setText('routeStatus','Checking selected route. No actual plate detection data is available.');
     }
   }
-
+  async function compareRouteChoices(request) {
+    state.evidenceAbort?.abort();
+    const controller=new AbortController();
+    state.evidenceAbort=controller;
+    let next=0;
+    async function worker() {
+      while(next<state.routeChoices.length && request===state.routeRequest && !controller.signal.aborted){
+        const index=next++;
+        const route=state.routeChoices[index];
+        let outcome;
+        try{
+          outcome=await collectRouteEvidence(route,controller.signal);
+        }catch(error){
+          if(controller.signal.aborted || request!==state.routeRequest)return;
+          outcome={status:'unavailable',error:String(error.message||'Original source lookup failed').slice(0,190)};
+        }
+        if(controller.signal.aborted || request!==state.routeRequest ||
+          state.routeChoices[index]!==route)return;
+        state.routeComparisons[index]=outcome;
+        if(state.route===route)displaySelectedRouteEvidence();
+        renderRouteComparisons();
+      }
+    }
+    try{
+      await Promise.all(Array.from({length:Math.min(2,state.routeChoices.length)},()=>worker()));
+    }finally{
+      if(state.evidenceAbort===controller)state.evidenceAbort=null;
+    }
+  }
   async function loadOfficialAreas(signal,viewport) {
     // Original government polygons may eventually number in the thousands.
     // Read each page to completion, but render only geographic footprints
@@ -926,22 +998,18 @@
     frame();
     state.replayTimer=setInterval(frame,Math.max(400,2400/Math.max(1,events.length)));
   }
-  async function selectRoute(index) {
+  function selectRoute(index) {
     const trip=state.routeChoices[index];
     if(!trip)return;
-    stopReplay();
-    state.evidenceAbort?.abort();
     state.route=trip;
     $('routeChoice').value=String(index);
     setText('routeDistance',kmString(trip.distance));
-    setText('routeStatus','Checking camera evidence for driving alternative '+(index+1)+
-      ' of '+state.routeChoices.length+'. Real plate detections are not available.');
     renderRoute();
     $('reset').disabled=false;
     setText('mapLabel','Driving route '+(index+1)+'/'+state.routeChoices.length+': '+
       trip.from+' → '+trip.to);
-    await loadRouteEvidence(trip);
-    if(state.route===trip && state.routeCoverage==='complete')$('play').disabled=false;
+    displaySelectedRouteEvidence();
+    renderRouteComparisons();
   }
   async function planRoute(ev) {
     if (ev) ev.preventDefault();
@@ -959,7 +1027,9 @@
       if(request!==state.routeRequest)return;
       const trips=await routing(a,b);
       if(request!==state.routeRequest)return;
+      state.evidenceAbort?.abort();
       state.routeChoices=trips;
+      state.routeComparisons=trips.map(()=>({status:'checking'}));
       const select=$('routeChoice');
       select.replaceChildren();
       trips.forEach((trip,index)=>{
@@ -973,7 +1043,8 @@
       setText('routeChoiceStatus',trips.length>1
         ? trips.length+' real driving alternatives available. Switch routes to compare modeled camera proximity.'
         : 'One driving route provided. Other roads may exist but are not verified alternatives.');
-      await selectRoute(0);
+      selectRoute(0);
+      await compareRouteChoices(request);
     } catch (error) {
       if(request!==state.routeRequest)return;
       setText('routeStatus','Route unavailable: '+error.message+
@@ -987,6 +1058,8 @@
     state.evidenceAbort?.abort();
     state.evidenceAbort=null;
     state.routeChoices=[];
+    state.routeComparisons=[];
+    renderRouteComparisons();
     $('routeChoice').replaceChildren();
     $('routeChoice').disabled=true;
     $('planRoute').disabled=false;
