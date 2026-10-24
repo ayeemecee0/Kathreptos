@@ -127,7 +127,7 @@ window.__QA={reports,activity};
    assert.equal(sent.uploaded[0].options.upsert,false);
    assert.ok(sent.uploaded[0].path.endsWith('/'+
      '33333333-cccc-4333-8333-333333333333/evidence.webp'));
-   await page.locator('#myReports button').click();
+   await page.getByRole('button',{name:/Withdraw private report/}).click();
    await page.waitForFunction(()=>window.__QA.activity.withdrawn.length===1,undefined,{timeout:12000});
    const withdrawn=await page.evaluate(()=>window.__QA.activity);
    assert.equal(withdrawn.deleted.length,1,'Withdrawn contributor evidence should be removed');
