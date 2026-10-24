@@ -14,7 +14,7 @@ import urllib.parse
 from auto_verify_flock_agenda import api_request
 from paged_supabase import fetch_all
 from discover_government_gis_links import (
-    FLOCK, LINK_LABEL, fetch_government_page, normalized_url
+    LINK_LABEL, fetch_government_page, normalized_url, original_camera_disclosure
 )
 from government_domain_registry import valid_https_url
 
@@ -65,7 +65,7 @@ def authoritative_page_seeds():
 
 
 def direct_candidate_links(document,page,sha,jurisdiction,known):
-    if not FLOCK.search(" ".join(document.text)):
+    if not original_camera_disclosure(document):
         return []
     output=[]
     seen=set()
