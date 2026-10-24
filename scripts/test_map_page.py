@@ -83,6 +83,13 @@ class MapPageTests(unittest.TestCase):
 
     def test_source_links_use_safe_dom(self):
         self.assertIn("popupFor(record)",self.script)
+        self.assertIn('id="showProvisional"',self.html)
+        self.assertIn('id="provisionalCount"',self.html)
+        self.assertIn('flock_public_tiered_camera_points',self.script)
+        self.assertIn("evidence_tier==='government_verified'",self.script)
+        self.assertIn("row.evidence_tier==='government_verified'",self.script)
+        self.assertIn("record.evidence_tier==='independently_corroborated'",self.script)
+        self.assertIn('OFF by default', (ROOT/'methodology.html').read_text(encoding='utf-8'))
         self.assertIn("element.textContent = txt",self.script)
         self.assertIn("noopener noreferrer",self.script)
         self.assertNotIn('.innerHTML',self.script)
