@@ -432,10 +432,10 @@ jobs:
             "select expected_id_field from public.trusted_flock_gis_sources where source_key='newport_beach_ca'" | grep -qx OBJECTID_12
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_table_privilege('anon','public.flock_public_state_evidence_index','SELECT')" | grep -qx t
-          psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
-            # Temporary CI database has sourced program records but no published GIS
-          # camera rows. Thus all twelve documented states are program-only in
-          # this fixture, unlike production where some also have point data.
+          # Temporary CI database has government program rows but no camera
+          # GIS point rows. All twelve states are program-only in this fixture.
+          # The corresponding production total is eight because some states
+          # also have independently verified public GIS camera locations.
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select count(*) from public.flock_public_state_evidence_index where verified_camera_points=0 and dated_program_records>0" | grep -qx 12
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
