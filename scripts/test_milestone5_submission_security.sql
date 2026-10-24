@@ -2,9 +2,12 @@
 begin;
 -- Earlier regression fixtures may already create this synthetic user.
 -- Reuse it only in the disposable PostgreSQL CI database, never in production.
-insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111')
-on conflict (id) do nothing;
-select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
+-- Create a unique non-reviewer fixture each run so earlier test accounts
+-- cannot accidentally grant this test reviewer permissions.
+with new_user as (
+  insert into auth.users(id) values (gen_random_uuid()) returning id
+)
+select set_config('request.jwt.claim.sub',id::text,true) from new_user;
 set local role authenticated;
 do $m5$
 declare
