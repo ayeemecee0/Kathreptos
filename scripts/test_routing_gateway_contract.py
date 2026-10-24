@@ -10,6 +10,8 @@ class GatewayContract(unittest.TestCase):
         self.assertIn("location ^~ /api/",c)
         self.assertIn("location / { return 404; }",c)
         self.assertIn("limit_req zone=routing",c)
+        self.assertEqual(c.count("proxy_ssl_verify on;"),2)
+        self.assertEqual(c.count("proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;"),2)
         self.assertIn("limit_req zone=geocoding",c)
         self.assertIn('if ($http_origin != "https://ayeemecee0.github.io")',c)
         self.assertIn('proxy_set_header Cookie "";',c)
