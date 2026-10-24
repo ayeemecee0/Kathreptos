@@ -1230,6 +1230,19 @@
       state.map?.setView(USA_CENTER,4);
     });
   }
+  if(CFG.locationProvider==='geoapify') {
+    $('geoapifyAttribution').hidden=false;
+    try {
+      Geoapify.publicKey(CFG);
+      setText('providerStatus','Geoapify free-tier routing and geocoding enabled. '+
+        'Usage is subject to its daily credit allowance; camera evidence may be incomplete.');
+    }catch(error) {
+      setText('providerStatus','Geoapify not ready: '+error.message+
+        '. No automatic switch to an unapproved location provider.');
+    }
+  }else if(CFG.locationProvider!=='demo'&&CFG.locationProvider!==undefined) {
+    setText('providerStatus','Invalid routing provider configuration: location searches disabled.');
+  }
   bind();
   setupMap();
 })();
