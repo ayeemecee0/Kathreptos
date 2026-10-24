@@ -1,0 +1,46 @@
+name: Synchronize independently corroborated evidence tiers
+
+on:
+  workflow_run:
+    workflows: ["Corroborate independent camera sources"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '24 15 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/sync_tiered_evidence.py'
+      - 'scripts/test_sync_tiered_evidence.py'
+      - 'supabase/migrations/059_reconcile_trusted_evidence_without_self_approval.sql'
+      - '.github/workflows/sync_tiered_evidence.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-reviewed-evidence-tier-bridge
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Ensure private staging credentials exist
+        run: test -n "$SUPABASE_SERVICE_ROLE_KEY"
+      - name: Test staging and publication permissions
+        run: python -m unittest discover -s scripts -p 'test_sync_tiered_evidence.py' -v
+      - name: Backfill private OSM candidates and reconcile only pre-reviewed evidence
+        run: python scripts/sync_tiered_evidence.py --limit 600 --rounds 15
