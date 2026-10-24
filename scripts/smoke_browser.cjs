@@ -170,6 +170,26 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#play').isDisabled(),false);
   await page.locator('#play').click();
   await page.waitForTimeout(250);
+  // Second attempt fails. First route's drawn evidence must not remain
+  // associated with the newly entered start/destination.
+  await page.route('https://router.project-osrm.org/**',async route=>{
+    await route.fulfill({status:200,contentType:'application/json',
+      headers:{'access-control-allow-origin':'*'},
+      body:JSON.stringify({code:'NoRoute',routes:[]})});
+  });
+  await page.locator('#from').fill('38.5816,-121.4944');
+  await page.locator('#to').fill('38.6779,-121.1761');
+  await page.locator('#planRoute').click();
+  await page.waitForFunction(()=>
+    document.querySelector('#routeStatus')?.textContent?.startsWith('Route unavailable:'),
+    {timeout:12000});
+  assert.equal(await page.locator('#routeComparisonList li').count(),0,
+    'Failed second trip reused first trip evidence');
+  assert.equal(await page.locator('#play').isDisabled(),true,
+    'Old simulated detections could still be replayed');
+  assert.equal((await page.locator('#routeDistance').textContent()).trim(),'—',
+    'Old route distance was shown for a failed second trip');
+  assert.equal((await page.locator('#nearbyCount').textContent()).trim(),'Unknown');
   await page.locator('#reset').click();
   assert.equal(await page.locator('#play').isDisabled(),true);
   assert.equal((await page.locator('#observationCount').textContent()).trim(),'—');
