@@ -2,6 +2,15 @@
 
 Katoptron is a **nationwide Flock Safety camera-map and route-surveillance education project**. Its primary product combines an evidence-backed map, an optional planned-driving-route simulator, and separately linked government records. The map NEVER invents camera coordinates: exact pins and approximate areas require distinct source verification. All simulated detections are hypothetical; the site never accesses private Flock plate reads or tracks actual vehicles. The legacy synthetic simulator remains available separately.
 
+## Milestone 6: Government accountability (October 23, 2026)
+
+- [Accountability directory](./accountability.html): browse the source-backed, deduplicated original-government record index by state, type and documentary date; inspect original sources and export public records with full evidence links.
+- Published facts keep program disclosures, original agenda mentions, legislative decisions, editorial government actions, executed agreements, contract-form PDFs and agency-reported deployments in **separate evidence categories**. No inference from council action to an individual vote or a signed contract.
+- Public figures: dated company-issued Flock Safety professional-role evidence is explicitly labeled as vendor attestation, **not** live employment verification. Individually recorded government votes or public statements can be published only from original named evidence; none have met that threshold in the present database.
+- Production directory initially contains 30 distinct government entries (20 programs, five agenda mentions, four editorial actions, one deployment). The original 33 source rows remain intact for audit, while duplicate undated disclosures are hidden in the directory. There are no verified executed contracts or individual votes yet.
+- RLS-invoker public views, private-only review authority, source-provenance checks, SQL regressions, browser smoke and read-only health monitoring were implemented. The latest GitHub Pages/CI results still need separate release confirmation.
+- [Milestone 6 engineering and acceptance report](./docs/milestone-6-government-accountability.md).
+
 ## Milestone 5: Community evidence submissions (October 23, 2026)
 
 - [Report possible Flock cameras](./submit.html): signed-in intake, evidence URLs, dates and optional metadata-stripped private images, limited to three reports per contributor per 24-hour bucket.
