@@ -1,6 +1,6 @@
 # Katoptron — Free-plan private-data backup and recovery
 
-Last reviewed 2026-10-23. **Procedural guide; no production private backup has yet been created or restore-tested.**
+Last reviewed 2026-10-24. **The owner created and content-checked three private local application export files on an encrypted Windows drive. A complete Auth/Storage backup and an actual restore test of those files remain unfinished.**
 
 ## What the existing automated snapshots cover
 
@@ -45,4 +45,4 @@ The example assumes Docker/CLI support, working database access and adequate pro
 
 ## Owners and status
 
-Current state: no owner-provided DB connection, no verified private archive, no restore drill. These operations require the project owner to handle credentials, access-controlled Storage evidence, encrypted retention and local capacity. Do not create a paid Supabase branch to run restore tests merely for convenience.
+Current state: owner generated non-empty roles, schema and data SQL files locally and verified basic content checks; no encrypted off-device archive, complete Auth/Storage backup or restore drill of those files. [CI application restore rehearsal #454](https://github.com/ayeemecee0/Katoptron/actions/runs/40112397254) passed against a disposable synthetic database, not the owner files. These operations require the project owner to handle credentials, access-controlled Storage evidence, encrypted retention and local capacity. Do not create a paid Supabase branch to run restore tests merely for convenience.
