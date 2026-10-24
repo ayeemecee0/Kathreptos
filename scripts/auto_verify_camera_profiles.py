@@ -46,11 +46,20 @@ def approved_sources():
     external=fetch_all(api_request,"official_external_flock_gis_authorities?select=source_key,"
         "parent_source_key,government_disclosure_url,gis_layer_url,"
         "verification_status&verification_status=eq.verified&limit=100","source_key")
+    first_party_receipts=fetch_all(api_request,
+        "first_party_agency_gis_receipts?select=source_key,agency_page_url,"
+        "agency_portal_url,identity_basis&limit=100","source_key")
+    reviewed_first_party=fetch_all(api_request,
+        "reviewed_first_party_gis_roots?select=source_key,agency_page_url,"
+        "agency_portal_url,gis_layer_url,jurisdiction_label,review_status"
+        "&review_status=eq.verified&limit=100","source_key")
     # Every approved registry is now read fully, or fails closed on cap/error.
     ps={x["source_key"]:x for x in policies}
     rs={x["authority_key"]:x for x in roots}
     by_key={x["source_key"]:x for x in src}
     es={x["source_key"]:x for x in external}
+    first_by={x["source_key"]:x for x in first_party_receipts}
+    reviewed_by={x["source_key"]:x for x in reviewed_first_party}
     checked=[]
     for source in src:
         policy=ps.get(source["source_key"])
@@ -72,6 +81,18 @@ def approved_sources():
             # This changes evidence copy, not which database authority or
             # original GIS source can authorize publication.
             source={**source,"government_endorsed_external":True}
+        original_receipt=first_by.get(source["source_key"])
+        if original_receipt:
+            reviewed=reviewed_by.get(source["source_key"])
+            if (not reviewed or reviewed["review_status"]!="verified"
+                or original_receipt["agency_page_url"]!=reviewed["agency_page_url"]
+                or original_receipt["agency_portal_url"]!=reviewed["agency_portal_url"]
+                or source["government_evidence_url"]!=reviewed["agency_page_url"]
+                or source["gis_layer_url"]!=reviewed["gis_layer_url"]
+                or source["jurisdiction_label"]!=reviewed["jurisdiction_label"]
+                or not rs.get(source["source_key"])):
+                raise ValueError("First-party government GIS receipt lost independent reviewed source binding")
+            source={**source,"reviewed_first_party_receipt":True}
         authorize(source,policy,rs.get(source["source_key"]),endorsement)
         checked.append((source,policy))
     return checked
@@ -120,8 +141,9 @@ def authorize(s,p,r,external=None):
             p.get("service_evidence_mode")!="official_program_plus_vendor"):
             raise ValueError("Missing individual Flock vendor evidence policy")
     elif p.get("identity_mode")=="official_flock_layer":
-        if (p.get("camera_id_field")==s.get("expected_id_field") and
-            s.get("source_key")!="agency_alachua_fl"):
+        if ((p.get("camera_id_field") or "").lower()==
+            (s.get("expected_id_field") or "").lower() and
+            not s.get("reviewed_first_party_receipt")):
             raise ValueError("Typed ObjectID-only camera identities require vetted first-party agency receipt")
         if (not (r or external) or not FLOCK_LAYER.fullmatch(p.get("expected_layer_name") or "") or
             not FIELD.fullmatch(p.get("camera_id_field") or "") or
@@ -295,7 +317,7 @@ def verify_points(s,p,data):
             camera_type=" ".join(vendor.split())
         else:
             identifier=a.get(p["camera_id_field"])
-            if (s["source_key"]=="agency_alachua_fl" and
+            if (s.get("reviewed_first_party_receipt") and
                 p["camera_id_field"].lower()==s["expected_id_field"].lower()):
                 # An agency-operated Flock-only layer can use its typed,
                 # twice-rechecked original ArcGIS ObjectID as the individual
@@ -312,7 +334,7 @@ def verify_points(s,p,data):
                 holds["not a Flock camera per original GIS field"]+=1;continue
             # Preserve earlier evidence fingerprints for unchanged published
             # sources, avoiding fictitious withdrawal/republication history.
-            if s["source_key"].startswith("autogov_") or s["source_key"]=="agency_alachua_fl":
+            if s["source_key"].startswith("autogov_") or s.get("reviewed_first_party_receipt"):
                 camera_type="Flock (original government-hosted GIS camera layer)"
             elif p.get("expected_layer_name","").lower()=="flock unit locations":
                 camera_type="Flock (original city Police GIS unit layer)"
