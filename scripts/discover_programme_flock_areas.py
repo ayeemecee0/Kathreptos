@@ -163,9 +163,31 @@ def original_polygon_payloads(prog,url,page_hash):
     return outputs
 
 
+def existing_programme_areas():
+    """Private full source-linked polygon inventory for revocation/rechecks."""
+    rows=fetch_all(api_request,
+       "flock_documented_coverage_areas?select=area_key,government_program_key,"
+       "evidence_url,government_page_sha256,geometry_status"
+       "&geometry_status=eq.verified&government_program_key=not.is.null&limit=50",
+       "area_key",max_records=2500)
+    if not isinstance(rows,list):
+        raise ValueError("Original programme polygon registry unavailable")
+    result={}
+    for item in rows:
+        if (not isinstance(item,dict) or
+            not isinstance(item.get("government_program_key"),str) or
+            not isinstance(item.get("area_key"),str) or
+            not isinstance(item.get("evidence_url"),str) or
+            not isinstance(item.get("government_page_sha256"),str)):
+            raise ValueError("Malformed original-programme polygon source evidence")
+        result.setdefault(item["government_program_key"],[]).append(item)
+    return result
+
+
 def run(dry_run=False):
     stats=Counter()
     pages=government_programmes()
+    existing=existing_programme_areas()
     stats['government_programmes']=len(pages)
     for programme in pages:
         page=programme['official_evidence_url']
@@ -174,7 +196,26 @@ def run(dry_run=False):
                 continue
             doc,sha=fetch_government_page(page)
             stats['original_pages_checked']+=1
-            for layer in direct_government_polygon_links(page,doc):
+            links=direct_government_polygon_links(page,doc)
+            # Do NOT withdraw on HTTP failure. Only a newly fetched
+            # ORIGINAL government page that no longer endorses the exact GIS
+            # layer, with a changed page digest, supplies removal evidence.
+            for previous in existing.get(programme['program_key'],[]):
+                if previous['evidence_url'] in links:
+                    continue
+                if sha==previous['government_page_sha256']:
+                    stats['unchanged_missing_link_held']+=1
+                    continue
+                if not dry_run:
+                    ok=api_request('rpc/withdraw_programme_area_after_link_loss',
+                      method='POST',payload={
+                        'p_area_key':previous['area_key'],
+                        'p_current_original_page_sha256':sha
+                      })
+                    if ok is not True:
+                        raise ValueError('Original government polygon source withdrawal refused')
+                    stats['withdrawn_original_link_lost']+=1
+            for layer in links:
                 try:
                     results=original_polygon_payloads(programme,layer,sha)
                     stats['verified_original_polygon_features']+=len(results)
@@ -195,7 +236,8 @@ def run(dry_run=False):
                   programme['program_key'],type(e).__name__,str(e)[:150])
     for key in ('government_programmes','original_pages_checked','original_pages_held',
                 'verified_original_polygon_features','government_polygon_layers_held',
-                'new_or_rechecked_areas'):
+                'new_or_rechecked_areas','withdrawn_original_link_lost',
+                'unchanged_missing_link_held'):
         print('Independent programme polygon',key+':',stats[key])
     print('Non-georeferenced programme descriptions converted into invented polygons: 0')
     if pages and not stats['original_pages_checked']:

@@ -10,6 +10,7 @@ on:
       - 'scripts/discover_programme_flock_areas.py'
       - 'scripts/test_discover_programme_flock_areas.py'
       - 'supabase/migrations/055_government_program_sourced_flock_areas.sql'
+      - 'supabase/migrations/057_programme_polygon_source_revalidation.sql'
       - '.github/workflows/discover_programme_flock_areas.yml'
 
 permissions:

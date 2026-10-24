@@ -45,9 +45,53 @@ class IndependentProgrammes(unittest.TestCase):
       meta,{'objectIds':[2]},features,{'objectIds':[2]}]):
     with self.assertRaises(ValueError):
      d.original_polygon_payloads(PROGRAM,LAYER,'a'*64)
+ def test_changed_original_government_page_withdraws_removed_link(self):
+  record={'area_key':'area_original_test_001',
+    'government_program_key':PROGRAM['program_key'],
+    'evidence_url':LAYER,'government_page_sha256':'a'*64}
+  updated=html('<h1>Flock Safety ALPR camera programme updated</h1>'
+               '<p>The previous official GIS polygon link was removed.</p>')
+  with (patch.object(d,'government_programmes',return_value=[PROGRAM]),
+        patch.object(d,'existing_programme_areas',
+          return_value={PROGRAM['program_key']:[record]}),
+        patch.object(d,'fetch_government_page',return_value=(updated,'b'*64)),
+        patch.object(d,'api_request',return_value=True) as rpc):
+   result=d.run(dry_run=False)
+  self.assertEqual(result['withdrawn_original_link_lost'],1)
+  self.assertEqual(rpc.call_args.args[0],
+                   'rpc/withdraw_programme_area_after_link_loss')
+  self.assertEqual(rpc.call_args.kwargs['payload']['p_area_key'],
+                   record['area_key'])
+ def test_unchanged_original_page_cannot_withdraw_and_failed_pages_hold(self):
+  record={'area_key':'area_original_test_001',
+    'government_program_key':PROGRAM['program_key'],
+    'evidence_url':LAYER,'government_page_sha256':'a'*64}
+  page=html('<h1>Flock cameras and GIS links temporarily missing</h1>')
+  with (patch.object(d,'government_programmes',return_value=[PROGRAM]),
+        patch.object(d,'existing_programme_areas',
+          return_value={PROGRAM['program_key']:[record]}),
+        patch.object(d,'fetch_government_page',return_value=(page,'a'*64)),
+        patch.object(d,'api_request') as rpc):
+   result=d.run()
+  self.assertEqual(result['unchanged_missing_link_held'],1)
+  rpc.assert_not_called()
+ def test_unreachable_government_site_does_not_revoke_any_area(self):
+  record={'area_key':'area_original_test_001',
+    'government_program_key':PROGRAM['program_key'],
+    'evidence_url':LAYER,'government_page_sha256':'a'*64}
+  with (patch.object(d,'government_programmes',return_value=[PROGRAM]),
+        patch.object(d,'existing_programme_areas',
+          return_value={PROGRAM['program_key']:[record]}),
+        patch.object(d,'fetch_government_page',
+          side_effect=RuntimeError('site inaccessible')),
+        patch.object(d,'api_request') as rpc):
+   with self.assertRaises(RuntimeError):
+    d.run()
+  rpc.assert_not_called()
  def test_dryrun_never_writes_any_map_geometry(self):
   h=html('<h1>Flock Safety ALPR cameras</h1><a href="'+LAYER+'">GIS map</a>')
   with (patch.object(d,'government_programmes',return_value=[PROGRAM]),
+        patch.object(d,'existing_programme_areas',return_value={}),
         patch.object(d,'fetch_government_page',return_value=(h,'a'*64)),
         patch.object(d,'original_polygon_payloads',return_value=[{'p_area_key':'area_test'}]),
         patch.object(d,'api_request') as api):
