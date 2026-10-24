@@ -7,7 +7,7 @@ class RenderBlueprintSafety(unittest.TestCase):
   y=(ROOT/'render.yaml').read_text()
   self.assertIn('name: katoptron-routing-gateway',y)
   self.assertIn('runtime: docker',y)
-  self.assertIn('autoDeploy: false',y)
+  self.assertIn('autoDeployTrigger: off',y)
   self.assertIn('plan: starter',y)
   self.assertIn('healthCheckPath: /healthz',y)
   self.assertIn('dockerfilePath: ./infra/routing-gateway/Dockerfile',y)
