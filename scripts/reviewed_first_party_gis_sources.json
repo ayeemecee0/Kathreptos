@@ -1,0 +1,14 @@
+[
+  {
+    "source_key": "agency_alachua_fl",
+    "jurisdiction": "Alachua County, FL",
+    "original_gis_page": "https://growth-management.alachuacounty.us/GIS",
+    "public_gis_anchor": "https://mapgenius.alachuacounty.us/",
+    "layer": "https://maps.alachuacounty.us/server/rest/services/Hosted/Flock_Cameras/FeatureServer/0",
+    "bounds_south": 29,
+    "bounds_west": -83.5,
+    "bounds_north": 30.4,
+    "bounds_east": -81.9,
+    "review_basis": "Original county government GIS homepage explicitly links county-operated public map portal on the same registered agency-controlled domain. Original Flock Cameras ArcGIS point layer publishes stable typed IDs, complete inventories and coordinates; first vetted 2026-10-24. Does not prove live operation."
+  }
+]
