@@ -17,6 +17,7 @@ on:
       - 'route-geometry.js'
       - 'route-comparison.js'
       - 'routing-provider.js'
+      - 'geoapify-adapter.js'
       - 'config.js'
   schedule:
     - cron: '05 16 * * 1'
