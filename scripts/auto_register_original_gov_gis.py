@@ -200,6 +200,7 @@ def run(dry_run=False):
             if not isinstance(original_link,str) or original_link in seen:
                 continue
             seen.add(original_link)
+            marker=hashlib.sha256(original_link.encode()).hexdigest()[:12]
             try:
                 url,linked_url,layer_name=resolve_exact_original_camera_layer(
                     page,original_link)
@@ -256,22 +257,24 @@ def run(dry_run=False):
                 # database or authentication errors must fail CI visibly.
                 response=ex.read(1200).decode("utf8","replace")
                 stats["held"]+=1
-                if not any(note in response for note in
+                expected_hold=any(note in response for note in
                    ("possible existing published camera",
                     "No independently corroborated original .gov source",
-                    "too broad to infer a safe local verification envelope")):
+                    "too broad to infer a safe local verification envelope"))
+                if not expected_hold:
                     stats["errors"]+=1
-                print("Government source registration refused:",url,
-                      ex.code,response[:500])
+                print("Government source registration refused: source_hash",marker,
+                      "HTTP",ex.code,
+                      "reason","evidence_hold" if expected_hold else "database_error")
             except ValueError as ex:
                 stats["held"]+=1
-                print("New original government source lacks sufficient evidence:",
-                      url,str(ex)[:220])
+                print("Original government source evidence held: source_hash",
+                      marker,type(ex).__name__)
             except Exception as ex:
                 stats["held"]+=1
                 stats["errors"]+=1
-                print("Unexpected original government source verifier failure:",
-                      url,type(ex).__name__,str(ex)[:220])
+                print("Unexpected original government verifier failure: source_hash",
+                      marker,type(ex).__name__)
     if not dry_run and stats["registered"]:
         refreshed=sync()
         stats["new_verified_public_camera_pins"]=refreshed["published"]
