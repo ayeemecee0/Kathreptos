@@ -28,6 +28,15 @@ assert.equal(osrm.code,'Ok');
 assert.equal(osrm.routes.length,2);
 assert.equal(osrm.routes[0].geometry.coordinates.length,3);
 assert.deepEqual(osrm.routes[0].geometry.coordinates[0],[-121.4944,38.5816]);
+const disconnected=fixture(28000);
+disconnected.features[0].geometry.coordinates[1][0]=[-121.30,38.65];
+assert.throws(()=>A.routingAsOsrm([disconnected]),/disconnected road geometry/,
+  'Disconnected road legs must not be connected by an invented straight line');
+const rounding=fixture(28000);
+rounding.features[0].geometry.coordinates[1][0]=[-121.48000001,38.59];
+const joined=A.routingAsOsrm([rounding]);
+assert.equal(joined.routes[0].geometry.coordinates.length,3,
+  'Harmless road segment boundary rounding should not create phantom vertices');
 assert.throws(()=>A.routingAsOsrm([{type:'FeatureCollection',features:[
  {geometry:{type:'Point',coordinates:[-121,38]},properties:{distance:10,time:10}}]}]),/Unexpected/);
 assert.throws(()=>A.routeUrls({point:[0,0]},to,cfg),/Invalid/);
