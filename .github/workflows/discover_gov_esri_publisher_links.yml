@@ -1,0 +1,46 @@
+name: Find original government links to exact Esri publishers
+on:
+  schedule:
+    - cron: '34 17 * * 2,5'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover_gov_esri_publisher_links.py'
+      - 'scripts/test_discover_gov_esri_publisher_links.py'
+      - '.github/workflows/discover_gov_esri_publisher_links.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-targeted-original-agency-esri-proof
+  cancel-in-progress: false
+
+jobs:
+  targeted-original-government-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install pinned RSS parser used by existing government discovery pipeline
+        run: python -m pip install --disable-pip-version-check 'feedparser==6.0.12'
+      - name: Verify safe exact government publisher discovery and privacy limits
+        run: python -m unittest discover -s scripts -p 'test_discover_gov_esri_publisher_links.py' -v
+      - name: Confirm existing private research credential
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || {
+            echo "::error::Government research credential missing"
+            exit 1
+          }
+      - name: Search original government pages for exact ArcGIS publisher backlinks
+        run: python scripts/discover_gov_esri_publisher_links.py
