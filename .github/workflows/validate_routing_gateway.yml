@@ -30,7 +30,7 @@ jobs:
         run: |
           docker run --rm \
             -e PORT=8080 \
-            -e KATOPTRON_TEST_LOOPBACK=1 \\
+            -e KATOPTRON_TEST_LOOPBACK=1 \
             -e ROUTING_UPSTREAM=http://127.0.0.1:5000 \
             -e GEOCODING_UPSTREAM=http://127.0.0.1:2322 \
             katoptron-routing-gateway:ci nginx -t
