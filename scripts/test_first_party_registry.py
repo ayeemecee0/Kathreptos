@@ -10,6 +10,20 @@ class ReviewRegistry(unittest.TestCase):
   self.assertEqual(GOOD['source_key'],'agency_alachua_fl')
   self.assertEqual(r.validate_source(GOOD),GOOD)
   self.assertEqual(r.original_domain('maps.alachuacounty.us'),'alachuacounty.us')
+ def test_delegated_state_us_suffix_does_not_mix_unrelated_agencies(self):
+  self.assertEqual(r.original_domain('gis.springfield.wa.us'),'springfield.wa.us')
+  self.assertEqual(r.original_domain('maps.springfield.wa.us'),'springfield.wa.us')
+  self.assertNotEqual(r.original_domain('gis.springfield.wa.us'),
+                      r.original_domain('gis.othercity.wa.us'))
+  self.assertNotEqual(r.original_domain('maps.county1.co.us'),
+                      r.original_domain('maps.county2.co.us'))
+  self.assertEqual(r.original_domain('maps.alachuacounty.us'),'alachuacounty.us')
+  candidate={**GOOD,
+    'original_gis_page':'https://gis.springfield.wa.us/GIS',
+    'public_gis_anchor':'https://maps.springfield.wa.us/',
+    'layer':'https://gis.othercity.wa.us/arcgis/rest/services/Flock/MapServer/0'}
+  with self.assertRaisesRegex(ValueError,'original-agency domain'):
+   r.validate_source(candidate)
  def test_registry_matches_exact_layer_and_shared_original_domain(self):
   invalid=[
    {**GOOD,'layer':'https://services.arcgis.com/x/FeatureServer/0'},
