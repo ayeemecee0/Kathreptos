@@ -1,43 +1,51 @@
 # Milestone 5 — Community evidence submissions
-Updated 2026-10-23.
 
-## Functional delivery
+Release verification: October 23, 2026 (America/Los_Angeles).
+**Core engineering and browser simulation passed. A live, email-confirmed Storage API upload test remains outstanding.**
 
-- Public submission page: `submit.html`, backed by Supabase email/password Auth. Anonymous inserts are rejected.
-- Report fields: US coordinates, description, observation date, optional original HTTPS source, contributor review consent.
-- Limit: three submissions per signed-in account in a rolling **fixed 24-hour bucket**. Account creation is not rate-limited by Katoptron's application, so abuse protection should be revisited at scale.
-- Private photographs: file-size cap of 3 MB, accepted JPG/PNG/WebP input, client-side re-encoding to WebP to discard input metadata, maximum source image 20 MP and longest stored side 2,400 px. Storage bucket is private and per-report.
-- Automatic staging: reports with an original source URL enter the tiered evidence database **as candidates only**. Neither report entry nor duplication screening counts as independent source authentication.
-- Screening: private approximate-coordinate lookup for nearby reports or existing verified points; does not publish a claim or assign calibrated probability.
-- Approved reviewer access: `community-review.html`, reviewer allowlist, private queue, short-lived attachment URLs, required decision rationale, audited actions. A reviewer's `incorporated` decision means private research incorporation, **not** official verification.
-- Contributor access: own status history and withdrawal. Withdrawal/rejection revokes the related source attestation and staged point. The browser attempts to erase the contributor's Storage photo objects after withdrawal.
-- Public publication consent: separate optional contributor consent is false by default. The tiered evidence public predicate excludes community-derived cases unless the contributor authorized publication and the review state is incorporated. No account identity is ever made public.
-- Public separation: no anonymous grants on submission/triage/audit tables, no contributor approval grants, no change to the 275 original canonical cameras. Existing evidence-reconciliation rules must still independently validate evidence before any publication.
+## Functionality
 
-## Implemented migrations
+- `submit.html`: optional email/password registration, sign-in, private submission, latitude/longitude, observation date, description, optional original HTTPS source and up to one privately attached WebP photo per report. Photos are resized and re-encoded client-side to remove input metadata; image content is **not** automatically inspected for personal information.
+- The original-photo restriction is 3 MB of input, 20 megapixels and 2,400 pixels on the longest stored side. The underlying Storage bucket is private, not public.
+- Pending or `needs_evidence` reports can attach or retry a missing photo. A reporter can also add a **previously missing** HTTPS source URL once; a link cannot be overwritten after submission. The contributor is not granted review-status, consent, or owner-ID update privileges.
+- Three reports per authenticated user per **rolling** 24 hours. Migration 076 repaired an earlier fixed-window loophole and retains a private per-user transaction lock.
+- Reviewer-only `community-review.html`: private reports, duplicate proximity screening, original source links, short-lived photo URLs, reviewer explanation (at least 15 characters), audited outcomes and incorporation into **unverified private** evidence.
+- The reviewer can mark `needs_evidence`, `rejected` or `incorporated`. Only original independent verification can qualify an incorporated candidate as an actual published camera, and **separate reporter publication consent is false by default**.
+- Reporters can withdraw reports, which revokes any corresponding source candidate and attestation. The browser then requests photo deletion **through the Storage API**. Supabase deliberately prohibits deleting Storage metadata directly with SQL.
+- No reporter ID, private screening result, private photo, or submission audit trail is public. Canonical government-verified cameras remain a distinct dataset.
 
-`060` through `068` under `supabase/migrations/`. All ten migrations were applied to the Katoptron Supabase project.
+## Database releases
 
-## Verified production database checks
+Initial community migrations 060–069, followed by:
+- `076_rolling_community_rate_limit.sql`: exact moving 24-hour cap with owner-locked insert count.
+- `077_upload_followup_evidence.sql`: allow a requested private photo while pending or needing evidence.
+- `078_fix_community_storage_column_permissions.sql`: critical Storage RLS repair. Invoker Storage policy queries originally referenced private contributor/reviewer columns that `authenticated` intentionally cannot SELECT. New policies rely on the owner-scoped report SELECT policy and pre-existing `editorial_session()` reviewer authorization. No private user-ID privileges were granted.
+- `079_one_time_community_source_followup.sql`: narrowly scoped `UPDATE(original_source_url)` privilege and owner + status + null-source row-level policy. Contributor cannot modify review outcomes or publication consent.
 
-- Authenticated insert: successful in a rolled-back transaction.
-- Daily report limit: the fourth report failed; all synthetic records rolled back.
-- Private screening trigger: inserted report creates screening.
-- Private candidate staging with external source URL: source attestation is staged, not reviewed.
-- Approved reviewer: report accepted for private incorporation with an audit row; withdrawal revokes candidate. Synthetic test records rolled back.
-- Rejected reviewer outcome: case and attestation rejected; public tiered map count for the test source remained zero.
-- Anonymous insert, anonymous reviews and unapproved reviewer access: denied.
-- Bucket is nonpublic.
+All four releases were applied to production Supabase.
 
-## Automated regression and UI checks
+## Verification performed
 
-`scripts/test_milestone5_submission_security.sql` checks SQL intake, screening, caps, private candidate staging and reviewer rejection on PostgreSQL CI. `scripts/test_community_frontend_syntax.py` validates both inline scripts. `scripts/smoke_community.cjs` verifies both anonymous-entry pages in Chromium and is integrated into `browser_smoke.yml`.
+**PostgreSQL transaction tests, all rolled back after execution:**
+- `scripts/test_milestone5_submission_security.sql`: authenticated submissions, source screening and report limit.
+- `scripts/test_community_multi_actor_lifecycle.sql`: two distinct contributors, a reviewer, owner-only reads, unauthorized action denials, reviewer audit, incorporation, revocation and rejection of unconsented public pins.
+- `scripts/test_community_rolling_rate_limit.sql`: the fourth insert is denied even when the legacy bucket would have reset.
+- `scripts/test_community_source_followup.sql`: cross-account source update fails; one-time owner addition succeeds; source cannot be overwritten; incorporation is still unverified and private.
+- `scripts/test_community_storage_rls_production.sql`: live production Storage metadata-only role simulation, including owner and reviewer read access, prohibition on cross-account reads, followup attachment after `needs_evidence`, and prohibition on uploads following withdrawal. This does **not** upload or delete actual blob bytes. All temporary auth users, report rows, and Storage metadata were rolled back.
 
-## Release acceptance not yet confirmed
+**Browser and deployment checks:**
+- `scripts/smoke_community_authenticated_mock.cjs`: intercepted client simulation of sign-in, first report and consent defaults, image conversion and upload call, withdrawal and deletion call, additional source/photo on `needs_evidence`, approved reviewer viewing and action. The SDK and backend are mocked; **this is not an actual Supabase Auth or Storage HTTP integration test**.
+- `scripts/smoke_community.cjs`: unauthenticated access checks and page availability.
+- [Validate Katoptron scripts #424](https://github.com/ayeemecee0/Katoptron/actions/runs/40065151680) — success.
+- [Browser release smoke #99](https://github.com/ayeemecee0/Katoptron/actions/runs/40065139953) — success.
+- [GitHub Pages #675](https://github.com/ayeemecee0/Katoptron/actions/runs/40065151545) — success.
 
-- GitHub Actions/Pages latest run conclusion has not been read. Committing code does not itself prove the Pages deployment passed.
-- Authenticated browser end-to-end proof of signup, actual photo storage, approved reviewer access, private photo withdrawal and publication-consent handling has not been performed; completing this requires test credentials in a permitted environment. Do not use a private owner password in source code.
-- Image moderation is based on user consent and client-side metadata stripping, **not** automatic detection of faces, plate numbers or personal information.
-- Existing organization-wide Supabase security-advisor warnings should be reviewed separately before a high-traffic launch.
+Production inspection after testing: **0 community submissions, 0 private photos, 0 community audit rows**, and the **275 canonical government-verified camera points** were unchanged.
 
-This is an engineering-complete beta feature with release acceptance still pending, **not** a fully verified production launch. No paid hosting resource was provisioned.
+## Genuine remaining release acceptance
+
+An eligible human tester must confirm a real email-signup link and redirect, an authenticated upload and download of a non-sensitive photo into the private Storage bucket, and file deletion after withdrawal. A real account must never share their password or session token with a public GitHub issue or assistant chat. Do not create a fake camera sighting presented as a real submission: use actual good-faith reporting, or prepare a separately flagged private QA workflow.
+
+Check Supabase's Auth redirect allowlist and password/email abuse settings in the owner's dashboard; API migrations and mock sessions cannot prove those external settings. Free-plan leaked-password screening is not available without a higher tier.
+
+This feature is ready for a *controlled beta* but is not yet certified production-ready. No paid hosting resource was added.
