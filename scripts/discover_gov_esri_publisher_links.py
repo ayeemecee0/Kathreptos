@@ -66,8 +66,12 @@ def gov_pages(queries,search=search_provider):
     result=[]
     for query in queries:
         for raw in bing_rss(query,search):
+            # Never silently discard a search-engine fragment and then treat
+            # the rewritten link as a fresh original-page evidence address.
+            if not isinstance(raw,str) or urlsplit(raw).fragment:
+                continue
             url=normalize_url(raw)
-            if (not url or not is_gov(url) or urlsplit(url).fragment
+            if (not url or not is_gov(url)
                     or urlsplit(url).query or len(url)>1200):
                 continue
             if url not in result:
