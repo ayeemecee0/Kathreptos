@@ -59,11 +59,22 @@ begin
  if not public.withdraw_own_community_report(current_setting('katoptron.storage_case')::uuid)
  then raise exception 'Owner could not withdraw report';end if;
 end $qa$;
-with erased as(
- delete from storage.objects
- where name like current_setting('katoptron.storage_owner')||'/%'
- returning id
-) select count(*) as deleted_after_withdrawal from erased;
+-- Supabase intentionally refuses direct SQL DELETE on storage.objects.
+-- Confirm the owner's rows remain readable and the Storage API DELETE policy
+-- exists; browser tests exercise .remove() against the Storage API contract.
+do $qa$
+begin
+ if (select count(*) from storage.objects
+   where name like current_setting('katoptron.storage_owner')||'/%')<>2 then
+  raise exception 'Private evidence unreadable after withdrawal (Storage API cleanup would fail)';
+ end if;
+ if not exists(
+  select 1 from pg_policies
+  where schemaname='storage' and tablename='objects'
+    and policyname='katoptron_reporter_delete_withdrawn_photos'
+    and cmd='DELETE' and qual like '%withdrawn%'
+ ) then raise exception 'Withdrawn-report Storage API deletion policy absent';end if;
+end $qa$;
 do $qa$
 begin
  begin
