@@ -16,7 +16,8 @@ from collections import Counter
 from auto_verify_flock_agenda import api_request
 from discover_official import STATES, normalize_url, is_gov, search_provider
 from discover_government_gis_links import (
-    fetch_government_page, normalized_url, GIS_LINK, LINK_LABEL
+    fetch_government_page, normalized_url, GIS_LINK, LINK_LABEL,
+    original_disclosure_text
 )
 from government_domain_registry import public_dns
 
@@ -27,7 +28,7 @@ MAX_SECONDARY_VISITS=10
 SECONDARY_PER_GOV_PAGE=2
 GOV_MAP_LINK=re.compile(r'\b(flock|alpr|license plate|cameras?|gis|mapping)\b',re.I)
 SEARCHERS=("bing-rss","ddg-html")
-FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\b.{0,35}\balpr\b',re.I)
+FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\s+cameras?\b|\bflock\b.{0,35}\b(?:alpr|license[ -]plate)\b',re.I)
 CAMERAS=re.compile(r'\b(camera|license plate|alpr|lpr)\b',re.I)
 GIS_SERVICE=re.compile(r"/(?:MapServer|FeatureServer)/?\Z", re.I)
 
@@ -57,7 +58,7 @@ def gov_url(item):
 
 
 def page_candidate(page,label,query,html,hash_value):
-    content=" ".join(html.text)
+    content=original_disclosure_text(html)
     if not FLOCK.search(content) or not CAMERAS.search(content):
         return None
     found=[]
