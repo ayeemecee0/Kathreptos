@@ -103,11 +103,19 @@ window.__QA={reports,activity};
    await page.locator('#description').fill(
      'This intentionally fictional QA camera report tests private evidence intake and does not represent a real device.');
    await page.locator('#source').fill('https://example.org/mock-review-proof');
-   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+   const png=Buffer.from(await page.evaluate(()=>{
+     const canvas=document.createElement('canvas');canvas.width=2;canvas.height=2;
+     canvas.getContext('2d').fillRect(0,0,2,2);
+     return canvas.toDataURL('image/png').split(',')[1];
+   }),'base64');
    await page.locator('#photo').setInputFiles({name:'mock.png',mimeType:'image/png',buffer:png});
    await page.locator('#consent').check();
    await page.locator('#send').click();
-   await page.waitForFunction(()=>!!window.__QA?.activity?.uploaded?.length,{timeout:12000});
+   await page.waitForFunction(()=>!!window.__QA?.activity?.uploaded?.length ||
+      /Submission not accepted/.test(document.querySelector('#notice')?.textContent||''),
+      undefined,{timeout:12000});
+   if(!await page.evaluate(()=>!!window.__QA.activity.uploaded.length))
+      throw Error('Photo submission failed: '+await page.locator('#notice').textContent());
    const sent=await page.evaluate(()=>window.__QA.activity);
    assert.equal(sent.lastSubmission.publication_consent,false,
      'A new reporter should not consent to publication by default');
@@ -116,7 +124,7 @@ window.__QA={reports,activity};
    assert.ok(sent.uploaded[0].path.endsWith('/'+
      '33333333-cccc-4333-8333-333333333333/evidence.webp'));
    await page.locator('#myReports button').click();
-   await page.waitForFunction(()=>window.__QA.activity.withdrawn.length===1,{timeout:12000});
+   await page.waitForFunction(()=>window.__QA.activity.withdrawn.length===1,undefined,{timeout:12000});
    const withdrawn=await page.evaluate(()=>window.__QA.activity);
    assert.equal(withdrawn.deleted.length,1,'Withdrawn contributor evidence should be removed');
    assert.equal((await page.locator('#myReports').textContent()).includes('withdrawn'),true);
@@ -129,11 +137,11 @@ window.__QA={reports,activity};
    await page.locator('#workspace').waitFor({state:'visible',timeout:12000});
    assert.equal(await page.locator('#cases article').count(),1);
    await page.locator('#cases button').first().click();
-   await page.waitForFunction(()=>window.__QA.activity.signed.length===1,{timeout:12000});
+   await page.waitForFunction(()=>window.__QA.activity.signed.length===1,undefined,{timeout:12000});
    await page.locator('#cases textarea').fill(
       'This is a deliberately fictional QA reviewer assessment with an original source URL.');
    await page.getByRole('button',{name:'Reject'}).click();
-   await page.waitForFunction(()=>window.__QA.activity.reviewed.length===1,{timeout:12000});
+   await page.waitForFunction(()=>window.__QA.activity.reviewed.length===1,undefined,{timeout:12000});
    const reviewed=await page.evaluate(()=>window.__QA.activity.reviewed[0]);
    assert.equal(reviewed.p_status,'rejected');
    assert.ok(reviewed.p_note.length>=15,'Reviewer audit rationale was omitted');
