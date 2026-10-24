@@ -93,6 +93,7 @@
      <ol id="routeComparisonList" aria-label="Driving-route evidence comparison"></ol>
      <p class="micro">Each route is independently searched across its full corridor. Counts describe documented points within 120 meters of the road, not read range, detection likelihood, active cameras, or surveillance-free travel.</p>
    </section>
+   <p id="geoapifyAttribution" class="micro" hidden>Routing and geocoding <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Powered by Geoapify</a>. Map and road data © OpenStreetMap contributors.</p>
    <p id="providerStatus" class="micro" role="status">PROVIDER STATUS · Shared public routing/geocoding demos. Availability is not guaranteed and production hosting is not yet provisioned.</p>
    <p class="micro">Addresses are sent directly from your browser to external geocoding and routing services with no referrer or cookies. Katoptron does not store them. Failed requests never imply a surveillance-free route.</p>
   </section>
@@ -134,6 +135,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./route-geometry.js"></script>
 <script src="./routing-provider.js"></script>
+<script src="./geoapify-adapter.js"></script>
 <script src="./routing-routes.js"></script>
 <script src="./route-comparison.js"></script>
 <script src="./map.js"></script>
