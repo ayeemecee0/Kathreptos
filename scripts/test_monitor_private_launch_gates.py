@@ -27,7 +27,8 @@ class LaunchGates(unittest.TestCase):
     self.assertEqual(totals['first_party_agency_source_receipts'],1)
     self.assertEqual(totals['reviewed_first_party_source_approvals'],1)
     self.assertEqual(totals['direct_government_gis_receipts'],0)
-    self.assertEqual(set(totals),{x[0] for x in m.STAGES})
+    self.assertEqual(set(totals),{x[0] for x in m.STAGES}|{'stale_original_agency_publisher_receipts'})
+    self.assertEqual(totals['stale_original_agency_publisher_receipts'],0)
  def test_bucket_must_remain_private(self):
     for bad in ({**BUCKET,'public':True},{**BUCKET,'public':None},
                 {**BUCKET,'id':'other'}, {}, None):
