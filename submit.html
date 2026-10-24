@@ -88,6 +88,7 @@ $('authForm').addEventListener('submit',async event=>{
 });
 $('register').addEventListener('click',async()=>{
   if(!$('authForm').reportValidity())return;
+  if($('password').value.length<12){status('New accounts should use a password of at least 12 characters.');return;}
   const {error}=await client.auth.signUp({email:$('email').value.trim(),password:$('password').value,
     options:{emailRedirectTo:new URL('./submit.html',location.href).href}});
   status(error?'Registration failed: '+error.message:'Registration requested. Check your email if confirmation is required, then sign in.');
