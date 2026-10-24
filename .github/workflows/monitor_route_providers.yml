@@ -1,0 +1,37 @@
+name: Monitor routing and geocoding service health
+on:
+  schedule:
+    - cron: '35 15 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'config.js'
+      - 'routing-provider.js'
+      - 'scripts/monitor_route_providers.py'
+      - 'scripts/test_monitor_route_providers.py'
+      - '.github/workflows/monitor_route_providers.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-public-routing-health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate health-check input and privacy regressions
+        run: python -m unittest discover -s scripts -p 'test_monitor_route_providers.py' -v
+      - name: Probe fixed public US routing and geocoding samples
+        run: python scripts/monitor_route_providers.py
