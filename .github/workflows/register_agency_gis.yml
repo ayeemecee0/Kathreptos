@@ -13,6 +13,8 @@ on:
       - 'supabase/migrations/082_agency_arcgis_objectid_casefold.sql'
       - 'scripts/test_first_party_agency_source_registration.sql'
       - 'supabase/migrations/083_reviewed_first_party_agency_registry.sql'
+      - 'supabase/migrations/084_first_party_gis_recheck_receipts.sql'
+      - 'scripts/test_first_party_agency_gis_rechecks.sql'
       - 'scripts/test_reviewed_first_party_agency_registry.sql'
       - '.github/workflows/register_agency_gis.yml'
 
