@@ -10,6 +10,7 @@ const mockSdk=String.raw`
 const reviewerMode=location.pathname.includes('community-review.html');
 const followupMode=location.search.includes('scenario=followup');
 const staleMode=location.search.includes('scenario=stale');
+const retryMode=location.search.includes('scenario=retrydelete');
 const contributor={id:'11111111-aaaa-4111-8111-111111111111',email:'qa.contributor@example.invalid'};
 const reviewer={id:'22222222-bbbb-4222-8222-222222222222',email:'qa.reviewer@example.invalid'};
 const id='33333333-cccc-4333-8333-333333333333';
@@ -23,8 +24,11 @@ const reports=reviewerMode?
    original_source_url:'https://example.org/mock-review-proof'}]:
  followupMode?
  [{submission_id:id,created_at:'2026-10-23T12:00:00Z',
-   report_status:'needs_evidence',observed_on:null}]:[];
-const activity={uploaded:[],deleted:[],signed:[],reviewed:[],withdrawn:[],lastSubmission:null};
+   report_status:'needs_evidence',observed_on:null}]:
+ retryMode?
+ [{submission_id:id,created_at:'2026-10-23T12:00:00Z',
+   report_status:'withdrawn',observed_on:null}]:[];
+const activity={uploaded:[],deleted:[],signed:[],reviewed:[],withdrawn:[],lastSubmission:null,deleteAttempts:0};
 function signal(){for(const cb of onAuth)cb('SIGNED_IN',session);}
 const auth={
  getSession:async()=>({data:{session},error:null}),
@@ -83,8 +87,13 @@ const api={
     upload:async(path,file,options)=>{
       activity.uploaded.push({path,size:file.size,mime:file.type,options});return{data:{path},error:null};
     },
-    list:async()=>({data:[{name:'evidence.webp'}],error:null}),
-    remove:async(paths)=>{activity.deleted.push(...paths);return{data:paths,error:null}},
+    list:async()=>({data:activity.deleted.length?[]:[{name:'evidence.webp'}],error:null}),
+    remove:async(paths)=>{
+      activity.deleteAttempts++;
+      if(retryMode&&activity.deleteAttempts===1)
+        return{data:null,error:{message:'Synthetic temporary network interruption'}};
+      activity.deleted.push(...paths);return{data:paths,error:null};
+    },
     createSignedUrl:async(path,seconds)=>{
       activity.signed.push({path,seconds});
       return{data:{signedUrl:'https://example.invalid/private-photo?mock=1'},error:null};
@@ -153,7 +162,28 @@ window.__QA={reports,activity};
    const withdrawn=await page.evaluate(()=>window.__QA.activity);
    assert.equal(withdrawn.deleted.length,1,'Withdrawn contributor evidence should be removed');
    assert.equal((await page.locator('#myReports').textContent()).includes('withdrawn'),true);
+   assert.equal(await page.getByRole('button',{name:/Retry private photo deletion/}).count(),1,
+      'Withdrawn contributor must retain ability to retry photo cleanup');
    console.log('MOCK CONTRIBUTOR PASS: sign-in, submission, private image recode/upload, default consent, withdraw and photo cleanup');
+   await page.goto(new URL('submit.html?scenario=retrydelete',base).href,{waitUntil:'load'});
+   await page.locator('#email').fill('qa.contributor@example.invalid');
+   await page.locator('#password').fill('another-safe-mock-password');
+   await page.locator('#authForm button[type=submit]').click();
+   await page.locator('#reportPanel').waitFor({state:'visible',timeout:12000});
+   const cleanup=page.getByRole('button',{name:/Retry private photo deletion/});
+   await cleanup.click();
+   await page.waitForFunction(()=>/Could not confirm photo deletion/.test(
+      document.querySelector('#notice')?.textContent||''),undefined,{timeout:12000});
+   assert.equal(await page.evaluate(()=>window.__QA.activity.deleted.length),0,
+      'A failed private Storage deletion must never be reported as successful');
+   await cleanup.click();
+   await page.waitForFunction(()=>/Private photo deletion confirmed/.test(
+      document.querySelector('#notice')?.textContent||''),undefined,{timeout:12000});
+   assert.equal(await page.evaluate(()=>window.__QA.activity.deleted.length),1);
+   await cleanup.click();
+   await page.waitForFunction(()=>/No private photos remain/.test(
+      document.querySelector('#notice')?.textContent||''),undefined,{timeout:12000});
+   console.log('MOCK PHOTO CLEANUP RETRY PASS: withdrawal survives failed Storage deletion and owner retries safely');
    await page.goto(new URL('submit.html?scenario=followup',base).href,{waitUntil:'load'});
    await page.locator('#email').fill('qa.contributor@example.invalid');
    await page.locator('#password').fill('another-safe-mock-password');
