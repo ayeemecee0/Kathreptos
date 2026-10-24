@@ -24,6 +24,20 @@ class GovernmentCrawler(unittest.TestCase):
   self.assertFalse(d.gis_candidate_links(self.document(
     '<a href="https://gis.city.example.gov/foo/FeatureServer/0">Flock cameras</a>'),
     PAGE,'city.example.gov','government_page_direct_anchor_v1','City Example, ST','b'*64))
+ def test_plain_flock_cameras_government_prose_is_eligible_for_private_lead(self):
+  page=self.document('<h1>City police Flock cameras</h1>'
+      '<p>Our license plate readers are used for public safety.</p>'
+      '<a href="https://gis.city.example.gov/a/MapServer/3">Flock GIS camera map</a>')
+  rows=d.gis_candidate_links(page,PAGE,'city.example.gov',
+      'government_page_direct_anchor_v1','City Example, ST','a'*64)
+  self.assertEqual(len(rows),1)
+  self.assertTrue(d.original_camera_disclosure(page))
+ def test_link_text_only_is_not_original_flock_program_evidence(self):
+  doc=self.document('<h2>General municipal GIS links</h2>'
+       '<a href="https://gis.city.example.gov/a/MapServer/3">Flock cameras</a>')
+  self.assertFalse(d.original_camera_disclosure(doc))
+  self.assertEqual(d.gis_candidate_links(doc,PAGE,'city.example.gov',
+      'government_page_direct_anchor_v1','City Example, ST','a'*64),[])
  def test_external_and_javascript_pages_not_followed(self):
   p=self.document(HTML+'<a href="javascript:alert(1)">Flock GIS map</a>')
   pages=d.same_site_page_links(p,PAGE,'city.example.gov')
