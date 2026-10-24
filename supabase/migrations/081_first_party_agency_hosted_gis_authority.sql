@@ -56,10 +56,10 @@ begin
      or candidate.layer_name<>p_layer_name
      or p_layer_name !~* '^flock[_ ]cameras$'
      or candidate.public_gov_context_url<>page
-     or p_camera_id_field not in ('OBJECTID','CameraID','Camera_ID','NAME','ID','CameraNo','CameraNumber')
+     or lower(p_camera_id_field) not in ('objectid','cameraid','camera_id','name','id','camerano','cameranumber')
      or p_identity_basis not in ('arcgis_typed_objectid','named_camera_id')
-     or (p_identity_basis='arcgis_typed_objectid' and p_camera_id_field<>'OBJECTID')
-     or (p_identity_basis='named_camera_id' and p_camera_id_field='OBJECTID')
+     or (p_identity_basis='arcgis_typed_objectid' and lower(p_camera_id_field)<>'objectid')
+     or (p_identity_basis='named_camera_id' and lower(p_camera_id_field)='objectid')
      or p_page_sha256 !~ '^[a-f0-9]{64}$'
      or p_layer_sha256 !~ '^[a-f0-9]{64}$'
      or exists(select 1 from public.trusted_flock_gis_sources
