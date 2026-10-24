@@ -6,8 +6,10 @@ window.KATOPTRON_CONFIG = Object.freeze({
   // managed Photon and OSRM services. Never embed provider API secrets here.
   geocodingServiceBase: 'https://photon.komoot.io',
   routingServiceBase: 'https://router.project-osrm.org',
-  // Free Geoapify browser key, restricted to Katoptron's GitHub Pages origin.
-  // This key is PUBLIC by design; never add provider account secrets here.
+  // Geoapify BROWSER-PUBLIC key: no secret is intended here.
+  // Its origin/referrer restrictions are NOT independently confirmed. Verify
+  // account-side key restrictions and quotas before any production launch.
+  // Never add a secret or unrestricted private server key to this file.
   locationProvider: 'geoapify',
   geoapifyPublicKey: '8c54de2386764931baa0f9aef9033ef3'
 });
