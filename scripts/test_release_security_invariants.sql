@@ -49,6 +49,29 @@ begin
  end if;
 end
 $audit$;
+-- The only anonymously executable public SECURITY DEFINER RPCs are read-only,
+-- source-verification booleans required by the map's published views.
+-- Introducing any new anon privileged RPC requires security review.
+do $readonly$
+declare p record;
+begin
+ for p in
+  select oid::regprocedure::text as signature, proname,provolatile,prorettype,
+     oid, proconfig
+   from pg_proc
+   where pronamespace='public'::regnamespace
+     and prosecdef and has_function_privilege('anon',oid,'EXECUTE')
+ loop
+   if p.proname not in ('gis_camera_authority_current',
+     'is_current_flock_polygon_camera_gis_source',
+     'is_current_government_document_url','official_flock_area_source_is_current')
+     or p.provolatile<>'s'
+     or p.prorettype<>'boolean'::regtype
+     or not (p.proconfig @> array['search_path=""']::text[]) then
+     raise exception 'Unexpected anonymous privileged function: %',p.signature;
+   end if;
+ end loop;
+end $readonly$;
 -- Reconcile the public map solely to independently source-verified records.
 begin;set local role anon;
 do $anon$
