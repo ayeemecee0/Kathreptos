@@ -915,7 +915,7 @@
       }
     }
     if(cached.candidates.length===1)return cached.candidates[0];
-    if(!/^\\d+$/.test(select.value))return null;
+    if(!/^\d+$/.test(select.value))return null;
     const index=Number(select.value);
     return cached.candidates[index]||null;
   }
