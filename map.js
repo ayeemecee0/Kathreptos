@@ -720,7 +720,7 @@
       const point=[a[0]+close.fraction*(b[0]-a[0]),
         a[1]+close.fraction*(b[1]-a[1])];
       observations.push({kind:'verified',name:row.label,progress:close.progress,
-        point,source:row.source_url});
+        point,source:row.source_url,sourceFreshness:sourceFreshness(row)});
     }
     const possibleAreas = state.routeRecords.filter(row =>
       row.location_accuracy === 'approximate' &&
@@ -739,7 +739,15 @@
     setText('timelineBadge',observations.length+' MODELED EVENTS');
     const areaNote = possibleAreas ?
       String(possibleAreas)+' approximate mapped area(s) intersect the journey; no camera sighting is inferred there. ' : '';
-    setText('timelineIntro',areaNote+'Potential events are estimates only. '+String(found)+
+    const overdue=observations.filter(x=>x.kind==='verified' &&
+      x.sourceFreshness==='overdue').length;
+    const unknown=observations.filter(x=>x.kind==='verified' &&
+      x.sourceFreshness==='unknown').length;
+    const sourceNote=(overdue||unknown)
+      ? String(overdue)+' nearby point source(s) overdue for GIS recheck and '+
+        String(unknown)+' with unknown check freshness. Their present-day placement is not established. '
+      : '';
+    setText('timelineIntro',areaNote+sourceNote+'Potential events are estimates only. '+String(found)+
       ' documented exact point(s) lie within a hypothetical 120 m proximity band (NOT a camera read-range claim).'+
       ($('hypothetical').checked?' Three wholly fictional sample observations are also shown.':''));
     renderTimeline();
@@ -761,7 +769,11 @@
       bold.textContent=formatMinutes(mins)+' · '+(event.kind==='verified'?'Potential camera proximity':'Fictional sample');
       const sub=document.createElement('small');
       sub.textContent=event.kind==='verified'
-        ?event.name+' · Synthetic observation only; detection NOT verified'
+        ?event.name+' · Synthetic observation only; detection NOT verified'+
+          (event.sourceFreshness==='recent'
+            ?' · source rechecked within 72h'
+            :' · camera location may be outdated; GIS source check '+
+              (event.sourceFreshness==='overdue'?'overdue':'freshness unknown'))
         :'Not a documented camera location or real detection';
       li.append(bold,sub);$('timelineEvents').append(li);
     }
@@ -803,8 +815,11 @@
       const color=event.kind==='verified'?'#51d9be':'#da86db';
       L.circleMarker(event.point,{radius:10,color:'#ffffff',weight:2,
         fillColor:color,fillOpacity:.9}).bindPopup(
-          event.kind==='verified'?'Modeled sighting at a documented location':
-          'Wholly hypothetical sample sighting').addTo(state.simLayer);
+          event.kind==='verified'
+            ?'Modeled proximity only. '+(event.sourceFreshness==='recent'
+              ?'Original GIS recently checked; actual detection is unknown.'
+              :'Original GIS freshness uncertain; camera position may have changed.')
+            :'Wholly hypothetical sample sighting').addTo(state.simLayer);
       renderTimeline(idx);
     }
     frame();
