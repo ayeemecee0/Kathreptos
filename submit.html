@@ -107,7 +107,7 @@ async function syncSession(){
 // provider, or persist a contributor's still-private camera location.
 $('applyCoordinates').addEventListener('click',()=>{
   const raw=$('coordinates').value.trim();
-  const match=raw.match(/^([+-]?(?:\\d{1,2})(?:\\.\\d+)?),\\s*([+-]?(?:\\d{1,3})(?:\\.\\d+)?)$/);
+  const match=raw.match(/^([+-]?(?:\d{1,2})(?:\.\d+)?),\s*([+-]?(?:\d{1,3})(?:\.\d+)?)$/);
   if(!match){
     $('coordinateHelp').textContent='Use two decimal numbers separated by a comma, like 38.5816, -121.4944.';
     return;
