@@ -26,6 +26,7 @@ FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\b.{0,40}\balpr\b',re.I)
 GIS_LINK=re.compile(r'/(?:FeatureServer|MapServer)/\d+/?$',re.I)
 LINK_LABEL=re.compile(r'\b(flock|alpr|cameras?|gis|map|location)\b',re.I)
 WORTH_FOLLOWING=re.compile(r'\b(flock|alpr|camera|mapping)\b',re.I)
+CAMERAS=re.compile(r'\b(camera|license plate|alpr|lpr)\b',re.I)
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -178,6 +179,54 @@ def stage(rows):
             raise ValueError('Unexpected private government GIS link insertion receipt')
 
 
+def same_original_gov_apex(page,layer):
+    """Exact .gov-to-.gov GIS trust boundary, without importing verifier IO."""
+    p=urllib.parse.urlsplit(page)
+    l=urllib.parse.urlsplit(layer)
+    if (p.scheme!='https' or l.scheme!='https' or
+        p.username or p.password or l.username or l.password or
+        p.port is not None or l.port is not None or
+        l.query or l.fragment or not p.hostname or not l.hostname or
+        not GIS_LINK.search(l.path)):
+        return False
+    first=p.hostname.lower().split('.')
+    second=l.hostname.lower().split('.')
+    return (len(first)>=3 and len(second)>=3 and
+            first[-1]==second[-1]=='gov' and first[-2:]==second[-2:])
+
+
+def stage_same_gov_flock_page(item):
+    """Queue only original evidence, preserving the existing restricted RPC.
+
+    This intentionally avoids importing the national search worker (and its
+    optional feedparser dependency) into a single-purpose GIS workflow.
+    """
+    lookup='government_gis_search_queue?'+urllib.parse.urlencode({
+        'select':'page_sha256,gis_links',
+        'page_url':'eq.'+item['page_url'],'limit':'2'})
+    rows=api_request(lookup)
+    if not isinstance(rows,list) or len(rows)>1:
+        raise ValueError('Original government GIS queue ambiguous')
+    if rows:
+        previous=rows[0].get('page_sha256')
+        if not isinstance(previous,str) or not re.fullmatch('[a-f0-9]{64}',previous):
+            raise ValueError('Original government GIS page digest invalid')
+        receipt=api_request('rpc/refresh_original_government_gis_search_lead',
+          method='POST',payload={
+              'p_page_url':item['page_url'],
+              'p_expected_previous_sha':previous,
+              'p_current_page_sha':item['page_sha256'],
+              'p_gis_links':item['gis_links']})
+        if receipt is not True:
+            raise ValueError('Original government GIS refresh refused')
+    else:
+        receipt=api_request('government_gis_search_queue?on_conflict=page_url',
+            method='POST',payload=[item],
+            prefer='resolution=ignore-duplicates,return=minimal')
+        if receipt is not None:
+            raise ValueError('Unexpected original government GIS queue receipt')
+
+
 def scan(dry_run=False):
     approved=load_approved_domains()
     seeds,trusted=get_seed_pages(approved)
@@ -209,13 +258,11 @@ def scan(dry_run=False):
                 # links may enter the existing nationwide GIS queue. A
                 # custom-domain or external Esri layer remains a private
                 # investigation lead, never an automatic government root.
-                from auto_register_original_gov_gis import same_gov_apex
-                from discover_nationwide_gis import CAMERAS
                 if (items and urllib.parse.urlsplit(url).hostname.endswith('.gov')
                     and FLOCK.search(' '.join(doc.text)[:MAX_BYTES])
                     and CAMERAS.search(' '.join(doc.text)[:MAX_BYTES])):
                     direct=sorted({row['gis_layer_url'] for row in items
-                                   if same_gov_apex(url,row['gis_layer_url'])})
+                                   if same_original_gov_apex(url,row['gis_layer_url'])})
                     if direct:
                         excerpt=' '.join(' '.join(doc.text).split())[:580]
                         queue_pages[url]={
@@ -236,9 +283,8 @@ def scan(dry_run=False):
     if not dry_run and queue_pages:
         # Use nationwide queue's existing owner-restricted insert/refresh RPC;
         # the verifier still re-fetches the source and checks all camera IDs.
-        from discover_nationwide_gis import stage as stage_original_page
         for item in queue_pages.values():
-            stage_original_page(item)
+            stage_same_gov_flock_page(item)
     counters['original_gov_pages_queued']=len(queue_pages)
     counters['gis_links_found']=len(candidates)
     counters['submitted']=0 if dry_run else len(candidates)
