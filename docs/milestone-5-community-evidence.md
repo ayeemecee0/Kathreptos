@@ -11,11 +11,12 @@ Updated 2026-10-23.
 - Screening: private approximate-coordinate lookup for nearby reports or existing verified points; does not publish a claim or assign calibrated probability.
 - Approved reviewer access: `community-review.html`, reviewer allowlist, private queue, short-lived attachment URLs, required decision rationale, audited actions. A reviewer's `incorporated` decision means private research incorporation, **not** official verification.
 - Contributor access: own status history and withdrawal. Withdrawal/rejection revokes the related source attestation and staged point. The browser attempts to erase the contributor's Storage photo objects after withdrawal.
+- Public publication consent: separate optional contributor consent is false by default. The tiered evidence public predicate excludes community-derived cases unless the contributor authorized publication and the review state is incorporated. No account identity is ever made public.
 - Public separation: no anonymous grants on submission/triage/audit tables, no contributor approval grants, no change to the 275 original canonical cameras. Existing evidence-reconciliation rules must still independently validate evidence before any publication.
 
 ## Implemented migrations
 
-`060` through `068` under `supabase/migrations/`. All nine migrations were applied to the Katoptron Supabase project.
+`060` through `068` under `supabase/migrations/`. All ten migrations were applied to the Katoptron Supabase project.
 
 ## Verified production database checks
 
@@ -35,7 +36,7 @@ Updated 2026-10-23.
 ## Release acceptance not yet confirmed
 
 - GitHub Actions/Pages latest run conclusion has not been read. Committing code does not itself prove the Pages deployment passed.
-- Authenticated browser end-to-end proof of signup, actual photo storage, approved reviewer access, and private photo withdrawal has not been performed; completing this requires test credentials in a permitted environment. Do not use a private owner password in source code.
+- Authenticated browser end-to-end proof of signup, actual photo storage, approved reviewer access, private photo withdrawal and publication-consent handling has not been performed; completing this requires test credentials in a permitted environment. Do not use a private owner password in source code.
 - Image moderation is based on user consent and client-side metadata stripping, **not** automatic detection of faces, plate numbers or personal information.
 - Existing organization-wide Supabase security-advisor warnings should be reviewed separately before a high-traffic launch.
 
