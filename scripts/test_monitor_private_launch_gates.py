@@ -15,9 +15,10 @@ def safe_fetch(method,url,key):
     assert 'limit=1' in url
     assert 'select=' in url
     # Exact count is a header, not a download of any candidate row.
+    if '/first_party_agency_gis_receipts?' in url:
+        return '*/0' if 'confirmed_at=lt.' in url else '0-0/1'
     return ('0-0/293' if '/flock_camera_locations?' in url else
-            '0-0/1' if ('/first_party_agency_gis_receipts?' in url or
-                         '/reviewed_first_party_gis_roots?' in url) else '*/0')
+            '0-0/1' if '/reviewed_first_party_gis_roots?' in url else '*/0')
 
 class LaunchGates(unittest.TestCase):
  def test_private_bucket_and_aggregate_counts_pass(self):
@@ -53,6 +54,13 @@ class LaunchGates(unittest.TestCase):
     for key in ('','sb_publishable_NOT_SERVER_KEY','abc'):
         with self.assertRaises(ValueError):
             m.tally(key,safe_fetch)
+ def test_stale_original_publisher_receipts_cannot_appear_healthy(self):
+    def stale(method,url,key):
+        if method=='HEAD' and '/first_party_agency_gis_receipts?' in url and 'confirmed_at=lt.' in url:
+            return '0-0/1'
+        return safe_fetch(method,url,key)
+    with self.assertRaisesRegex(ValueError,'21-day recheck deadline'):
+        m.tally(KEY,stale)
  def test_live_drop_must_stop_release(self):
     def dropped(method,url,key):
         if method=='HEAD' and '/flock_camera_locations?' in url:
