@@ -99,6 +99,48 @@ def government_gis_json(url):
     return parsed_json
 
 
+
+def valid_simple_ring(ring):
+    """Reject empty, self-crossing and self-touching published boundaries."""
+    vertices = [tuple(point) for point in ring[:-1]]
+    if len(vertices) < 3 or len(set(vertices)) != len(vertices):
+        return False
+    twice_area = sum(
+        vertices[i][0] * vertices[(i + 1) % len(vertices)][1]
+        - vertices[(i + 1) % len(vertices)][0] * vertices[i][1]
+        for i in range(len(vertices))
+    )
+    if abs(twice_area) <= 1e-12:
+        return False
+
+    def orient(a, b, c):
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+    def on_segment(a, b, c):
+        return (min(a[0], b[0]) <= c[0] <= max(a[0], b[0])
+                and min(a[1], b[1]) <= c[1] <= max(a[1], b[1]))
+
+    def intersects(a, b, c, d):
+        o1, o2 = orient(a, b, c), orient(a, b, d)
+        o3, o4 = orient(c, d, a), orient(c, d, b)
+        if (o1 > 0) != (o2 > 0) and (o3 > 0) != (o4 > 0):
+            return True
+        return ((o1 == 0 and on_segment(a, b, c))
+                or (o2 == 0 and on_segment(a, b, d))
+                or (o3 == 0 and on_segment(c, d, a))
+                or (o4 == 0 and on_segment(c, d, b)))
+
+    n = len(vertices)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if j == i + 1 or (i == 0 and j == n - 1):
+                continue  # Neighboring segments legitimately share endpoints.
+            if intersects(vertices[i], vertices[(i + 1) % n],
+                          vertices[j], vertices[(j + 1) % n]):
+                return False
+    return True
+
+
 def original_polygon_payloads(prog,url,page_hash):
     layer=government_gis_json(url+'?f=json')
     if (not POLYGON.fullmatch(str(layer.get('name') or ''))
@@ -150,6 +192,8 @@ def original_polygon_payloads(prog,url,page_hash):
                    all(type(n) in (float,int) for n in pt) and
                    -180<=pt[0]<=-64 and 17<=pt[1]<=72 for pt in ring):
             raise ValueError('Original government polygon coordinate invalid')
+        if not valid_simple_ring(ring):
+            raise ValueError('Original government polygon is degenerate or self-intersecting')
         digest=hashlib.sha256(json.dumps({
             'programme':prog['program_key'],'url':url,'oid':oid,'ring':ring
         },sort_keys=True,separators=(',',':')).encode()).hexdigest()
