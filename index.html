@@ -23,7 +23,7 @@
 <main class="workspace">
  <aside class="sidebar">
   <div class="sidebar-top"><span class="eyebrow">THE NETWORK</span><h1>See what's documented.<br><em>Explore what it could reveal.</em></h1>
-  <p>A US-wide map for source-verified Flock Safety camera locations. Missing records mean unknown coverage, not an absence of surveillance.</p></div>
+  <p>A US-wide map for source-verified Flock Safety camera locations. Missing records mean unknown coverage, not an absence of surveillance.</p><a class="mobile-map-link" href="#map">Jump to live camera map ↓</a></div>
   <section class="sidebar-section" aria-labelledby="coverage-heading">
     <div class="section-heading"><h2 id="coverage-heading">Camera coverage</h2><span id="coverageSpinner" class="muted tiny">Loading…</span></div>
     <div class="stats"><div><strong id="exactCount">—</strong><span>Exact camera pins in view</span></div><div><strong id="areaCount">—</strong><span>Approximate areas in view</span></div></div>
@@ -97,7 +97,7 @@
       <div><strong>UNITED STATES · CAMERA INTELLIGENCE</strong><small id="mapLabel">Nationwide view · Camera inventory incomplete</small></div>
       <div class="map-actions"><button id="national" type="button">⌖ Nationwide</button><a href="./records.html">View source records ↗</a></div>
    </div>
-   <div id="map" role="application" aria-label="Interactive United States road map with evidence-based ALPR information"></div>
+   <div id="map" tabindex="-1" role="application" aria-label="Interactive United States road map with evidence-based ALPR information"></div>
    <div class="legend" aria-label="Map legend">
       <span><i class="legend-dot exact"></i> Verified location</span>
       <span><i class="legend-dot approx"></i> Approximate area</span>
