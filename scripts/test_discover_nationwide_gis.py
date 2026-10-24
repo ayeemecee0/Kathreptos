@@ -12,6 +12,16 @@ class National(unittest.TestCase):
    plan=d.query_plan(dt.datetime(2026,1,day,tzinfo=dt.timezone.utc))
    states.update(x for x,_ in plan if x!='National')
   self.assertEqual(len(states),50)
+ def test_state_search_reuses_geography_but_rotates_flock_phrase(self):
+  import datetime as dt
+  first=d.query_plan(dt.datetime(2026,1,1,tzinfo=dt.timezone.utc))
+  another=d.query_plan(dt.datetime(2026,1,11,tzinfo=dt.timezone.utc))
+  self.assertEqual({name for name,_ in first if name!='National'},
+                   {name for name,_ in another if name!='National'})
+  first_q=' '.join(q for name,q in first if name!='National')
+  next_q=' '.join(q for name,q in another if name!='National')
+  self.assertNotEqual(first_q,next_q)
+  self.assertTrue(('Flock cameras' in first_q) != ('Flock cameras' in next_q))
  def test_only_original_government_urls(self):
   self.assertIsNone(d.gov_url("https://example.com/notice"))
   self.assertIsNone(d.gov_url("http://city.example.gov/notice"))
