@@ -2,6 +2,15 @@
 
 Katoptron is a **nationwide Flock Safety camera-map and route-surveillance education project**. Its primary product combines an evidence-backed map, an optional planned-driving-route simulator, and separately linked government records. The map NEVER invents camera coordinates: exact pins and approximate areas require distinct source verification. All simulated detections are hypothetical; the site never accesses private Flock plate reads or tracks actual vehicles. The legacy synthetic simulator remains available separately.
 
+## Milestone 5: Community evidence submissions (October 23, 2026)
+
+- [Report possible Flock cameras](./submit.html): signed-in intake, evidence URLs, dates and optional metadata-stripped private images, limited to three reports per contributor per 24-hour bucket.
+- [Private reviewer dashboard](./community-review.html): allowlisted editorial reviewers inspect private screening matches, photos and supporting URLs, with written and audited reviewer outcomes.
+- **Automatically staged does not mean verified.** Eligible report details enter the separate private candidate queue only; no new report can certify itself, enter canonical verified counts or appear publicly without separately qualifying reviewed evidence.
+- Contributors can inspect their own report history, withdraw reports and request attached-photo deletion. Rejection or withdrawal revokes linked case evidence.
+- Public publication permission is separately requested and **off by default**. Public case eligibility still checks independent evidence provenance and review status.
+- [Milestone 5 release details](./docs/milestone-5-community-evidence.md) record production schema tests and the remaining credentialed-browser and Pages-deployment acceptance gates.
+
 ## Current project status
 
 - **Primary public experience:** [Nationwide camera map and route simulator](https://ayeemecee0.github.io/Katoptron/) is the homepage. Search arbitrary US start and destination points, display real roads from a public routing demo, inspect any published evidence-backed camera pins or uncertainty areas, and optionally replay clearly distinguished synthetic potential sightings.
