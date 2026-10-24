@@ -407,7 +407,7 @@
     });
     query.append('latitude','lte.'+bounds.north.toFixed(6));
     query.append('longitude','lte.'+bounds.east.toFixed(6));
-    return CFG.supabaseUrl.replace(/\\/$/,'')+
+    return CFG.supabaseUrl.replace(/\/$/,'')+
       '/rest/v1/flock_public_tiered_camera_points?'+query.toString();
   }
   async function tieredRows(bounds,signal) {
