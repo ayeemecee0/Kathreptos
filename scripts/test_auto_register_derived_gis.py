@@ -18,6 +18,7 @@ C={"gis_layer_url":"https://gisservices.elpasoco.com/arcgis2/rest/services/Sheri
 L={"name":"Flock_Cameras","type":"Feature Layer","geometryType":"esriGeometryPoint",
    "fields":[{"name":"OBJECTID","type":"esriFieldTypeOID"},{"name":"NAME","type":"esriFieldTypeString"}]}
 S={"layers":[{"id":1,"name":"Flock_Cameras"}]}
+IDS={"objectIdFieldName":"OBJECTID","objectIds":[5]}
 Q={"features":[{"attributes":{"OBJECTID":5,"NAME":"Flock 5"},
                 "geometry":{"x":-104.8,"y":38.9}}]}
 class Derivation(unittest.TestCase):
@@ -30,7 +31,7 @@ class Derivation(unittest.TestCase):
    [{**P,"government_evidence_url":"https://evil.example/fake"}],[R],[C]]):
    with self.assertRaises(ValueError):list(v.discovery_inputs())
  def test_original_gis_schema_and_bounded_points(self):
-  with patch.object(v,"get_official_json",side_effect=[S,L,Q]):
+  with patch.object(v,"get_official_json",side_effect=[S,L,IDS,Q,IDS]):
    proof=v.verify_layer(P,R,C)
   self.assertEqual(proof["p_locations"],[{"id":5,"lat":38.9,"lon":-104.8}])
   self.assertTrue(proof["p_source_key"].startswith("gis_elpaso_co_"))
@@ -38,8 +39,26 @@ class Derivation(unittest.TestCase):
   for data in ({"features":[]},
     {"features":[{"attributes":{"OBJECTID":5,"NAME":""},"geometry":{"x":-104.8,"y":38.9}}]},
     {"features":[{"attributes":{"OBJECTID":5,"NAME":"Flock"},"geometry":{"x":0,"y":38.9}}]}):
-   with patch.object(v,"get_official_json",side_effect=[S,L,data]):
+   with patch.object(v,"get_official_json",side_effect=[S,L,IDS,data,IDS]):
     with self.assertRaises(ValueError):v.verify_layer(P,R,C)
+ def test_partial_or_mutating_original_camera_id_inventory_held(self):
+  for responses in (
+    [S,L,{"objectIds":[5,6]},Q,IDS],
+    [S,L,IDS,Q,{"objectIds":[5,6]}],
+    [S,L,{"objectIds":[5,5]},Q,IDS],
+    [S,L,IDS,{"features":[]},IDS]):
+   with self.subTest(case=responses):
+    with patch.object(v,"get_official_json",side_effect=responses):
+     with self.assertRaises(ValueError):v.verify_layer(P,R,C)
+ def test_complete_inventory_is_explicitly_fetched_twice(self):
+  queries=[]
+  def get(url):
+   queries.append(url)
+   return [S,L,IDS,Q,IDS][len(queries)-1]
+  with patch.object(v,"get_official_json",side_effect=get):
+   v.verify_layer(P,R,C)
+  self.assertEqual(sum("returnIdsOnly=true" in u for u in queries),2)
+  self.assertTrue(any("objectIds=5" in u for u in queries))
  def test_offsite_gis_source_cannot_be_promoted(self):
   with patch.object(v,"get_official_json") as read:
    with self.assertRaises(ValueError):
