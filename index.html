@@ -74,7 +74,13 @@
    <div class="section-heading"><h2 id="route-heading">Plan a route</h2><span class="stage">01 / SIMULATE</span></div>
    <form id="routeForm">
      <label for="from">START LOCATION</label><input id="from" name="from" autocomplete="street-address" maxlength="160" placeholder="City, address, or lat,lon" required>
+     <label for="fromMatch" class="geocode-choice" id="fromMatchLabel">CHOOSE START MATCH
+       <select id="fromMatch" aria-label="Select matching US start location" disabled hidden></select>
+     </label>
      <label for="to">DESTINATION</label><input id="to" name="to" autocomplete="off" maxlength="160" placeholder="City, address, or lat,lon" required>
+     <label for="toMatch" class="geocode-choice" id="toMatchLabel">CHOOSE DESTINATION MATCH
+       <select id="toMatch" aria-label="Select matching US destination" disabled hidden></select>
+     </label>
      <button class="main-button" type="submit" id="planRoute">Calculate driving route <span aria-hidden="true">↗</span></button>
    </form>
    <button class="text-button" id="sampleRoute" type="button">Try Sacramento → Folsom example</button>
