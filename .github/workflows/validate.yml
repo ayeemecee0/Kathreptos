@@ -798,4 +798,6 @@ jobs:
         run: |
           node --check route-geometry.js
           node --check map.js
+          node --check routing-routes.js
+          node scripts/test_routing_routes.js
           node scripts/test_route_geometry.js
