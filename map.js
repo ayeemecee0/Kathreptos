@@ -6,6 +6,7 @@
   const CFG = window.KATOPTRON_CONFIG;
   const Geo = window.KatoptronRouteGeometry;
   const Routing = window.KatoptronRouting;
+  const Geoapify = window.KatoptronGeoapify;
   const Provider = window.KatoptronProvider;
   const providerClient = Provider?.client();
   const Comparison = window.KatoptronRouteComparison;
@@ -855,9 +856,13 @@
     const wait=Math.max(0,1100-(Date.now()-state.lastGeocodeAt));
     if(wait)await sleep(wait);
     state.lastGeocodeAt=Date.now();
-    const url=providerBase(CFG.geocodingServiceBase,
-      'https://photon.komoot.io')+'/api/?limit=5&lang=en&q='+encodeURIComponent(q);
-    const data=await getJson(url,13000,'geocoding',signal);
+    const useFree=CFG.locationProvider==='geoapify';
+    if(useFree&&!Geoapify)throw new Error('Geoapify adapter unavailable');
+    const url=useFree?Geoapify.geocodeUrl(q,CFG)
+      :providerBase(CFG.geocodingServiceBase,'https://photon.komoot.io')+
+        '/api/?limit=5&lang=en&q='+encodeURIComponent(q);
+    const response=await getJson(url,13000,'geocoding',signal);
+    const data=useFree?Geoapify.geocodeAsPhoton(response):response;
     if(!Array.isArray(data?.features))
       throw new Error('Geocoding service returned malformed results.');
     const results=[];
@@ -921,13 +926,26 @@
     return cached.candidates[index]||null;
   }
   async function routing(from,to,signal) {
-    const a = from.point, b = to.point;
-    const path = String(a[1]) + ',' + String(a[0]) + ';' + String(b[1]) + ',' + String(b[0]);
-    const url = providerBase(CFG.routingServiceBase,
-      'https://router.project-osrm.org')+'/route/v1/driving/' + path +
-      '?overview=full&geometries=geojson&steps=false&alternatives=true';
-    const data = await getJson(url,22000,'routing',signal);
     if(!Routing)throw new Error('Routing verification library unavailable');
+    if(CFG.locationProvider==='geoapify') {
+      if(!Geoapify)throw new Error('Geoapify adapter unavailable');
+      const urls=Geoapify.routeUrls(from,to,CFG);
+      // Two real routes using separately declared fastest/balanced and shortest
+      // objectives. The optional shortest request can fail without replacing
+      // the first route with a fabricated alternative.
+      const primary=await getJson(urls[0],22000,'routing',signal);
+      let short=null;
+      try {short=await getJson(urls[1],22000,'routing',signal);}
+      catch(error){if(error.name==='AbortError')throw error;}
+      return Routing.readAlternatives(
+        Geoapify.routingAsOsrm([primary,short]),from,to,Geo);
+    }
+    const a=from.point,b=to.point;
+    const path=String(a[1])+','+String(a[0])+';'+String(b[1])+','+String(b[0]);
+    const url=providerBase(CFG.routingServiceBase,
+      'https://router.project-osrm.org')+'/route/v1/driving/'+path+
+      '?overview=full&geometries=geojson&steps=false&alternatives=true';
+    const data=await getJson(url,22000,'routing',signal);
     return Routing.readAlternatives(data,from,to,Geo);
   }
   function sampleIndex(points, proportion) {
