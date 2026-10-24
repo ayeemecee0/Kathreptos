@@ -94,7 +94,7 @@ create function public.stage_tiered_evidence_from_verified_matches(p_limit int d
 returns jsonb language plpgsql security definer set search_path=''
 as $tier_stage$
 declare
-  c record;
+  candidate_row record;
   m record;
   inserted_cases int:=0;
   inserted_osm int:=0;
@@ -104,7 +104,7 @@ declare
   maxrows int;
 begin
   maxrows:=least(greatest(coalesce(p_limit,250),1),600);
-  for c in
+  for candidate_row in
     select src.* from public.flock_camera_discovery_candidates src
     where src.source_kind='osm_public_dataset'
       and src.candidate_status='unverified'
@@ -118,22 +118,22 @@ begin
       )
     order by src.candidate_key limit maxrows
   loop
-    key:='tier_'||md5(c.candidate_key);
+    key:='tier_'||md5(candidate_row.candidate_key);
     insert into public.flock_point_evidence_cases
       (case_key,label,jurisdiction_label,latitude,longitude,evidence_summary,source_url)
     values(key,'Possible Flock camera - OSM candidate','Jurisdiction not yet authenticated',
-      c.latitude,c.longitude,
+      candidate_row.latitude,candidate_row.longitude,
       'OpenStreetMap community vendor label identifies a possible Flock device. Camera identity, placement and operation remain unverified.',
-      c.source_url)
+      candidate_row.source_url)
     on conflict(case_key) do nothing;
     get diagnostics n=row_count;
     inserted_cases:=inserted_cases+n;
     insert into public.flock_point_evidence_attestations
       (evidence_key,case_key,source_kind,source_family,source_url,
        latitude,longitude,evidence_sha256,source_excerpt,last_checked_at)
-    values ('proof_'||md5('osm:'||c.candidate_key),key,'osm_node',
-      'openstreetmap',c.source_url,c.latitude,c.longitude,
-      c.evidence_fingerprint,c.evidence_excerpt,least(c.last_seen_at,now()))
+    values ('proof_'||md5('osm:'||candidate_row.candidate_key),key,'osm_node',
+      'openstreetmap',candidate_row.source_url,candidate_row.latitude,candidate_row.longitude,
+      candidate_row.evidence_fingerprint,candidate_row.evidence_excerpt,least(candidate_row.last_seen_at,now()))
     on conflict(evidence_key) do nothing;
     get diagnostics n=row_count;
     inserted_osm:=inserted_osm+n;
