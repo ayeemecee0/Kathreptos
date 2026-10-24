@@ -2,6 +2,14 @@
 
 Katoptron is a **nationwide Flock Safety camera-map and route-surveillance education project**. Its primary product combines an evidence-backed map, an optional planned-driving-route simulator, and separately linked government records. The map NEVER invents camera coordinates: exact pins and approximate areas require distinct source verification. All simulated detections are hypothetical; the site never accesses private Flock plate reads or tracks actual vehicles. The legacy synthetic simulator remains available separately.
 
+## Milestones 7–9 — Analytics, accessibility and launch controls (October 23, 2026)
+
+- [Public evidence analytics](./analytics.html) separates 275 original government exact GIS points, twenty documented government programs, independent corroboration (currently zero), 14 states with *some* documentary Flock evidence, 6 with source-verified GIS pins, and thirty deduplicated government accountability records. No missing state or record implies absence of cameras.
+- [Evidence analytics design and source limitations](./docs/milestone-7-evidence-analytics.md): security-invoker SQL views, dated monthly **records**, state comparison and safeguarded CSV export. No telemetry or private contributions.
+- [Accessible public experience](./docs/milestone-8-accessibility.md): skip-link and focus treatment, tab keyboard behavior, reduced motion, mobile layout, automated audits. This does **not** certify screen-reader or WCAG conformance.
+- [Launch, operations and blocker checklist](./docs/milestone-9-production-readiness.md): public health monitors, public-only weekly snapshots, error-response guidance and a public issue form for original-evidence corrections. **Private Supabase data is not backed up by GitHub Actions**.
+- Existing Katoptron Supabase organization remains **Free**, and no new paid hosting was provisioned. The Geoapify browser key is public; account-side origin restrictions are *not independently verified*. Production depends on real browser/Actions acceptance, stable routing capacity, Auth protection, private backups/restore and manual accessibility/privacy review.
+
 ## Milestone 6: Government accountability (October 23, 2026)
 
 - [Accountability directory](./accountability.html): browse the source-backed, deduplicated original-government record index by state, type and documentary date; inspect original sources and export public records with full evidence links.
