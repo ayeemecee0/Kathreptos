@@ -24,7 +24,7 @@ begin
     or has_table_privilege('authenticated','public.editorial_reviewers','SELECT') then
    raise exception 'Contributor elevated into reviewer/owner metadata';
  end if;
- foreach p in select oid::regprocedure::text as signature,oid from pg_proc
+ for p in select oid::regprocedure::text as signature,oid from pg_proc
    where pronamespace='public'::regnamespace
      and proname in ('editorial_decide','editorial_session','list_community_review_queue',
        'set_community_review_status','withdraw_own_community_report',
