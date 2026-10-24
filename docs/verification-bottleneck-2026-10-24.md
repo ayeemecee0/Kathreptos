@@ -76,3 +76,47 @@ A new owner-bound [original government GIS recheck #12](https://github.com/ayeem
 The daily [private data health monitor #8](https://github.com/ayeemecee0/Katoptron/actions/runs/40134746504) passed after adding a separate **21-day stale original-publisher warning**. Camera geometry freshness does not substitute for original government publisher evidence freshness. A failed original page load does *not* silently revoke camera history on a single transient outage; it prevents the independent provenance timestamp from advancing and eventually triggers an operational alert.
 
 **Nationwide approval remains evidence-gated.** These features reduce the verification tooling bottleneck and make stale attribution observable but do not invent original government endorsements for the seven pending third-party hosted ArcGIS sources.
+
+
+## October 24: complete original-GIS inventory and queue convergence
+
+A live production audit confirmed **293 exact government-source camera records**,
+**seven trusted GIS source datasets**, **12 unverified GIS source candidates**,
+**one reviewed first-party source registry entry**, and **14 private original-government
+GIS search pages**. None of the 14 pages held exact GIS service/layer links at
+the time checked; no new camera records were promoted.
+
+The national camera-source verification bottleneck now has two tested resilience
+improvements:
+
+1. **Exact ArcGIS inventories, not maximum-record-count guesses.**
+   Both original-.gov camera registration and derived approved-host registration
+   request the complete authoritative `returnIdsOnly` snapshot, retrieve all
+   exact ObjectIDs in bounded batches, reject duplicate/missing/mismatched features,
+   and require an unchanged second source inventory. ArcGIS `maxRecordCount`
+   truncation can no longer be mistaken for successful complete coverage.
+2. **Government disclosure lead-to-verifier bridge.**
+   The original-government GIS-link research worker now sends only freshly
+   fetched, same-.gov-apex, exact camera GIS layer links from Flock-specific
+   government disclosures to the existing private nationwide verification queue.
+   Search hits, custom-domain layers, and external Esri items do not inherit
+   source authority; the existing registration stage independently checks the
+   live page and exact GIS geometry again before granting trust.
+
+The public Github Actions loggers for both registration paths now use hashed
+candidate identities and sanitized error classifications in place of private
+candidate URLs or database error response bodies. No private report coordinates,
+unverified GIS URLs, or database credentials should be logged by these paths.
+
+**Acceptance tests:** [source-verifier validation #545](https://github.com/ayeemecee0/Katoptron/actions/runs/40136162725),
+[new original government registration #14](https://github.com/ayeemecee0/Katoptron/actions/runs/40136162714),
+[derived government registration #11](https://github.com/ayeemecee0/Katoptron/actions/runs/40136040171),
+[government GIS disclosure discovery #9](https://github.com/ayeemecee0/Katoptron/actions/runs/40135830538).
+These pass for the committed source and unit tests; they do **not**
+establish any new government agency publisher endorsement.
+
+**Next evidence acquisition priority:** seek additional original-agency GIS
+inventories that document Flock-specific camera points and independent government
+publisher ownership, or exact original-government endorsement for the existing
+external ArcGIS candidates. Preserve uncertain candidate records privately.
+No extra paid infrastructure was provisioned.
