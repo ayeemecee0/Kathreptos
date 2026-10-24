@@ -61,6 +61,7 @@ on:
       - 'supabase/migrations/055_government_program_sourced_flock_areas.sql'
       - 'supabase/migrations/056_polygon_rls_private_gis_authority_predicate.sql'
       - 'supabase/migrations/057_programme_polygon_source_revalidation.sql'
+      - 'supabase/migrations/058_tiered_independent_evidence_paths.sql'
       - 'privacy.html'
       - 'methodology.html'
       - 'index.html'
@@ -417,6 +418,10 @@ jobs:
             -f supabase/migrations/056_polygon_rls_private_gis_authority_predicate.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f supabase/migrations/057_programme_polygon_source_revalidation.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/058_tiered_independent_evidence_paths.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f scripts/test_tiered_evidence_rls.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
             "select has_function_privilege('anon','public.withdraw_programme_area_after_link_loss(text,text)','EXECUTE')" | grep -qx f
           psql -h 127.0.0.1 -U postgres -d katoptron_test -Atc \
