@@ -22,7 +22,7 @@ from government_domain_registry import (
 MAX_PAGES=60
 MAX_BYTES=600_000
 MAX_HREFS=350
-FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\b.{0,40}\balpr\b',re.I)
+FLOCK=re.compile(r'\bflock\s+safety\b|\bflock\s+cameras?\b|\bflock\b.{0,40}\b(?:alpr|license[ -]plate)\b',re.I)
 GIS_LINK=re.compile(r'/(?:FeatureServer|MapServer)/\d+/?$',re.I)
 LINK_LABEL=re.compile(r'\b(flock|alpr|cameras?|gis|map|location)\b',re.I)
 WORTH_FOLLOWING=re.compile(r'\b(flock|alpr|camera|mapping)\b',re.I)
@@ -39,6 +39,7 @@ class Anchors(HTMLParser):
         super().__init__()
         self.anchors=[]
         self.text=[]
+        self.prose_text=[]  # Original page prose excluding hyperlink labels
         self.href=None
         self.anchor_content=[]
         self.hidden=0
@@ -60,7 +61,9 @@ class Anchors(HTMLParser):
     def handle_data(self,data):
         if not self.hidden:
             self.text.append(data)
-            if self.href is not None:
+            if self.href is None:
+                self.prose_text.append(data)
+            else:
                 self.anchor_content.append(data)
 
 
@@ -131,8 +134,18 @@ def fetch_government_page(url):
     return parsed,hashlib.sha256(data).hexdigest()
 
 
+def original_disclosure_text(document):
+    """Use original body prose, not potentially untrusted linked map titles."""
+    return ' '.join(getattr(document,'prose_text',[]))[:MAX_BYTES]
+
+
+def original_camera_disclosure(document):
+    prose=original_disclosure_text(document)
+    return bool(FLOCK.search(prose) and CAMERAS.search(prose))
+
+
 def gis_candidate_links(document,page,scope,method,jurisdiction,sha):
-    if not FLOCK.search(' '.join(document.text)[:MAX_BYTES]):
+    if not original_camera_disclosure(document):
         return []
     found=[]
     for raw,label in document.anchors:
@@ -243,7 +256,7 @@ def scan(dry_run=False):
                 continue
             document,sha=fetch_government_page(page)
             pages=[(document,sha,page,'government_page_direct_anchor_v1')]
-            if FLOCK.search(' '.join(document.text)[:MAX_BYTES]):
+            if original_camera_disclosure(document):
                 for sub in same_site_page_links(document,page,p.hostname):
                     try:
                         doc,checksum=fetch_government_page(sub)
@@ -259,8 +272,7 @@ def scan(dry_run=False):
                 # custom-domain or external Esri layer remains a private
                 # investigation lead, never an automatic government root.
                 if (items and urllib.parse.urlsplit(url).hostname.endswith('.gov')
-                    and FLOCK.search(' '.join(doc.text)[:MAX_BYTES])
-                    and CAMERAS.search(' '.join(doc.text)[:MAX_BYTES])):
+                    and original_camera_disclosure(doc)):
                     direct=sorted({row['gis_layer_url'] for row in items
                                    if same_original_gov_apex(url,row['gis_layer_url'])})
                     if direct:
