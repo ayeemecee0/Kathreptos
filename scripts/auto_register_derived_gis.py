@@ -168,13 +168,14 @@ def run(dry_run=False,publish=False):
     checked=set()
     for parent,root,candidate in discovery_inputs():
         url=candidate["gis_layer_url"]
+        marker=hashlib.sha256(url.encode()).hexdigest()[:12]
         if url in checked: continue
         checked.add(url)
         try:
             payload=verify_layer(parent,root,candidate)
             result["eligible_live_layers"]+=1
             print("Verified original government host / Flock point layer:",
-                  parent["source_key"],url,"points",len(payload["p_locations"]))
+                  parent["source_key"],"source_hash",marker,"points",len(payload["p_locations"]))
             if not dry_run:
                 value=api_request("rpc/register_derived_government_flock_gis",
                     method="POST",payload=payload)
@@ -192,16 +193,18 @@ def run(dry_run=False,publish=False):
             else:
                 result["errors"]+=1
             result["held"]+=1
-            print("Government layer NOT registered:",url,
-                  "HTTP",exc.code,"database reason",body[:500])
+            print("Government layer NOT registered: source_hash",marker,
+                  "HTTP",exc.code,"reason",
+                  "possible_duplicate" if result["duplicate_or_existing_held"] else "database_refusal")
         except ValueError as exc:
             result["held"]+=1
-            print("Government source evidence held:",url,str(exc)[:220])
+            print("Government source evidence held: source_hash",marker,
+                  type(exc).__name__)
         except Exception as exc:
             result["held"]+=1
             result["errors"]+=1
-            print("Government source registration failed:",url,
-                  type(exc).__name__,str(exc)[:220])
+            print("Government source registration failed: source_hash",marker,
+                  type(exc).__name__)
     if publish and not dry_run and result["registered"]:
         verified=refresh_verified()
         result["new_public_pins"]=verified["published"]
