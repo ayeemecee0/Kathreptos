@@ -89,17 +89,45 @@ def verify_layer(parent,root,candidate):
     id_field=next((f for f in FIELDS if f in names),None)
     if not id_field:
         raise ValueError("Exact layer has no individual camera identifier")
-    query=urllib.parse.urlencode({
-        "where":"1=1",
-        "outFields":"OBJECTID,"+id_field,
-        "returnGeometry":"true","outSR":"4326","resultRecordCount":MAX_INVENTORY+1,
-        "orderByFields":"OBJECTID ASC","f":"json"
-    })
-    data=get_official_json(url+"/query?"+query)
-    features=data.get("features") if isinstance(data,dict) else None
-    if (not isinstance(features,list) or data.get("error") or
-        not 1<=len(features)<=MAX_INVENTORY or data.get("exceededTransferLimit")):
-        raise ValueError("Government camera inventory empty, oversized or truncated")
+    # Fetch all authoritative ArcGIS ObjectIDs twice. A response with
+    # resultRecordCount alone can be silently truncated by maxRecordCount.
+    def inventory_ids():
+        data=get_official_json(url+"/query?"+urllib.parse.urlencode({
+            "where":"1=1","returnIdsOnly":"true","f":"json"}))
+        if not isinstance(data,dict) or data.get("error"):
+            raise ValueError("Government camera ID inventory unavailable")
+        if data.get("objectIdFieldName") not in (None,"OBJECTID"):
+            raise ValueError("Government camera ID field changed")
+        ids=data.get("objectIds")
+        if (not isinstance(ids,list) or not 1<=len(ids)<=MAX_INVENTORY
+            or any(type(i) is not int or i<=0 for i in ids)
+            or len(set(ids))!=len(ids)):
+            raise ValueError("Government camera ID inventory incomplete or duplicated")
+        return sorted(ids)
+
+    full_ids=inventory_ids()
+    features=[]
+    for start in range(0,len(full_ids),50):
+        block=full_ids[start:start+50]
+        query=urllib.parse.urlencode({
+            "objectIds":",".join(map(str,block)),
+            "outFields":"OBJECTID,"+id_field,
+            "returnGeometry":"true","outSR":"4326","f":"json"})
+        data=get_official_json(url+"/query?"+query)
+        batch=data.get("features") if isinstance(data,dict) else None
+        if (not isinstance(batch,list) or data.get("error")
+            or data.get("exceededTransferLimit") or len(batch)!=len(block)):
+            raise ValueError("Government camera ID batch was truncated")
+        received=[item.get("attributes",{}).get("OBJECTID")
+                  for item in batch if isinstance(item,dict)
+                  and isinstance(item.get("attributes"),dict)]
+        if (len(received)!=len(block) or set(received)!=set(block)
+            or len(set(received))!=len(received)):
+            raise ValueError("Government camera ID batch identities mismatch")
+        features.extend(batch)
+    if full_ids!=inventory_ids():
+        raise ValueError("Government camera IDs changed while checking geometry")
+    features.sort(key=lambda row:row["attributes"]["OBJECTID"])
     locations=[];seen=set()
     for item in features:
         att=item.get("attributes") if isinstance(item,dict) else None
