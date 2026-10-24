@@ -70,7 +70,9 @@ class MapPageTests(unittest.TestCase):
         self.assertIn('verification_status: \'eq.verified\'',self.script)
 
     def test_no_faked_road_routes_or_default_hypothetical_pins(self):
-        self.assertIn("data.code !== 'Ok'",self.script)
+        verifier=(ROOT/'routing-routes.js').read_text(encoding='utf-8')
+        self.assertIn("data?.code !== 'Ok'",verifier)
+        self.assertIn('Routing.readAlternatives',self.script)
         self.assertIn("No straight-line route or guessed detections",self.script)
         self.assertIn("if ($('hypothetical').checked)",self.script)
         self.assertNotIn("SYNTH-4827",self.html)
