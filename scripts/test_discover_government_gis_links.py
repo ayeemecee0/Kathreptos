@@ -68,6 +68,35 @@ class GovernmentCrawler(unittest.TestCase):
   self.assertEqual(queued['gis_links'],[
     'https://gis.city.example.gov/arcgis/rest/services/Flock/MapServer/4'])
   self.assertNotIn('trusted_flock_gis_sources',str(queued))
+ def test_original_gov_service_root_enters_private_queue_without_fake_layer(self):
+  service='https://gis.city.example.gov/arcgis/rest/services/Police/Flock/MapServer'
+  doc=self.document('<h1>City police Flock cameras</h1>'
+      '<p>Our automated license plate readers are included in the GIS.</p>'
+      '<a href="'+service+'">Flock GIS map</a>')
+  self.assertEqual(d.directly_linked_original_gov_service_roots(doc,PAGE),[service])
+  with (patch.object(d,'load_approved_domains',return_value={}),
+        patch.object(d,'get_seed_pages',return_value=([(PAGE,'Example, ST')],{PAGE})),
+        patch.object(d,'fetch_government_page',return_value=(doc,'d'*64)),
+        patch.object(d,'same_site_page_links',return_value=[]),
+        patch.object(d,'stage') as stage_leads,
+        patch.object(d,'stage_same_gov_flock_page') as queue):
+   result=d.scan(dry_run=False)
+  self.assertEqual(result['private_original_service_roots_found'],1)
+  self.assertEqual(result['original_gov_pages_queued'],1)
+  stage_leads.assert_not_called()
+  self.assertEqual(queue.call_args.args[0]['gis_links'],[service])
+ def test_external_service_root_cannot_enter_original_government_queue(self):
+  ext='https://services.arcgis.com/abc/arcgis/rest/services/Flock/FeatureServer'
+  doc=self.document('<h1>City police Flock cameras</h1>'
+       '<p>Our license plate readers are under review.</p>'
+       '<a href="'+ext+'">Flock GIS camera map</a>')
+  self.assertEqual(d.directly_linked_original_gov_service_roots(doc,PAGE),[])
+  self.assertFalse(d.same_original_gov_apex(PAGE,ext))
+ def test_generic_government_service_without_flock_disclosure_is_held(self):
+  root='https://gis.city.example.gov/arcgis/rest/services/Traffic/MapServer'
+  doc=self.document('<h2>General city mapping and roads</h2>'
+       '<a href="'+root+'">GIS map</a>')
+  self.assertEqual(d.directly_linked_original_gov_service_roots(doc,PAGE),[])
  def test_third_party_esri_disclosure_stays_out_of_autoqueue(self):
   external=self.document('<h1>Flock Safety ALPR cameras</h1>'
       '<a href="https://services.arcgis.com/Example/arcgis/rest/services/Flock/FeatureServer/4">'
