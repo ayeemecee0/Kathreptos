@@ -1,0 +1,37 @@
+name: Audit private external ArcGIS candidate metadata
+on:
+  schedule:
+    - cron: '40 20 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/audit_external_arcgis_candidates.py'
+      - 'scripts/test_audit_external_arcgis_candidates.py'
+      - '.github/workflows/audit_external_arcgis_candidates.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: katoptron-external-gis-candidate-metadata-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify private candidate audit classifications
+        run: python -m unittest discover -s scripts -p 'test_audit_external_arcgis_candidates.py' -v
+      - name: Inspect live ArcGIS candidate metadata without promoting sources
+        run: python scripts/audit_external_arcgis_candidates.py
