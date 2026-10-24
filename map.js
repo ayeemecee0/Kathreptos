@@ -5,6 +5,7 @@
   const $ = (id) => document.getElementById(id);
   const CFG = window.KATOPTRON_CONFIG;
   const Geo = window.KatoptronRouteGeometry;
+  const Routing = window.KatoptronRouting;
   const MAX_VISIBLE = 1200;
   const CAMERA_NEAR_ROUTE_M = 120; // Demonstration proximity threshold, NOT a device read range.
   const USA_CENTER = [39, -98];
@@ -12,7 +13,8 @@
     map: null, pointLayer: null, areaLayer: null, routeLayer: null, simLayer: null,
     visible: [], areas: [], programs: [], agendaMentions: [], route: null, routeRecords: [], routeCoverage: 'unchecked',
     observations: [], replayTimer: null,
-    abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null
+    abort: null, requestNumber: 0, lastGeocodeAt: 0, viewportTimer: null,
+    routeChoices: [], routeRequest: 0, evidenceAbort: null
   };
 
   function setText(id, value) { $(id).textContent = String(value); }
@@ -389,8 +391,17 @@
       (x.location_accuracy === 'exact' || x.location_accuracy === 'approximate'));
   }
   async function loadRouteEvidence(route) {
+    state.evidenceAbort?.abort();
+    const controller=new AbortController();
+    state.evidenceAbort=controller;
     state.routeCoverage='checking';
     state.routeRecords=[];
+    state.observations=[];
+    state.simLayer?.clearLayers();
+    $('play').disabled=true;
+    setText('timelineBadge','EVIDENCE CHECK IN PROGRESS');
+    setText('timelineIntro','All published camera evidence must be checked across this route before estimating potential encounters.');
+    $('timelineEvents').replaceChildren();
     setText('nearbyCount','…');
     setText('observationCount','…');
     setText('routeStatus','Checking verified camera evidence across the ENTIRE driving route…');
@@ -404,7 +415,7 @@
       async function worker() {
         while(next<boxes.length) {
           const box=boxes[next++];
-          const rows=await cameraRows(box);
+          const rows=await cameraRows(box,controller.signal);
           if(rows.length>=MAX_VISIBLE)
             throw new Error('Camera evidence density exceeds this corridor query limit; analysis incomplete');
           for(const row of rows) collected.set(row.record_key,row);
@@ -431,6 +442,8 @@
       $('play').disabled=true;
       setText('routeStatus','Verified camera coverage unavailable: '+e.message+
         '. Road route remains visible, but detection estimates are disabled.');
+    } finally {
+      if(state.evidenceAbort===controller) state.evidenceAbort=null;
     }
   }
 
@@ -688,16 +701,10 @@
     const a = from.point, b = to.point;
     const path = String(a[1]) + ',' + String(a[0]) + ';' + String(b[1]) + ',' + String(b[0]);
     const url = 'https://router.project-osrm.org/route/v1/driving/' + path +
-      '?overview=full&geometries=geojson&steps=false';
+      '?overview=full&geometries=geojson&steps=false&alternatives=true';
     const data = await getJson(url,22000);
-    const trip = data.routes?.[0];
-    if (data.code !== 'Ok' || !trip || !Array.isArray(trip.geometry?.coordinates))
-      throw new Error('No driving route was returned. Try more specific destinations.');
-    const points = trip.geometry.coordinates.map(p=>[Number(p[1]),Number(p[0])])
-      .filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
-    if (points.length < 2 || !Number.isFinite(trip.distance) || !Number.isFinite(trip.duration))
-      throw new Error('The routing service did not provide reliable road geometry.');
-    return {points,distance:trip.distance,duration:trip.duration,from:from.label,to:to.label};
+    if(!Routing)throw new Error('Routing verification library unavailable');
+    return Routing.readAlternatives(data,from,to,Geo);
   }
   function sampleIndex(points, proportion) {
     return points[Math.min(points.length-1,Math.round(proportion*(points.length-1)))];
@@ -825,34 +832,71 @@
     frame();
     state.replayTimer=setInterval(frame,Math.max(400,2400/Math.max(1,events.length)));
   }
+  async function selectRoute(index) {
+    const trip=state.routeChoices[index];
+    if(!trip)return;
+    stopReplay();
+    state.evidenceAbort?.abort();
+    state.route=trip;
+    $('routeChoice').value=String(index);
+    setText('routeDistance',kmString(trip.distance));
+    setText('routeStatus','Checking camera evidence for driving alternative '+(index+1)+
+      ' of '+state.routeChoices.length+'. Real plate detections are not available.');
+    renderRoute();
+    $('reset').disabled=false;
+    setText('mapLabel','Driving route '+(index+1)+'/'+state.routeChoices.length+': '+
+      trip.from+' → '+trip.to);
+    await loadRouteEvidence(trip);
+    if(state.route===trip && state.routeCoverage==='complete')$('play').disabled=false;
+  }
   async function planRoute(ev) {
     if (ev) ev.preventDefault();
     if (!state.map) return;
     const from=$('from').value.trim(), to=$('to').value.trim();
     if (!from || !to) return;
+    const request=++state.routeRequest;
     $('planRoute').disabled=true;
     stopReplay();
     setText('routeStatus','Resolving US destinations; contacting routing service…');
     try {
       const a=await geocode(from);
+      if(request!==state.routeRequest)return;
       const b=await geocode(to);
-      const trip=await routing(a,b);
-      state.route=trip;
-      setText('routeDistance',kmString(trip.distance));
-      setText('routeStatus','Road route loaded: '+a.label+' → '+b.label+
-        '. No license plate or location history is stored by Katoptron.');
-      renderRoute();
-      $('reset').disabled=false;
-      $('play').disabled=true;
-      await loadRouteEvidence(trip);
-      if (state.routeCoverage==='complete') $('play').disabled=false;
-      setText('mapLabel','Driving route: '+a.label+' → '+b.label);
+      if(request!==state.routeRequest)return;
+      const trips=await routing(a,b);
+      if(request!==state.routeRequest)return;
+      state.routeChoices=trips;
+      const select=$('routeChoice');
+      select.replaceChildren();
+      trips.forEach((trip,index)=>{
+        const option=document.createElement('option');
+        option.value=String(index);
+        option.textContent='Route '+(index+1)+' · '+kmString(trip.distance)+
+          ' · about '+Math.round(trip.duration/60)+' min';
+        select.append(option);
+      });
+      select.disabled=trips.length<2;
+      setText('routeChoiceStatus',trips.length>1
+        ? trips.length+' real driving alternatives available. Switch routes to compare modeled camera proximity.'
+        : 'One driving route provided. Other roads may exist but are not verified alternatives.');
+      await selectRoute(0);
     } catch (error) {
+      if(request!==state.routeRequest)return;
       setText('routeStatus','Route unavailable: '+error.message+
         ' No straight-line route or guessed detections will be displayed.');
-    } finally { $('planRoute').disabled=false; }
+    } finally {
+      if(request===state.routeRequest)$('planRoute').disabled=false;
+    }
   }
   function reset() {
+    ++state.routeRequest;
+    state.evidenceAbort?.abort();
+    state.evidenceAbort=null;
+    state.routeChoices=[];
+    $('routeChoice').replaceChildren();
+    $('routeChoice').disabled=true;
+    $('planRoute').disabled=false;
+    setText('routeChoiceStatus','Driving alternatives will appear after planning a route.');
     stopReplay();
     state.simLayer.clearLayers();
     state.routeLayer.clearLayers();
@@ -894,6 +938,7 @@
       if (state.routeCoverage==='complete') computeObservations();
     });
     $('routeForm').addEventListener('submit',planRoute);
+    $('routeChoice').addEventListener('change',()=>selectRoute(Number($('routeChoice').value)));
     $('sampleRoute').addEventListener('click',()=>{
       $('from').value='Sacramento, California';
       $('to').value='Folsom, California';
