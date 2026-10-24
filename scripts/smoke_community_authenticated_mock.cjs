@@ -42,6 +42,13 @@ const api={
    if(table!=='flock_community_submissions')throw Error('Unexpected fake table: '+table);
    return {
      select:()=>({order:()=>({limit:async()=>({data:reports,error:null})})}),
+     update:patch=>({eq:(field,value)=>({select:async()=>{
+       const match=reports.find(r=>r[field]===value&&
+         ['pending','needs_evidence'].includes(r.report_status)&&!r.original_source_url);
+       if(!match)return{data:[],error:null};
+       match.original_source_url=patch.original_source_url;
+       return{data:[{submission_id:match.submission_id}],error:null};
+     }})}),
      insert:row=>({select:()=>({single:async()=>{
        const record={...row,submission_id:id,created_at:'2026-10-23T12:00:00Z',report_status:'pending'};
        reports.push(record);activity.lastSubmission=record;
@@ -138,6 +145,10 @@ window.__QA={reports,activity};
    await page.locator('#password').fill('another-safe-mock-password');
    await page.locator('#authForm button[type=submit]').click();
    await page.locator('#reportPanel').waitFor({state:'visible',timeout:12000});
+   await page.locator('#myReports input[type=url]').fill('https://example.org/original-citation');
+   await page.getByRole('button',{name:'Add missing source link'}).click();
+   await page.waitForFunction(()=>window.__QA.reports[0].original_source_url==='https://example.org/original-citation',
+     undefined,{timeout:12000});
    await page.locator('#myReports input[type=file]').setInputFiles({name:'followup.png',mimeType:'image/png',buffer:png});
    await page.getByRole('button',{name:'Add requested photo'}).click();
    await page.waitForFunction(()=>window.__QA.activity.uploaded.length===1 ||
@@ -146,7 +157,7 @@ window.__QA={reports,activity};
      throw Error('Followup photo failed: '+await page.locator('#notice').textContent());
    assert.equal(await page.evaluate(()=>window.__QA.reports.length),1,
      'Adding evidence should not create another report or consume a report slot');
-   console.log('MOCK FOLLOWUP PASS: needs-evidence report accepts new original photograph without duplicate submission');
+   console.log('MOCK FOLLOWUP PASS: missing original source and requested photo both attach without duplicate submission');
    await page.goto(new URL('community-review.html',base).href,{waitUntil:'load'});
    assert.equal(await page.locator('#workspace').isHidden(),true);
    await page.locator('#email').fill('qa.reviewer@example.invalid');
