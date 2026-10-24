@@ -211,6 +211,53 @@ def assess_state_evidence_index(rows,counts,program_total):
     return len(rows)
 
 
+
+def assess_public_accountability(events,roles,minimum_events=33,minimum_roles=3):
+    """Check RLS-filtered government disclosures and separately sourced staff roles.
+
+    This guard verifies publication labeling and loss of baseline evidence only.
+    It never reclassifies an agenda title as an adopted measure, or an unverified
+    agreement form as a signed contract.
+    """
+    if not isinstance(events,list) or not isinstance(roles,list):
+        raise ValueError('Accountability feeds malformed')
+    if not minimum_events<=len(events)<5000 or not minimum_roles<=len(roles)<500:
+        raise ValueError('Accountability evidence below baseline or truncated')
+    allowed={'government_program','editorially_reviewed_action','executed_contract',
+             'agency_reported_deployment','agenda_mention','recorded_legislative_decision',
+             'contract_form_document'}
+    ids=set()
+    for e in events:
+        if not isinstance(e,dict) or e.get('event_type') not in allowed:
+            raise ValueError('Unexpected accountability evidence type')
+        key=e.get('event_key')
+        if not isinstance(key,str) or not key or key in ids:
+            raise ValueError('Duplicated/missing accountability key')
+        ids.add(key)
+        if not isinstance(e.get('source_url'),str) or not e['source_url'].startswith('https://'):
+            raise ValueError('Accountability source link invalid')
+        if e['event_type']=='agenda_mention' and (
+          e.get('evidence_level')!='original_government_agenda_mention_only'
+          or e.get('person_label')):
+            raise ValueError('An official agenda was promoted to an inferred individual position')
+        if e['event_type']=='contract_form_document' and e.get('evidence_level')!='document_exists_execution_unverified':
+            raise ValueError('Contract form incorrectly verified as signed')
+    for r in roles:
+        if not isinstance(r,dict) or not str(r.get('source_url') or '').startswith('https://'):
+            raise ValueError('Role source evidence unavailable')
+        if r.get('role_category')=='flock_vendor_leadership' and (
+          r.get('source_type')!='official_vendor_announcement'):
+            raise ValueError('Vendor-reported professional role misattributed')
+    return len(events),len(roles)
+
+
+def fetch_public_accountability(key):
+    base=PUBLIC_API.replace('/flock_camera_locations','')
+    events=json.loads(get(base+'/flock_accountability_events?select=*&limit=5000',{'apikey':key}))
+    roles=json.loads(get(base+'/flock_accountability_roles?select=role_key,person_name,role_title,organization_name,'
+                         'role_category,source_type,source_url,source_date&limit=500',{'apikey':key}))
+    return events,roles
+
 def run(site=SITE):
     if not site.startswith('https://'):
         raise ValueError('Health checks must use live HTTPS website')
@@ -222,11 +269,15 @@ def run(site=SITE):
       ('route-geometry.js','closestOnRoute'),
       ('privacy.html','Privacy and data handling'),
       ('methodology.html','Camera evidence methodology'),
+      ('accountability.html','Government accountability'),
     ):
         if anchor not in get(urllib.parse.urljoin(site,path)):
             raise ValueError('Deployed public page or route runtime missing: '+path)
     config=get(urllib.parse.urljoin(site,'config.js'))
     key=public_key(config)
+    events,roles=fetch_public_accountability(key)
+    accountability_counts=assess_public_accountability(events,roles)
+    print('Accountability records and professional roles:',accountability_counts)
     rows=fetch_public_camera_evidence(key)
     counts,last=assess(rows)
     summary_url=PUBLIC_API.replace('/flock_camera_locations','/flock_public_coverage_stats')
