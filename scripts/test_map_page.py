@@ -64,7 +64,7 @@ class MapPageTests(unittest.TestCase):
         self.assertNotIn('All camera locations are fictional',self.html)
         self.assertIn('Nationwide',self.html)
         self.assertIn('flock_camera_locations',self.script)
-        self.assertIn('loadRouteEvidence(trip)',self.script)
+        self.assertIn('compareRouteChoices(request)',self.script)
         self.assertIn('state.routeRecords',self.script)
         self.assertIn('Geo.closestOnRoute',self.script)
         self.assertIn('verification_status: \'eq.verified\'',self.script)
@@ -107,8 +107,13 @@ class MapPageTests(unittest.TestCase):
         self.assertIn('alternatives=true',self.script)
         self.assertIn('Routing.readAlternatives',self.script)
         self.assertIn('state.evidenceAbort?.abort()',self.script)
-        self.assertIn('routeCameraRows(box,controller.signal)',self.script)
-        self.assertIn('state.route!==route || state.evidenceAbort!==controller',self.script)
+        self.assertIn('routeCameraRows(box,signal)',self.script)
+        self.assertIn("if(state.route===route)displaySelectedRouteEvidence()",self.script)
+        self.assertIn('id="routeComparisonList"',self.html)
+        self.assertIn('id="comparisonStatus"',self.html)
+        self.assertIn('route-comparison.js',self.html)
+        self.assertIn("outcome={status:'unavailable'",self.script)
+        self.assertIn("state.routeComparisons[index]=outcome",self.script)
 
 
 if __name__=='__main__':
