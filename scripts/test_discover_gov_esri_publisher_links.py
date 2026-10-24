@@ -62,6 +62,7 @@ class TargetedAgencyLinks(unittest.TestCase):
     def search(item): return 'bing-rss',[PAGE]
     with (patch.object(m,'candidate_inputs',return_value=([C],[],[])),
          patch.object(m,'inspect_arcgis_publisher',return_value=ORG),
+         patch.object(m,'inspect_original_service_item',return_value=None),
          patch.object(m,'fetch_government_page') as accidental,
          io.StringIO() as stdout):
        with contextlib.redirect_stdout(stdout):
@@ -82,7 +83,8 @@ class TargetedAgencyLinks(unittest.TestCase):
     network.assert_not_called()
  def test_source_identity_does_not_make_esri_organization_a_government(self):
     with (patch.object(m,'candidate_inputs',return_value=([C],[],[])),
-          patch.object(m,'inspect_arcgis_publisher',return_value=ORG)):
+          patch.object(m,'inspect_arcgis_publisher',return_value=ORG),
+          patch.object(m,'inspect_original_service_item',return_value=None)):
       metrics=m.run(search=lambda item:('bing-rss',[BAD]),
                     fetch_page=lambda u: (_ for _ in ()).throw(AssertionError('Must not fetch non-government URL')),day=0)
     self.assertEqual(metrics['government_search_results'],0)
