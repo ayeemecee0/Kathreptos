@@ -28,6 +28,18 @@ def run(dry_run=False,publish=False):
             metrics['qualified_source_points']+=len(original_points)
             if dry_run:
                 continue
+            current=api_request('trusted_flock_gis_sources?select=source_key,gis_layer_url,'
+                 'source_status&source_key=eq.'+SOURCE_KEY+'&limit=2')
+            if not isinstance(current,list) or len(current)>1:
+                raise ValueError('Government GIS authority state cannot be trusted')
+            if current:
+                row=current[0]
+                if row.get('gis_layer_url')!=verified['layer_url'] or row.get('source_status')!='verified':
+                    raise ValueError('Previously approved first-party GIS source changed or was revoked')
+                metrics['existing_authorities_revalidated']+=1
+                # Existing source goes through standard profile recheck; no
+                # new DB grants, approvals, or duplicate source insertions.
+                continue
             # Staging is a PRIVATE ledger operation, not automatic publication.
             stage_candidate({
               'gis_layer_url':verified['layer_url'],
@@ -66,6 +78,7 @@ def run(dry_run=False,publish=False):
         metrics['verification_errors']+=totals.get('errors',0)
     for name in ('qualified_sources','qualified_source_points',
                  'private_candidates_staged','new_authorities_registered',
+                 'existing_authorities_revalidated',
                  'verified_points_published_or_rechecked','held',
                  'verification_errors'):
         print('ORIGINAL AGENCY GIS',name,metrics[name])
