@@ -20,3 +20,7 @@ Static checks and browser smoke tests cannot establish full WCAG 2.2 AA conforma
 - `scripts/smoke_zoom_accessibility.cjs` checks keyboard bypass, labeled community forms, and zoom-equivalent reflow at a 640 CSS-pixel viewport. The failed initial attempt used a CSS zoom property that does **not** reproduce a real browser zoom's responsive breakpoints; the corrected test passed in [Browser smoke #106](https://github.com/ayeemecee0/Katoptron/actions/runs/40066397323).
 - Exact-version browser Supabase SDK pinning and public-asset credential checks run in [Validation #436](https://github.com/ayeemecee0/Katoptron/actions/runs/40066347410).
 - Manual NVDA/VoiceOver, 200% browser zoom using a real browser, high-contrast modes and touch devices remain independent signoff requirements.
+
+## October 24 keyboard map update
+
+The interactive map is tabbable with `tabindex=0`; its ARIA description points to visible instructions explaining arrow-key pan and +/- zoom. Source records remain available in a separate accessible page for non-map users. The public footer now identifies Geoapify as the configured provider rather than inaccurately presenting the shared OSRM/Photon demos as the current routing source. Keyboard-focus and link bypass were exercised by [Browser release smoke #114](https://github.com/ayeemecee0/Katoptron/actions/runs/40108637053), which passed. This does not establish full accessibility, screen-reader interaction quality or WCAG 2.2 AA conformance.
