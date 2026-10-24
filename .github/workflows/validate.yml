@@ -80,6 +80,8 @@ on:
       - 'supabase/migrations/074_readonly_public_analytics.sql'
       - 'supabase/migrations/075_private_review_fk_indexes.sql'
       - 'supabase/migrations/076_rolling_community_rate_limit.sql'
+      - 'supabase/migrations/079_one_time_community_source_followup.sql'
+      - 'scripts/test_community_source_followup.sql'
       - 'scripts/test_community_multi_actor_lifecycle.sql'
       - 'scripts/test_community_rolling_rate_limit.sql'
       - 'scripts/test_analytics_m7.sql'
@@ -503,6 +505,10 @@ jobs:
             -f scripts/test_community_multi_actor_lifecycle.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_community_rolling_rate_limit.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/079_one_time_community_source_followup.sql
+          psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
+            -f scripts/test_community_source_followup.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
             -f scripts/test_analytics_m7.sql
           psql -h 127.0.0.1 -U postgres -d katoptron_test -v ON_ERROR_STOP=1 \
