@@ -8,15 +8,16 @@ const assert=require('node:assert/strict');
  const base=process.env.KATOPTRON_SMOKE_BASE||'http://127.0.0.1:8765/';
  try{
    for(const path of ['index.html','records.html','analytics.html','accountability.html','submit.html','community-review.html']){
-     const page=await browser.newPage({viewport:{width:1280,height:860},reducedMotion:'reduce'});
+     // A real browser 200% zoom halves the CSS layout viewport and triggers
+     // responsive media queries; CSS style.zoom does neither. Model the
+     // effective 640px CSS viewport of a 1280px wide browser at 200%.
+     const page=await browser.newPage({viewport:{width:640,height:860},reducedMotion:'reduce'});
      try{
        const response=await page.goto(new URL(path,base).href,{waitUntil:'domcontentloaded',timeout:45000});
        assert.equal(response?.status(),200,path+' not served');
        const initial=await page.evaluate(()=>document.documentElement.scrollWidth);
-       await page.evaluate(()=>document.documentElement.style.zoom='200%');
-       await page.waitForTimeout(100);
        const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
-       assert.ok(overflow<=4,path+': at 200% CSS zoom, document overflow '+overflow+'px (before zoom '+initial+')');
+       assert.ok(overflow<=4,path+': at 200% browser reflow proxy (640 CSS px), document overflow '+overflow+'px (document width '+initial+')');
        const skip=page.locator('a.skip-link[href="#main-content"]');
        assert.equal(await skip.count(),1);
        await page.keyboard.press('Tab');
