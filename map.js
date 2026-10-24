@@ -56,14 +56,19 @@
           : 'Approximate deployment area · NOT an individual camera position');
     add('span', record.jurisdiction_label);
     add('small', record.evidence_summary);
-    add('small', 'Source last checked: ' + shortDate(record.last_source_recheck_at || record.last_confirmed_on));
-    const freshness=sourceFreshness(record);
-    add('small',freshness==='recent'
-      ? 'Original-source check: within 72 hours; camera operation still unknown'
-      : freshness==='overdue'
-        ? 'Original-source check: OVERDUE (more than 72 hours). Treat current placement as uncertain.'
-        : 'Original-source check: current freshness unavailable; camera operation and current placement unconfirmed.');
-    add('small', 'Published evidence: ' + shortDate(record.published_at));
+    if (record.evidence_tier) {
+      add('small','Case review: '+shortDate(record.published_at));
+      add('small','Underlying evidence must satisfy independent review and time-limited corroboration. Current camera operation remains unknown.');
+    } else {
+      add('small', 'Source last checked: ' + shortDate(record.last_source_recheck_at || record.last_confirmed_on));
+      const freshness=sourceFreshness(record);
+      add('small',freshness==='recent'
+        ? 'Original-source check: within 72 hours; camera operation still unknown'
+        : freshness==='overdue'
+          ? 'Original-source check: OVERDUE (more than 72 hours). Treat current placement as uncertain.'
+          : 'Original-source check: current freshness unavailable; camera operation and current placement unconfirmed.');
+      add('small', 'Published evidence: ' + shortDate(record.published_at));
+    }
     // Distinguish a government's OWN GIS host from an externally hosted
     // Esri layer that the agency independently endorses. Neither statement
     // establishes camera uptime or an actual ALPR read.
@@ -86,6 +91,7 @@
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
     }
+    if(!record.evidence_tier) {
     const historyButton=add('button','View evidence history');
     historyButton.type='button';
     historyButton.className='history-button';
@@ -126,6 +132,9 @@
         status.className='muted';
       }
     });
+    } else {
+      add('small','This newly reviewed evidence tier does not reuse the canonical GIS source-history ledger.');
+    }
     return div;
   }
   function setupMap() {
