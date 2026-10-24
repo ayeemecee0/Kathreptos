@@ -10,7 +10,7 @@ Implemented engineering work October 23, 2026.
 - `scripts/smoke_accessibility.cjs` adds Chromium keyboard and viewport tests to the existing release workflow.
 
 ## Verification performed
-Static repository checks confirm all eight relevant pages have matching skip links, correct main landmarks, linked accessible stylesheets, English language and no duplicate IDs. The new browser tests are committed but their actual GitHub Actions conclusions remain unverified.
+Static repository checks confirm all eight relevant pages have matching skip links, correct main landmarks, linked accessible stylesheets, English language and no duplicate IDs. The keyboard/mobile browser regression completed successfully in [Browser release smoke #91](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928164), following the documented desktop navigation overflow repair. [Validation #407](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928191) also passed. These automated checks do not substitute for real assistive-technology tests.
 
 ## Independent acceptance gates
 Static checks and browser smoke tests cannot establish full WCAG 2.2 AA conformance. Before calling the complete public experience accessible: conduct voice navigation and screen-reader reviews (NVDA/JAWS/VoiceOver), 200% zoom, touch interaction, color contrast checks, external Leaflet/map keyboard use, form error flows and actual mobile-browser observations. Fix any confirmed defects. Do not claim these tests passed without observation.
