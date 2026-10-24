@@ -1,0 +1,44 @@
+name: Find independent government ArcGIS organization endorsements
+on:
+  schedule:
+    - cron: '27 20 * * 2'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/probe_original_gov_arcgis_org_links.py'
+      - 'scripts/test_probe_original_gov_arcgis_org_links.py'
+      - 'scripts/audit_external_arcgis_candidates.py'
+      - '.github/workflows/probe_original_gov_arcgis_org_links.yml'
+permissions:
+  contents: read
+concurrency:
+  group: katoptron-government-arcgis-publisher-endorsement-research
+  cancel-in-progress: false
+jobs:
+  investigate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    env:
+      SUPABASE_URL: https://bpvkapswslmgfazbzpsv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SB_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test original-agency Esri organization linking and reject lookalike publishers
+        run: |
+          python -m unittest discover -s scripts -p 'test_audit_external_arcgis_candidates.py' -v
+          python -m unittest discover -s scripts -p 'test_probe_original_gov_arcgis_org_links.py' -v
+      - name: Confirm private existing government verification credential
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || {
+            echo "::error::Missing existing original-source research credential"
+            exit 1
+          }
+      - name: Cross-check publicly listed Esri organizations against exact original government hyperlinks
+        run: python scripts/probe_original_gov_arcgis_org_links.py
