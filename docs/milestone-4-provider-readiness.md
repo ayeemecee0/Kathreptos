@@ -23,6 +23,23 @@ The site uses directly configured `https://router.project-osrm.org` and `https:/
 6. **Rollout:** Provision compatible endpoint domains; run `python scripts/monitor_route_providers.py` and browser smoke on staging; check routes in multiple cities/states; set `routingServiceBase` and `geocodingServiceBase` in public `config.js`; deploy GitHub Pages; verify health monitors and browser tests after the switch.
 7. **No silent fallback to another demo:** An undocumented fallback changes the recipient of an address or route and can violate users' privacy expectations. Require explicit provider approval for each origin.
 
+## Hosting options and deployable artifacts (October 23, 2026)
+
+**Railway signup is currently unavailable to the user.** Do not depend on Railway provisioning. A provider-neutral gateway is now tracked at `infra/routing-gateway/`; an optional Render-specific Blueprint is at `render.yaml`, and a service-independent bounded load gate is at `scripts/load_test_route_providers.py`.
+
+- **Render:** Can host the gateway image using its Docker runtime. The Blueprint is **manual opt-in** (`autoDeploy: false`) and requires separately configured `ROUTING_UPSTREAM` and `GEOCODING_UPSTREAM` values. It uses a paid plan when activated, subject to host pricing and explicit account/payment authorization. Render is **not** itself an OSRM road graph or Photon geocoder; production-scale map indexes must live on separately provisioned and reviewed infrastructure.
+- **Any compatible VPS or managed provider:** Can host the same containerized gateway with `infra/routing-gateway/docker-compose.yml` and approved private upstreams. Terminate HTTPS through a configured ingress. Keep access logs off for route and location query paths.
+- **Photon national indexing capacity:** Official Photon documentation estimates about 95 GB storage and recommends at least 64 GB RAM for its *planet-wide* dataset as of 2026. A smaller U.S.-specific extract may use less but requires benchmarking, not an invented cloud instance size. Do not try to deploy a full index on a small free web instance.
+- **Operational safety:** `/healthz` currently proves only that the gateway process is alive. A passing check is **not** proof that both dedicated upstream APIs work; run `scripts/monitor_route_providers.py` against configured URLs and an opt-in short fixture load test instead.
+
+Provider acceptance command after approved private routing and geocoding endpoints exist:
+
+```bash
+python scripts/load_test_route_providers.py --routing-base https://routing.approved.example --geocoding-base https://geocoding.approved.example --rounds 2 --workers 2
+```
+
+This gate issues at most 64 requests at concurrency ≤4, using fixed sample points; it **refuses** shared Photon/OSRM demos. It measures request success and sample latency, not contracted uptime. Configure and verify a hosted provider **before** changing the public site `config.js`.
+
 ## Remaining external dependency
 
 A dedicated nationwide managed routing/geocoding provider **or** securely operated nationwide OSRM + Photon infrastructure has **not** been purchased/provisioned in the existing connected environments. This requires hosting capacity or provider account/terms. A Supabase Edge Function by itself cannot host the full continental U.S. road graph and nationwide geocoder dataset. Do not promise a production SLA until this dependency is resolved.
