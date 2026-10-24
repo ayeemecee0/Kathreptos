@@ -49,7 +49,7 @@ The production PostgreSQL checks passed:
 - Both new SQL regression suites passed in the live Supabase database.
 - Static JavaScript syntax parsing passed for the accountability page.
 
-**Still to independently confirm before release acceptance:** the latest GitHub Pages deployment result, the completed GitHub Actions code/browser jobs, and an actual live headless browser run against the published site. The available GitHub connector in this session cannot enumerate non-PR workflow run conclusions. Do not claim these passed until observed. The database is live and the source repository is committed.
+**Release verified on October 23, 2026 (Los Angeles time):** GitHub Pages [#649](https://github.com/ayeemecee0/Katoptron/actions/runs/40063927898), SQL and code validation [#407](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928191), public Chromium smoke [#91](https://github.com/ayeemecee0/Katoptron/actions/runs/40063928164), and live health monitor [#24](https://github.com/ayeemecee0/Katoptron/actions/runs/40063811128) all completed successfully. This verifies the public accountability release, not a full accessibility assessment or real authenticated contributor workflow.
 
 ### Design constraints
 
