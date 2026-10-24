@@ -1,4 +1,6 @@
 import unittest
+import contextlib
+import io
 from unittest.mock import patch
 import auto_register_derived_gis as v
 
@@ -71,6 +73,14 @@ class Derivation(unittest.TestCase):
    result=v.run(dry_run=True)
   self.assertEqual(result["eligible_live_layers"],1)
   db.assert_not_called()
+ def test_private_candidate_uri_never_written_to_public_workflow_log(self):
+  output=io.StringIO()
+  with (patch.object(v,"discovery_inputs",return_value=[(P,R,C)]),
+        patch.object(v,"verify_layer",return_value={"p_locations":[1]}),
+        contextlib.redirect_stdout(output)):
+   v.run(dry_run=True)
+  self.assertNotIn(C["gis_layer_url"],output.getvalue())
+  self.assertIn("source_hash",output.getvalue())
  def test_untrusted_third_party_never_passes_input_screen(self):
   with patch.object(v,"api_request",side_effect=[
     [P],[R],[{**C,"gis_layer_url":"https://services.arcgis.com/Example/FeatureServer/0"}]]):
