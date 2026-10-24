@@ -120,3 +120,61 @@ inventories that document Flock-specific camera points and independent governmen
 publisher ownership, or exact original-government endorsement for the existing
 external ArcGIS candidates. Preserve uncertain candidate records privately.
 No extra paid infrastructure was provisioned.
+
+
+## October 24: original-disclosure text coverage and resilient GIS links
+
+An additional release improved source discovery without accepting unverified camera
+coordinates. A government disclosure may now describe **"Flock cameras"** instead
+of the exact brand phrase "Flock Safety". The source crawler checks original
+HTML *prose outside anchor tags* for a Flock camera program before even
+staging a private GIS lead. A hyperlink labelled "Flock cameras" on an otherwise
+unrelated government map index is explicitly insufficient.
+
+The original government link worker also recognizes same-government-apex ArcGIS
+`MapServer` / `FeatureServer` **service directories** as private research
+leads. The independent verifier must still resolve a unique exact Flock-labelled
+point layer and check original page, source ownership, camera identities, geometry,
+a complete immutable ObjectID inventory and duplication before any public record
+could be created. External Esri service directories are not admitted by this route.
+
+The first-party original-domain comparator was additionally hardened for
+delegated United States government/public suffix namespaces like `wa.us`
+and `co.us`. Separate agencies sharing a state-level suffix must never
+inherit each other's approved source-publisher identity. The same comparator
+is enforced in both the reviewed registry validator and live first-party
+agency GIS audit.
+
+**Passed release evidence**:
+- [Original-government GIS discovery #15](https://github.com/ayeemecee0/Katoptron/actions/runs/40136782396)
+- [Full script validation #554](https://github.com/ayeemecee0/Katoptron/actions/runs/40136782387)
+- [GitHub Pages #852](https://github.com/ayeemecee0/Katoptron/actions/runs/40136782263)
+- [First-party agency source verification #12](https://github.com/ayeemecee0/Katoptron/actions/runs/40137090864)
+- [Full script validation #558](https://github.com/ayeemecee0/Katoptron/actions/runs/40137090857)
+- [GitHub Pages #856](https://github.com/ayeemecee0/Katoptron/actions/runs/40137090877)
+
+The latest public-government discovery scan inspected **eight** reachable
+original source pages and held **one** unreachable agency page. There were
+**zero new government camera GIS links** and no source approvals. Live database
+reconciliation afterward still found **293 exact source-verified points**,
+**seven trusted datasets**, **12 private unverified datasets**, **zero**
+original-government search pages with qualifying GIS links, and **one**
+reviewed first-party agency receipt.
+
+A public Brookhaven, Georgia government GIS service was also investigated as
+a potential source. Its `PD/FlockMap_BaseLayers` service documents map base
+layers / police beats, *not a Flock camera point inventory*, so it cannot
+add verified cameras. Do not equate an application's Flock name with a
+source-supported camera dataset.
+
+**Unchanged acceptance blockers:** additional distinct original-government
+camera point inventories or independent publisher endorsements; owner-held
+private backup recovery validation (including Auth and Storage); a real
+authenticated browser upload/reviewer/withdrawal acceptance test; Geoapify
+account configuration verification; and independent real-device accessibility
+testing. Supabase linter INFO notices for deliberately private RLS tables
+without public policies are not permission failures. Do not add broad public
+RLS policies simply to make that advisory disappear.
+
+No new paid hosting was provisioned. Maintain the approximately 10% discovery
+maintenance share and the exact-source / non-operational-status warnings.
