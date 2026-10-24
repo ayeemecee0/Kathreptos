@@ -32,6 +32,29 @@ class IndependentProgrammes(unittest.TestCase):
   self.assertEqual(len(result),1)
   self.assertEqual(result[0]['p_outline'],RING)
   self.assertEqual(result[0]['p_program_key'],PROGRAM['program_key'])
+ def test_invalid_polygon_topology_never_publishes(self):
+  valid=[[-104.8,38.8],[-104.7,38.8],[-104.7,38.9],
+         [-104.8,38.9],[-104.8,38.8]]
+  self.assertTrue(d.valid_simple_ring(valid))
+  invalid=[
+   [[-104.8,38.8],[-104.7,38.9],[-104.8,38.9],
+    [-104.7,38.8],[-104.8,38.8]], # bow-tie
+   [[-104.8,38.8],[-104.7,38.8],[-104.6,38.8],[-104.8,38.8]],
+   [[-104.8,38.8],[-104.7,38.8],[-104.7,38.9],
+    [-104.8,38.8],[-104.8,38.8]], # repeats nonterminal point
+  ]
+  metadata={'name':'Flock Deployment Areas','type':'Feature Layer',
+            'geometryType':'esriGeometryPolygon','objectIdField':'OBJECTID',
+            'fields':[{'name':'OBJECTID','type':'esriFieldTypeOID'}]}
+  for ring in invalid:
+   self.assertFalse(d.valid_simple_ring(ring))
+   with patch.object(d,'government_gis_json',side_effect=[
+        metadata,{'objectIds':[2]},
+        {'features':[{'attributes':{'OBJECTID':2},
+                      'geometry':{'rings':[ring]}}]},
+        {'objectIds':[2]}]):
+    with self.assertRaisesRegex(ValueError,'degenerate or self-intersecting'):
+     d.original_polygon_payloads(PROGRAM,LAYER,'a'*64)
  def test_generic_traffic_polygon_and_multipart_polygon_held(self):
   for meta,features in (
     ({'name':'City Boundary','type':'Feature Layer','geometryType':'esriGeometryPolygon',
