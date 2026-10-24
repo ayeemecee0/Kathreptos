@@ -192,10 +192,21 @@ function showTab(which){
  const person=which==='people';
  $('recordsTab').classList.toggle('active',!person);$('peopleTab').classList.toggle('active',person);
  $('recordsTab').setAttribute('aria-selected',String(!person));$('peopleTab').setAttribute('aria-selected',String(person));
+ $('recordsTab').tabIndex=person?-1:0;$('peopleTab').tabIndex=person?0:-1;
  $('recordsPanel').hidden=person;$('peoplePanel').hidden=!person;
 }
 $('recordsTab').addEventListener('click',()=>showTab('records'));
 $('peopleTab').addEventListener('click',()=>showTab('people'));
+$('peopleTab').tabIndex=-1;
+for(const id of ['recordsTab','peopleTab']){
+ $(id).addEventListener('keydown',event=>{
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  event.preventDefault();
+  const next=(id==='recordsTab')?'people':'records';
+  const desired=event.key==='Home'?'records':event.key==='End'?'people':next;
+  showTab(desired);$(desired==='people'?'peopleTab':'recordsTab').focus();
+ });
+}
 for(const field of ['search','state','type','dated'])$(field).addEventListener('input',render);
 
 function renderPositions(){
