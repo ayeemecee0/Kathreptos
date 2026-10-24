@@ -292,7 +292,7 @@ def run(site=SITE):
     if 'Katoptron' not in html or './map.js' not in html or './route-geometry.js' not in html:
         raise ValueError('Primary camera map is missing its runtime or content')
     for path,anchor in (
-      ('map.js','loadRouteEvidence'),
+      ('map.js','collectRouteEvidence'),
       ('route-geometry.js','closestOnRoute'),
       ('privacy.html','Privacy and data handling'),
       ('methodology.html','Camera evidence methodology'),
