@@ -4,6 +4,7 @@ Operates solely against fixed Katoptron Supabase endpoints using the existing
 GitHub Actions service credential. Does not retrieve Storage objects, private
 submission rows, candidate coordinates, personal data, or any token values.
 """
+import datetime as dt
 import json
 import os
 import re
@@ -125,6 +126,17 @@ def tally(key,send=transport):
         raise ValueError('Original agency GIS reviewer approval lost')
     if stats['first_party_agency_source_receipts']<1:
         raise ValueError('Independently authenticated original agency GIS authority missing')
+    # Camera geometry freshness is already guarded by the public health
+    # monitor. Independently flag ORIGINAL GOVERNMENT PUBLISHER evidence that
+    # was never rechecked after the weekly owner-controlled GIS proof cycle.
+    cutoff=(dt.datetime.now(dt.timezone.utc)-dt.timedelta(days=21))
+    cutoff=cutoff.isoformat(timespec='seconds').replace('+00:00','Z')
+    stale_url=PROJECT+'/rest/v1/first_party_agency_gis_receipts?'+urllib.parse.urlencode({
+       'select':'source_key','limit':'1','confirmed_at':'lt.'+cutoff
+    })
+    stats['stale_original_agency_publisher_receipts']=extract_count(send('HEAD',stale_url,key))
+    if stats['stale_original_agency_publisher_receipts']:
+        raise ValueError('Original agency-publisher provenance beyond 21-day recheck deadline')
     # Empty direct links are an actionable discovery weakness, but not
     # evidence loss: never auto-promote ambiguous or vendor-controlled maps.
     return stats
